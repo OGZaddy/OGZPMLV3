@@ -580,8 +580,9 @@ class StateManager {
     console.log(`🔍 [StateManager] About to call this.set with activeTrades`);
 
     this.set('activeTrades', trades);
-    this.save(); // Save to disk with Map serialization
-    console.log(`📝 [StateManager] Updated trade ${orderId}`);
+    // FIX 2026-02-16: REMOVED this.save() - was causing race condition!
+    // openPosition() saves AFTER updating BOTH activeTrades AND position atomically
+    console.log(`📝 [StateManager] Updated trade ${orderId} (no save - openPosition will save)`);
   }
 
   /**
@@ -592,8 +593,9 @@ class StateManager {
     if (trades && trades.has(orderId)) {
       trades.delete(orderId);
       this.set('activeTrades', trades);
-      this.save(); // Save to disk with Map serialization
-      console.log(`🗑️ [StateManager] Removed trade ${orderId}`);
+      // FIX 2026-02-16: REMOVED this.save() - same race condition fix
+      // closePosition() saves AFTER updating BOTH activeTrades AND position atomically
+      console.log(`🗑️ [StateManager] Removed trade ${orderId} (no save - closePosition will save)`);
     }
   }
 

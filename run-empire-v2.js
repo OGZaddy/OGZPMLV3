@@ -1963,6 +1963,14 @@ class OGZPrimeV14Bot {
 
     const pos = stateManager.get('position');
 
+    // FIX 2026-02-16: Guard against position/activeTrades desync (killed 41 zombie trades)
+    const activeTrades = stateManager.get('activeTrades');
+    const hasActiveTrades = activeTrades && (activeTrades instanceof Map ? activeTrades.size > 0 : activeTrades.length > 0);
+    if (pos === 0 && hasActiveTrades) {
+      console.log(`🚨 [DESYNC GUARD] position=0 but activeTrades exists! Blocking new BUY until resolved.`);
+      return { action: 'HOLD', confidence: 0, reason: 'position_desync_detected' };
+    }
+
     // CHANGE 2025-12-13: Step 5 - MaxProfitManager gets priority on exits
     // Math (stops/targets) ALWAYS wins over Brain (emotional) signals
 
