@@ -198,6 +198,9 @@ const MultiAssetManager = require('./core/MultiAssetManager');
 // CHANGE 2026-02-10: Trade Journal + Instant Replay
 const { TradeJournalBridge } = require('./core/TradeJournalBridge');
 
+// CHANGE 2026-02-16: Pipeline Snapshot for 30-min state capture
+const PipelineSnapshot = require('./core/PipelineSnapshot');
+
 // CRITICAL: SingletonLock to prevent multiple instances
 console.log('[CHECKPOINT-005] Getting SingletonLock...');
 const SingletonLock = loader.get('core', 'SingletonLock') || require('./core/SingletonLock');
@@ -1089,6 +1092,9 @@ class OGZPrimeV14Bot {
 
         // CHANGE 2026-02-10: Initialize Trade Journal + Replay Bridge
         this.journalBridge = new TradeJournalBridge(this);
+
+        // CHANGE 2026-02-16: Pipeline Snapshot - 30-min state capture
+        this.pipelineSnapshot = new PipelineSnapshot(this);
 
         // Start trading cycle
         this.startTradingCycle();
