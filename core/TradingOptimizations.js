@@ -120,7 +120,7 @@ class TradingOptimizations {
         rsi: indicators.rsi,
         macd: indicators.macd,
         trend: indicators.trend,
-        volume: indicators.volume
+        volume: indicators.volume || 0
       },
 
       // Decision factors
