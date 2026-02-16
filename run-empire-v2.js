@@ -1838,6 +1838,10 @@ class OGZPrimeV14Bot {
     // Fix: Pass tradingDirection so makeTradeDecision respects TradingBrain
     const decision = this.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection);
 
+    // CHANGE 2026-02-16: Store for PipelineSnapshot to read
+    this.lastConfidence = confidenceData.totalConfidence;
+    this.lastDirection = tradingDirection;
+
     // Add override signal info to decision
     if (overrideSignal && decision.action !== 'HOLD') {
       decision.signalSource = signalSource;
