@@ -413,12 +413,12 @@ class MarketRegimeDetector extends EventEmitter {
   }
   
   calculateVolume(candles) {
-    if (!candles[0].volume) {
+    if (!candles[0].v && !candles[0].volume) {
       this.metrics.volumeRatio = 1;
       return;
     }
-    
-    const volumes = candles.map(c => c.volume);
+
+    const volumes = candles.map(c => c.v || c.volume || 0);
     const avgVolume = this.calculateSMA(volumes, this.config.volumeMALength);
     const currentVolume = volumes[volumes.length - 1];
     

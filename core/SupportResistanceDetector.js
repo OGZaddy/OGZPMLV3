@@ -298,7 +298,7 @@ class SupportResistanceDetector {
     // Build volume profile
     for (const candle of candles) {
       const midPrice = roundPrice((candle.h + candle.l) / 2);
-      volumeProfile[midPrice] = (volumeProfile[midPrice] || 0) + candle.volume;
+      volumeProfile[midPrice] = (volumeProfile[midPrice] || 0) + (candle.v || candle.volume || 0);
     }
     
     // Find high volume nodes
