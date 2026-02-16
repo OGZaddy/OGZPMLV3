@@ -18,6 +18,9 @@
 
 'use strict';
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c, h, l } = require('../core/CandleHelper');
+
 class MADynamicSR {
   constructor(config = {}) {
     // MA levels to track as dynamic S/R
@@ -73,10 +76,10 @@ class MADynamicSR {
     }
 
     this.barCount++;
-    const closes = priceHistory.map(c => c.c);
-    const price = candle.c;
-    const high = candle.h;
-    const low = candle.l;
+    const closes = priceHistory.map(candle => c(candle));
+    const price = c(candle);
+    const high = h(candle);
+    const low = l(candle);
 
     // Calculate MA values
     const levels = {};

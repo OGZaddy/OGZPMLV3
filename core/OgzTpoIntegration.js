@@ -27,6 +27,9 @@
 const EventEmitter = require('events');
 const FeatureFlagManager = require('./FeatureFlagManager');
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c, h, l, t } = require('./CandleHelper');
+
 // Import the pure-function TPO
 let computeOgzTpo, detectTpoCrossover, calculateDynamicLevels;
 try {
@@ -161,10 +164,10 @@ class OgzTpoIntegration extends EventEmitter {
         }
         
         // Add to history
-        this.candleHistory.closes.push(candle.c);
-        this.candleHistory.highs.push(candle.h);
-        this.candleHistory.lows.push(candle.l);
-        this.candleHistory.timestamps.push(candle.t);
+        this.candleHistory.closes.push(c(candle));
+        this.candleHistory.highs.push(h(candle));
+        this.candleHistory.lows.push(l(candle));
+        this.candleHistory.timestamps.push(t(candle));
         
         // Trim to max history
         if (this.candleHistory.closes.length > this.maxHistory) {
@@ -206,7 +209,7 @@ class OgzTpoIntegration extends EventEmitter {
         // Update existing TPO if available (for A/B)
         let existingSignal = null;
         if (this.existingTpo) {
-            const existingResult = this.existingTpo.update(candle.c);
+            const existingResult = this.existingTpo.update(c(candle));
             existingSignal = existingResult.signal;
         }
         
@@ -242,15 +245,15 @@ class OgzTpoIntegration extends EventEmitter {
                     source: 'ogzTpo',
                     confluenceConfirmed: confluenceMatch,
                     mode: this.config.mode,
-                    price: candle.c,
+                    price: c(candle),
                     timestamp: Date.now()
                 };
-                
+
                 // Calculate dynamic levels if enabled
                 if (this.config.dynamicSL) {
                     const vol = tpoResult.vol[lastIdx];
                     const direction = newSignal.action === 'BUY' ? 'LONG' : 'SHORT';
-                    const levels = calculateDynamicLevels(candle.c, vol, direction);
+                    const levels = calculateDynamicLevels(c(candle), vol, direction);
                     finalSignal.levels = levels;
                 }
                 

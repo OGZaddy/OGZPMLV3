@@ -1,9 +1,6 @@
 // FibonacciDetector.js - Fibonacci level detection and analysis
 // Detects swing high/lows and calculates retracement levels
 
-// FIX 2026-02-16: Use centralized candle helper for format compatibility
-const { c, h, l } = require('./CandleHelper');
-
 /**
  * Advanced Fibonacci level detection and analysis
  * Identifies swing points and calculates retracement levels for trading decisions
@@ -139,7 +136,7 @@ class FibonacciDetector {
     let swingLowIndex = -1;
     
     // Calculate minimum price change to qualify as significant swing
-    const currentPrice = c(candles[candles.length - 1]);
+    const currentPrice = candles[candles.length - 1].close;
     const minSwingChange = currentPrice * (this.config.swingThresholdPercent / 100);
     
     // Array to store potential swing candidates for strength validation
@@ -150,36 +147,36 @@ class FibonacciDetector {
       const candle = candles[i];
       
       // Check for new swing high
-      if (h(candle) > swingHigh) {
+      if (candle.high > swingHigh) {
         // Validate swing high meets minimum change threshold
-        if (swingHigh !== -Infinity && h(candle) - swingHigh >= minSwingChange) {
+        if (swingHigh !== -Infinity && candle.high - swingHigh >= minSwingChange) {
           potentialSwings.push({
             type: 'high',
-            price: h(candle),
+            price: candle.high,
             index: i,
             strength: this.getSwingStrength(candles, i, 'high')
           });
         }
-
+        
         // Update current swing high
-        swingHigh = h(candle);
+        swingHigh = candle.high;
         swingHighIndex = i;
       }
-
+      
       // Check for new swing low
-      if (l(candle) < swingLow) {
+      if (candle.low < swingLow) {
         // Validate swing low meets minimum change threshold
-        if (swingLow !== Infinity && swingLow - l(candle) >= minSwingChange) {
+        if (swingLow !== Infinity && swingLow - candle.low >= minSwingChange) {
           potentialSwings.push({
             type: 'low',
-            price: l(candle),
+            price: candle.low,
             index: i,
             strength: this.getSwingStrength(candles, i, 'low')
           });
         }
-
+        
         // Update current swing low
-        swingLow = l(candle);
+        swingLow = candle.low;
         swingLowIndex = i;
       }
     }
@@ -225,34 +222,34 @@ class FibonacciDetector {
    */
   getSwingStrength(candles, index, type) {
     if (type === 'high') {
-      const high = h(candles[index]);
+      const high = candles[index].high;
       let strength = 0;
-
+      
       // Count candles before swing that are lower (confirming high)
       for (let i = Math.max(0, index - 5); i < index; i++) {
-        if (h(candles[i]) < high) strength++;
+        if (candles[i].high < high) strength++;
       }
-
+      
       // Count candles after swing that are lower (confirming high)
       for (let i = index + 1; i < Math.min(candles.length, index + 6); i++) {
-        if (h(candles[i]) < high) strength++;
+        if (candles[i].high < high) strength++;
       }
-
+      
       return strength;
     } else {
-      const low = l(candles[index]);
+      const low = candles[index].low;
       let strength = 0;
-
+      
       // Count candles before swing that are higher (confirming low)
       for (let i = Math.max(0, index - 5); i < index; i++) {
-        if (l(candles[i]) > low) strength++;
+        if (candles[i].low > low) strength++;
       }
-
+      
       // Count candles after swing that are higher (confirming low)
       for (let i = index + 1; i < Math.min(candles.length, index + 6); i++) {
-        if (l(candles[i]) > low) strength++;
+        if (candles[i].low > low) strength++;
       }
-
+      
       return strength;
     }
   }

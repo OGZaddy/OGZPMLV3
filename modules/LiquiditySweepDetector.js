@@ -21,6 +21,9 @@
 
 'use strict';
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c, o, h, l, v, t } = require('../core/CandleHelper');
+
 class LiquiditySweepDetector {
   constructor(config = {}) {
     this.config = {
@@ -98,7 +101,7 @@ class LiquiditySweepDetector {
    * @returns {Object} signal
    */
   feedCandle(candle) {
-    if (!candle || candle.c == null) return this._emptySignal();
+    if (!candle || c(candle) == null) return this._emptySignal();
 
     const ts = candle.t;  // milliseconds
     const date = new Date(ts);
@@ -160,12 +163,12 @@ class LiquiditySweepDetector {
   _aggregate(candles) {
     if (!candles.length) return null;
     return {
-      o: candles[0].o,
-      h: Math.max(...candles.map(c => c.h)),
-      l: Math.min(...candles.map(c => c.l)),
-      c: candles[candles.length - 1].c,
-      v: candles.reduce((s, c) => s + (c.v || 0), 0),
-      t: candles[candles.length - 1].t,
+      o: o(candles[0]),
+      h: Math.max(...candles.map(candle => h(candle))),
+      l: Math.min(...candles.map(candle => l(candle))),
+      c: c(candles[candles.length - 1]),
+      v: candles.reduce((s, candle) => s + (v(candle) || 0), 0),
+      t: t(candles[candles.length - 1]),
     };
   }
 
@@ -173,14 +176,14 @@ class LiquiditySweepDetector {
   _updateDailyCandle(candle) {
     if (!this._dailyCandle) {
       this._dailyCandle = {
-        o: candle.o, h: candle.h, l: candle.l, c: candle.c,
-        v: candle.v || 0, t: candle.t
+        o: o(candle), h: h(candle), l: l(candle), c: c(candle),
+        v: v(candle) || 0, t: t(candle)
       };
     } else {
-      this._dailyCandle.h = Math.max(this._dailyCandle.h, candle.h);
-      this._dailyCandle.l = Math.min(this._dailyCandle.l, candle.l);
-      this._dailyCandle.c = candle.c;
-      this._dailyCandle.v += (candle.v || 0);
+      this._dailyCandle.h = Math.max(this._dailyCandle.h, h(candle));
+      this._dailyCandle.l = Math.min(this._dailyCandle.l, l(candle));
+      this._dailyCandle.c = c(candle);
+      this._dailyCandle.v += (v(candle) || 0);
     }
   }
 

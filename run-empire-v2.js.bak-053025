@@ -117,9 +117,6 @@ console.log(`   TEST_MODE: ${process.env.TEST_MODE || 'false'}`);
 
 // Load feature flags configuration via unified FeatureFlagManager
 const FeatureFlagManager = require('./core/FeatureFlagManager');
-
-// FIX 2026-02-16: Use centralized candle helper for format compatibility (backtest vs live)
-const { c: _c, o: _o, h: _h, l: _l, v: _v } = require('./core/CandleHelper');
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -200,9 +197,6 @@ const MultiAssetManager = require('./core/MultiAssetManager');
 
 // CHANGE 2026-02-10: Trade Journal + Instant Replay
 const { TradeJournalBridge } = require('./core/TradeJournalBridge');
-
-// CHANGE 2026-02-16: Pipeline Snapshot for 30-min state capture
-const PipelineSnapshot = require('./core/PipelineSnapshot');
 
 // CRITICAL: SingletonLock to prevent multiple instances
 console.log('[CHECKPOINT-005] Getting SingletonLock...');
@@ -1096,9 +1090,6 @@ class OGZPrimeV14Bot {
         // CHANGE 2026-02-10: Initialize Trade Journal + Replay Bridge
         this.journalBridge = new TradeJournalBridge(this);
 
-        // CHANGE 2026-02-16: Pipeline Snapshot - 30-min state capture
-        this.pipelineSnapshot = new PipelineSnapshot(this);
-
         // Start trading cycle
         this.startTradingCycle();
 
@@ -1236,11 +1227,11 @@ class OGZPrimeV14Bot {
       if (this.priceHistory.length <= 3) {
         const candleTime = new Date(candle.t).toLocaleTimeString();
         // CHANGE 634: Clean output for humans (no more decimal headaches!)
-        const open = Math.round(_o(candle));
-        const high = Math.round(_h(candle));
-        const low = Math.round(_l(candle));
-        const close = Math.round(_c(candle));
-        console.log(`ðŸ•¯ï¸ Candle #${this.priceHistory.length} [${candleTime}]: $${close.toLocaleString()} (H:${high.toLocaleString()} L:${low.toLocaleString()})`);
+        const o = Math.round(candle.o);
+        const h = Math.round(candle.h);
+        const l = Math.round(candle.l);
+        const c = Math.round(candle.c);
+        console.log(`ðŸ•¯ï¸ Candle #${this.priceHistory.length} [${candleTime}]: $${c.toLocaleString()} (H:${h.toLocaleString()} L:${l.toLocaleString()})`);
       }
     } else {
       // New candle (new minute) - etime changed
@@ -1677,17 +1668,7 @@ class OGZPrimeV14Bot {
     this.broadcastPatternAnalysis(patterns, indicators);
 
     // Detect market regime
-    // FIX 2026-02-15: Call analyzeMarket() not detectRegime()
-    // detectRegime() takes no args (ignores priceHistory), returns a plain string,
-    // but downstream reads regime.currentRegime — getting undefined → 'unknown'.
-    // analyzeMarket() processes candles, populates metrics, returns {regime, confidence, parameters}.
-    const regimeResult = this.regimeDetector.analyzeMarket(this.priceHistory, indicators);
-    const regime = {
-      currentRegime: regimeResult?.regime || this.regimeDetector.currentRegime || 'unknown',
-      confidence: regimeResult?.confidence || 0,
-      parameters: regimeResult?.parameters || {}
-    };
-    this.marketRegime = regime;  // Store for downstream reads (line 1928+)
+    const regime = this.regimeDetector.detectRegime(this.priceHistory);
 
     // Change 596: Use TradingBrain.getDecision() instead of calculateRealConfidence()
     // This properly integrates direction + confidence from TradingBrain's analysis
@@ -1841,10 +1822,6 @@ class OGZPrimeV14Bot {
     // Fix: Pass tradingDirection so makeTradeDecision respects TradingBrain
     const decision = this.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection);
 
-    // CHANGE 2026-02-16: Store for PipelineSnapshot to read
-    this.lastConfidence = confidenceData.totalConfidence;
-    this.lastDirection = tradingDirection;
-
     // Add override signal info to decision
     if (overrideSignal && decision.action !== 'HOLD') {
       decision.signalSource = signalSource;
@@ -1965,15 +1942,6 @@ class OGZPrimeV14Bot {
     }
 
     const pos = stateManager.get('position');
-
-    // FIX 2026-02-16: Guard against position/activeTrades desync (killed 41 zombie trades)
-    const activeTrades = stateManager.get('activeTrades');
-    const hasActiveTrades = activeTrades && (activeTrades instanceof Map ? activeTrades.size > 0 : activeTrades.length > 0);
-    if (pos === 0 && hasActiveTrades) {
-      console.log(`🚨 [DESYNC GUARD] position=0 but activeTrades exists! Blocking new BUY until resolved.`);
-      console.log(`   type=${activeTrades instanceof Map ? 'Map' : typeof activeTrades} size=${activeTrades?.size ?? activeTrades?.length ?? 'unknown'} first=${JSON.stringify(activeTrades instanceof Map ? [...activeTrades.entries()].slice(0,1) : [])}`);
-      return { action: 'HOLD', confidence: 0, reason: 'position_desync_detected' };
-    }
 
     // CHANGE 2025-12-13: Step 5 - MaxProfitManager gets priority on exits
     // Math (stops/targets) ALWAYS wins over Brain (emotional) signals
@@ -2361,7 +2329,7 @@ class OGZPrimeV14Bot {
       // Circuit breaker check before execution
       if (this.tradingBrain?.errorHandler?.isCircuitBreakerActive('ExecutionLayer')) {
         console.log('ðŸš¨ CIRCUIT BREAKER: Execution blocked due to repeated failures');
-        console.log('   Error count:', this.tradingBrain.errorHandler.getErrorStatus());
+        console.log('   Error count:', JSON.stringify(this.tradingBrain.errorHandler.getStats()));
         // Don't return - let's see what error occurs
         // return;
       }
@@ -2416,12 +2384,13 @@ class OGZPrimeV14Bot {
 
         console.log(`ðŸ“ CP4.6: Unified result created with orderId: ${unifiedResult.orderId}`);
 
-        // FIX 2026-02-16: REMOVED redundant updateActiveTrade() call
-        // openPosition() already adds trade to activeTrades atomically via updateState()
-        // Having BOTH caused race condition: updateActiveTrade saved {position:0, activeTrades:[trade]}
-        // before openPosition could update position, creating zombie trades
-        // See: ZOMBIE-RACE-CONDITION-FIX.md in ledger
-        if (false && decision.action === 'BUY') { // DISABLED - openPosition handles this
+        // Store for pattern learning and post-trade analysis
+        // CHANGE 2025-12-13: Store in StateManager (single source of truth)
+        // BUGFIX 2026-01-23: Only call updateActiveTrade for BUY trades!
+        // SELL trades were being added to activeTrades but never cleaned up because
+        // closePosition() only removes trades where type === 'BUY'.
+        // This caused 96 SELL trades to accumulate, destroying the paper balance.
+        if (decision.action === 'BUY') {
           console.log(`ðŸ“ CP4.7: About to call stateManager.updateActiveTrade (BUY only)`);
           try {
             stateManager.updateActiveTrade(unifiedResult.orderId, unifiedResult);
@@ -3794,7 +3763,7 @@ class OGZPrimeV14Bot {
       }
 
       // Calculate CVD (Cumulative Volume Delta)
-      const isBuy = _c(candle) >= _o(candle);  // Simple: close >= open = buy pressure
+      const isBuy = candle.c >= candle.o;  // Simple: close >= open = buy pressure
       const volumeDelta = isBuy ? volume : -volume;
       this.edgeAnalytics.cvd += volumeDelta;
       this.edgeAnalytics.buyVolume += isBuy ? volume : 0;
@@ -3902,7 +3871,7 @@ class OGZPrimeV14Bot {
         this.edgeAnalytics.lastFundingCheck = now;
 
         const momentum = this.priceHistory.length > 10 ?
-          (price - _c(this.priceHistory[this.priceHistory.length - 10])) / _c(this.priceHistory[this.priceHistory.length - 10]) : 0;
+          (price - this.priceHistory[this.priceHistory.length - 10].c) / this.priceHistory[this.priceHistory.length - 10].c : 0;
         const fundingBias = momentum * 0.001;
         this.edgeAnalytics.fundingRate = 0.0001 + fundingBias;
 
@@ -3922,7 +3891,7 @@ class OGZPrimeV14Bot {
 
         const volatility = this.calculateVolatility();
         const momentum = this.priceHistory.length > 10 ?
-          (price - _c(this.priceHistory[this.priceHistory.length - 10])) / _c(this.priceHistory[this.priceHistory.length - 10]) : 0;
+          (price - this.priceHistory[this.priceHistory.length - 10].c) / this.priceHistory[this.priceHistory.length - 10].c : 0;
         const volumeTrend = volume / Math.max(avgVolume, 0.01);
 
         const fearGreed = Math.min(100, Math.max(0,
@@ -3962,7 +3931,7 @@ class OGZPrimeV14Bot {
         this.edgeAnalytics.lastSmartMoneyCheck = now;
 
         const priceChange = this.priceHistory.length > 10 ?
-          (price - _c(this.priceHistory[Math.max(0, this.priceHistory.length - 10)])) / price : 0;
+          (price - this.priceHistory[Math.max(0, this.priceHistory.length - 10)].c) / price : 0;
         const volumeProfile = this.edgeAnalytics.whaleTrades.filter(t => t.side === 'BUY').length;
 
         let flow = 'NEUTRAL';
@@ -3995,7 +3964,7 @@ class OGZPrimeV14Bot {
 
     const returns = [];
     for (let i = 1; i < Math.min(20, this.priceHistory.length); i++) {
-      const ret = (_c(this.priceHistory[i]) - _c(this.priceHistory[i-1])) / _c(this.priceHistory[i-1]);
+      const ret = (this.priceHistory[i].c - this.priceHistory[i-1].c) / this.priceHistory[i-1].c;
       returns.push(ret);
     }
 
@@ -4013,9 +3982,9 @@ class OGZPrimeV14Bot {
     if (this.priceHistory.length < 20) return divergences;
 
     const recentPrices = this.priceHistory.slice(-20);
-    const priceHigh = Math.max(...recentPrices.map(candle => _h(candle)));
-    const priceLow = Math.min(...recentPrices.map(candle => _l(candle)));
-    const currentPrice = _c(recentPrices[recentPrices.length - 1]);
+    const priceHigh = Math.max(...recentPrices.map(c => c.h));
+    const priceLow = Math.min(...recentPrices.map(c => c.l));
+    const currentPrice = recentPrices[recentPrices.length - 1].c;
 
     const indicators = indicatorEngine.getSnapshot();
     const rsi = indicators?.rsi;

@@ -12,6 +12,9 @@
  * @version 2.0.0 - Empire V2
  */
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c: _c, h: _h, l: _l } = require('../CandleHelper');
+
 // ============================================================================
 // HELPER FUNCTIONS (Pure, no side effects)
 // ============================================================================
@@ -124,12 +127,13 @@ class TwoPoleOscillator {
      * @param {Object} candle - Candle data with { h, l, c } properties
      */
     update(candle) {
-        if (!candle || typeof candle.c !== 'number') return;
+        const closeVal = _c(candle);
+        if (!candle || typeof closeVal !== 'number') return;
 
         // Add new data
-        this.closes.push(candle.c);
-        this.highs.push(candle.h || candle.c);
-        this.lows.push(candle.l || candle.c);
+        this.closes.push(closeVal);
+        this.highs.push(_h(candle) || closeVal);
+        this.lows.push(_l(candle) || closeVal);
 
         const len = this.closes.length;
         const index = len - 1;

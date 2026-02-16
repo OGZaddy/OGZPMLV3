@@ -27,6 +27,9 @@
  * ============================================================================
  */
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c: _c, o: _o, h: _h, l: _l, v: _v } = require('./CandleHelper');
+
 class OptimizedIndicators {
   constructor() {
     this.cache = new Map();
@@ -55,7 +58,7 @@ class OptimizedIndicators {
    */
   getScalperCacheKey(indicator, data, ...params) {
     // Create deterministic cache key from data and parameters
-    const dataHash = data.map(d => d.c).join(',').substring(0, 50);
+    const dataHash = data.map(d => _c(d)).join(',').substring(0, 50);
     return `${indicator}_${dataHash}_${params.join('_')}`;
   }
 
@@ -103,7 +106,7 @@ class OptimizedIndicators {
       // Update Two-Pole Oscillator with latest price
       let twoPole = null;
       if (data.length > 0) {
-        const currentPrice = data[data.length - 1].c || data[data.length - 1];
+        const currentPrice = _c(data[data.length - 1]) || data[data.length - 1];
         twoPole = this.twoPoleOscillator.update(currentPrice);
       }
 
@@ -149,15 +152,15 @@ class OptimizedIndicators {
     // CHANGE 654: Debug RSI calculation issue
     let debugPrices = [];
     for (let i = 1; i < dataLength; i++) {
-      const change = priceData[i].c - priceData[i-1].c; // Close price changes
-      if (i <= 3) debugPrices.push(`${priceData[i-1].c.toFixed(2)}→${priceData[i].c.toFixed(2)}=${change.toFixed(2)}`);
+      const change = _c(priceData[i]) - _c(priceData[i-1]); // Close price changes
+      if (i <= 3) debugPrices.push(`${_c(priceData[i-1]).toFixed(2)}→${_c(priceData[i]).toFixed(2)}=${change.toFixed(2)}`);
       if (change > 0) {
         gains += change;
       } else {
         losses += Math.abs(change);
       }
     }
-    if (dataLength > 0 && gains + losses < 0.01 * priceData[0].c) {
+    if (dataLength > 0 && gains + losses < 0.01 * _c(priceData[0])) {
       console.log(`⚠️ RSI Debug: Prices flat! Changes: [${debugPrices.join(', ')}] Gains=${gains.toFixed(2)} Losses=${losses.toFixed(2)}`);
     }
 
@@ -166,7 +169,7 @@ class OptimizedIndicators {
 
     // CHANGE 654: Fix RSI extremes when price is flat
     // If total movement is less than 0.01% of price, return neutral RSI
-    const avgPrice = priceData[dataLength - 1].c;
+    const avgPrice = _c(priceData[dataLength - 1]);
     const totalMovement = gains + losses;
     const movementPercent = (totalMovement / avgPrice) * 100;
 
@@ -250,18 +253,18 @@ class OptimizedIndicators {
     // Validate data structure
     const lastCandle = priceData[priceData.length - 1];
 
-    if (!lastCandle?.c) {
+    if (!_c(lastCandle)) {
       return 0;
     }
 
     const multiplier = 2 / (period + 1);
-    let ema = priceData[priceData.length - 1].c; // Start with most recent close
+    let ema = _c(priceData[priceData.length - 1]); // Start with most recent close
 
     for (let i = priceData.length - 2; i >= 0; i--) {
-      if (!priceData[i]?.c) {
+      if (!_c(priceData[i])) {
         continue;
       }
-      ema = (priceData[i].c * multiplier) + (ema * (1 - multiplier));
+      ema = (_c(priceData[i]) * multiplier) + (ema * (1 - multiplier));
     }
 
     return ema;
@@ -284,7 +287,7 @@ class OptimizedIndicators {
     const returns = [];
     for (let i = 1; i < data.length; i++) {
       // CHANGE 613: Fix inverted volatility formula - was (prev - curr) / curr, should be (curr - prev) / prev
-      const return_rate = (data[i].c - data[i-1].c) / data[i-1].c;
+      const return_rate = (_c(data[i]) - _c(data[i-1])) / _c(data[i-1]);
       returns.push(return_rate);
     }
 
@@ -356,7 +359,7 @@ class OptimizedIndicators {
 
     const shortEMA = this.calculateEMA(priceData.slice(-shortPeriod), shortPeriod);
     const longEMA = this.calculateEMA(priceData.slice(-longPeriod), longPeriod);
-    const currentPrice = priceData[priceData.length - 1].c;
+    const currentPrice = _c(priceData[priceData.length - 1]);
 
     // Simple trend logic based on EMA crossover and price position
     if (shortEMA > longEMA && currentPrice > shortEMA) {
@@ -445,7 +448,7 @@ class OptimizedIndicators {
       const prevCandle = priceData[i - 1];
 
       // Validate data structure
-      if (!candle?.h || !candle?.l || !candle?.c || !prevCandle?.c) {
+      if (!_h(candle) || !_l(candle) || !_c(candle) || !_c(prevCandle)) {
         console.log(`⚠️ [ATR] Invalid candle structure at index ${i}`);
         continue;
       }
@@ -455,9 +458,9 @@ class OptimizedIndicators {
       // 2. |High - Previous Close| (gap up)
       // 3. |Low - Previous Close| (gap down)
       const tr = Math.max(
-        candle.h - candle.l,
-        Math.abs(candle.h - prevCandle.c),
-        Math.abs(candle.l - prevCandle.c)
+        _h(candle) - _l(candle),
+        Math.abs(_h(candle) - _c(prevCandle)),
+        Math.abs(_l(candle) - _c(prevCandle))
       );
 
       trueRanges.push(tr);
@@ -473,7 +476,7 @@ class OptimizedIndicators {
     const atrAbsolute = recentTR.reduce((sum, tr) => sum + tr, 0) / period;
 
     // Convert to percentage of current price
-    const currentPrice = priceData[priceData.length - 1].c;
+    const currentPrice = _c(priceData[priceData.length - 1]);
     const atrPercent = atrAbsolute / currentPrice;
 
     console.log(`✅ [ATR] Calculated: ${(atrPercent * 100).toFixed(2)}% (abs: $${atrAbsolute.toFixed(2)}, price: $${currentPrice.toFixed(2)})`);

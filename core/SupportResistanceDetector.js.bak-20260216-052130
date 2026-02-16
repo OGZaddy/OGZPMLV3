@@ -1,9 +1,6 @@
 // SupportResistanceDetector.js - Identify key market levels
 // Uses price clustering and rejections to find important levels
 
-// FIX 2026-02-16: Use centralized candle helper for format compatibility
-const { c, h, l, v } = require('./CandleHelper');
-
 /**
  * Support and Resistance level detector
  * Identifies important price levels using multiple methods
@@ -74,7 +71,7 @@ class SupportResistanceDetector {
     const levels = [];
     
     // Get current price
-    const currentPrice = c(candles[candles.length - 1]);
+    const currentPrice = candles[candles.length - 1].close;
     
     // Price clustering method
     if (this.config.priceClustering) {
@@ -117,7 +114,7 @@ class SupportResistanceDetector {
     const priceFrequency = {};
     
     // Get current price for normalization
-    const currentPrice = c(candles[candles.length - 1]);
+    const currentPrice = candles[candles.length - 1].close;
     
     // Calculate rounding factor
     let roundingFactor = 1;
@@ -134,8 +131,8 @@ class SupportResistanceDetector {
     // Count price touches at highs and lows
     for (let i = candles.length - lookback; i < candles.length; i++) {
       // Normalize each candle's prices
-      const highRounded = roundPrice(h(candles[i]));
-      const lowRounded = roundPrice(l(candles[i]));
+      const highRounded = roundPrice(candles[i].high);
+      const lowRounded = roundPrice(candles[i].low);
       
       // Increment frequency counters
       priceFrequency[highRounded] = (priceFrequency[highRounded] || 0) + 1;
@@ -163,7 +160,7 @@ class SupportResistanceDetector {
    */
   findLevelsByFractals(candles) {
     const levels = [];
-    const currentPrice = c(candles[candles.length - 1]);
+    const currentPrice = candles[candles.length - 1].close;
     const range = this.config.fractalRange;
     
     // Helper to round price
@@ -183,14 +180,14 @@ class SupportResistanceDetector {
       let isHighFractal = true;
       
       for (let j = i - range; j < i; j++) {
-        if (h(candles[j]) >= h(candles[i])) {
+        if (candles[j].high >= candles[i].high) {
           isHighFractal = false;
           break;
         }
       }
-
+      
       for (let j = i + 1; j <= i + range; j++) {
-        if (h(candles[j]) >= h(candles[i])) {
+        if (candles[j].high >= candles[i].high) {
           isHighFractal = false;
           break;
         }
@@ -203,20 +200,20 @@ class SupportResistanceDetector {
         // Count candles that respect this level
         for (let j = i + range + 1; j < candles.length; j++) {
           // If price approaches but doesn't break the level, increase strength
-          if (h(candles[j]) > h(candles[i]) * 0.995 &&
-              h(candles[j]) <= h(candles[i])) {
+          if (candles[j].high > candles[i].high * 0.995 && 
+              candles[j].high <= candles[i].high) {
             strength++;
           }
-
+          
           // If price breaks level, reset strength
-          if (h(candles[j]) > h(candles[i])) {
+          if (candles[j].high > candles[i].high) {
             strength = 0;
           }
         }
-
+        
         // Only add significant fractals
         if (strength >= this.config.fractalStrengthMin) {
-          const price = roundPrice(h(candles[i]));
+          const price = roundPrice(candles[i].high);
           levels.push({
             price,
             strength: strength,
@@ -230,14 +227,14 @@ class SupportResistanceDetector {
       let isLowFractal = true;
       
       for (let j = i - range; j < i; j++) {
-        if (l(candles[j]) <= l(candles[i])) {
+        if (candles[j].low <= candles[i].low) {
           isLowFractal = false;
           break;
         }
       }
-
+      
       for (let j = i + 1; j <= i + range; j++) {
-        if (l(candles[j]) <= l(candles[i])) {
+        if (candles[j].low <= candles[i].low) {
           isLowFractal = false;
           break;
         }
@@ -250,20 +247,20 @@ class SupportResistanceDetector {
         // Count candles that respect this level
         for (let j = i + range + 1; j < candles.length; j++) {
           // If price approaches but doesn't break the level, increase strength
-          if (l(candles[j]) < l(candles[i]) * 1.005 &&
-              l(candles[j]) >= l(candles[i])) {
+          if (candles[j].low < candles[i].low * 1.005 && 
+              candles[j].low >= candles[i].low) {
             strength++;
           }
-
+          
           // If price breaks level, reset strength
-          if (l(candles[j]) < l(candles[i])) {
+          if (candles[j].low < candles[i].low) {
             strength = 0;
           }
         }
-
+        
         // Only add significant fractals
         if (strength >= this.config.fractalStrengthMin) {
-          const price = roundPrice(l(candles[i]));
+          const price = roundPrice(candles[i].low);
           levels.push({
             price,
             strength: strength,
@@ -285,7 +282,7 @@ class SupportResistanceDetector {
   findLevelsByVolume(candles) {
     // Simple volume profile
     const volumeProfile = {};
-    const currentPrice = c(candles[candles.length - 1]);
+    const currentPrice = candles[candles.length - 1].close;
     
     // Helper to round price
     let roundingFactor = 1;
@@ -300,8 +297,8 @@ class SupportResistanceDetector {
     
     // Build volume profile
     for (const candle of candles) {
-      const midPrice = roundPrice((h(candle) + l(candle)) / 2);
-      volumeProfile[midPrice] = (volumeProfile[midPrice] || 0) + v(candle);
+      const midPrice = roundPrice((candle.high + candle.low) / 2);
+      volumeProfile[midPrice] = (volumeProfile[midPrice] || 0) + candle.volume;
     }
     
     // Find high volume nodes

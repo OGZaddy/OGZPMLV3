@@ -40,6 +40,9 @@
 
 const EventEmitter = require('events');
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c: _c, o: _o, h: _h, l: _l } = require('./CandleHelper');
+
 class TradeIntelligenceEngine extends EventEmitter {
     constructor(config = {}) {
         super();
@@ -420,14 +423,14 @@ class TradeIntelligenceEngine extends EventEmitter {
 
         try {
             const candle = marketData.currentCandle || marketData;
-            if (!candle || !candle.o || !candle.h || !candle.l || !candle.c) {
+            if (!candle || !_o(candle) || !_h(candle) || !_l(candle) || !_c(candle)) {
                 return result;
             }
 
-            const open = candle.o;
-            const high = candle.h;
-            const low = candle.l;
-            const close = candle.c;
+            const open = _o(candle);
+            const high = _h(candle);
+            const low = _l(candle);
+            const close = _c(candle);
 
             const body = Math.abs(close - open);
             const upperWick = high - Math.max(open, close);

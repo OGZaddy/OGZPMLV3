@@ -23,6 +23,9 @@
 
 const EventEmitter = require('events');
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c, o, h, l, v, t } = require('../core/CandleHelper');
+
 class MultiTimeframeAdapter extends EventEmitter {
   constructor(config = {}) {
     super();
@@ -86,7 +89,7 @@ class MultiTimeframeAdapter extends EventEmitter {
    * @param {Object} candle — { c, o, h, l, v, t } (V2 Kraken)
    */
   ingestCandle(candle) {
-    if (!candle || candle.c == null || candle.t == null) return;
+    if (!candle || c(candle) == null || t(candle) == null) return;
 
     this.stats.candlesProcessed++;
 
@@ -105,8 +108,8 @@ class MultiTimeframeAdapter extends EventEmitter {
     this._recalculateIndicators();
 
     this.emit('timeframes_updated', {
-      timestamp: candle.t,
-      price: candle.c,
+      timestamp: t(candle),
+      price: c(candle),
       readyTimeframes: Array.from(this.readyTimeframes),
     });
   }
@@ -181,10 +184,10 @@ class MultiTimeframeAdapter extends EventEmitter {
       const candleArr = this.candles.get(tf);
       if (!candleArr || candleArr.length < this.config.minCandlesForAnalysis) continue;
 
-      const closes = candleArr.map(c => c.c);
-      const highs = candleArr.map(c => c.h);
-      const lows = candleArr.map(c => c.l);
-      const volumes = candleArr.map(c => c.v || 0);
+      const closes = candleArr.map(candle => c(candle));
+      const highs = candleArr.map(candle => h(candle));
+      const lows = candleArr.map(candle => l(candle));
+      const volumes = candleArr.map(candle => v(candle));
 
       try {
         const p = this.config.indicatorPeriods;

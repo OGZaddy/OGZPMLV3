@@ -19,6 +19,9 @@
 
 'use strict';
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c } = require('../core/CandleHelper');
+
 class EMASMACrossoverSignal {
   constructor(config = {}) {
     // MA pair definitions — period pairs + type
@@ -70,8 +73,8 @@ class EMASMACrossoverSignal {
       return this._emptySignal();
     }
 
-    const closes = priceHistory.map(c => c.c);
-    const price = candle.c;
+    const closes = priceHistory.map(candle => c(candle));
+    const price = c(candle);
 
     // Calculate all MAs we need
     const maValues = this._calculateAllMAs(closes);

@@ -14,6 +14,9 @@
 // Candle format expected:
 // { t: epoch_ms, o: number, h: number, l: number, c: number, v: number }
 
+// FIX 2026-02-16: Use centralized candle helper for format compatibility
+const { c: _c, o: _o, h: _h, l: _l, v: _v } = require('../CandleHelper');
+
 // Import OGZ Two-Pole Oscillator (pure-function implementation)
 let computeOgzTpo, detectTpoCrossover;
 try {
@@ -444,16 +447,16 @@ class IndicatorEngine {
   }
 
   _updateATR() {
-    const c = this._lastCandle();
-    if (!c) return;
+    const candle = this._lastCandle();
+    if (!candle) return;
 
     const prevClose = this.atrState.prevClose;
     const tr = prevClose == null
-      ? (c.h - c.l)
+      ? (_h(candle) - _l(candle))
       : Math.max(
-          c.h - c.l,
-          Math.abs(c.h - prevClose),
-          Math.abs(c.l - prevClose)
+          _h(candle) - _l(candle),
+          Math.abs(_h(candle) - prevClose),
+          Math.abs(_l(candle) - prevClose)
         );
 
     const p = this.config.atrPeriod;
@@ -472,7 +475,7 @@ class IndicatorEngine {
       this.atrState.atr = ((this.atrState.atr * (p - 1)) + tr) / p;
     }
 
-    this.atrState.prevClose = c.c;
+    this.atrState.prevClose = _c(candle);
   }
 
   _updateRSI() {
@@ -551,7 +554,7 @@ class IndicatorEngine {
     const out = [];
 
     for (let i = 1; i < cs.length; i++) {
-      const change = cs[i].c - cs[i - 1].c;
+      const change = _c(cs[i]) - _c(cs[i - 1]);
       const gain = Math.max(change, 0);
       const loss = Math.max(-change, 0);
 
@@ -559,7 +562,7 @@ class IndicatorEngine {
         // seed
         let sumG = 0, sumL = 0;
         for (let j = 1; j <= p; j++) {
-          const ch = cs[j].c - cs[j - 1].c;
+          const ch = _c(cs[j]) - _c(cs[j - 1]);
           sumG += Math.max(ch, 0);
           sumL += Math.max(-ch, 0);
         }
@@ -586,16 +589,16 @@ class IndicatorEngine {
     const cur = this._lastCandle();
     const prev = this.candles[this.candles.length - 2];
 
-    const upMove = cur.h - prev.h;
-    const downMove = prev.l - cur.l;
+    const upMove = _h(cur) - _h(prev);
+    const downMove = _l(prev) - _l(cur);
 
     const pdm = (upMove > downMove && upMove > 0) ? upMove : 0;
     const mdm = (downMove > upMove && downMove > 0) ? downMove : 0;
 
     const tr = Math.max(
-      cur.h - cur.l,
-      Math.abs(cur.h - prev.c),
-      Math.abs(cur.l - prev.c)
+      _h(cur) - _l(cur),
+      Math.abs(_h(cur) - _c(prev)),
+      Math.abs(_l(cur) - _c(prev))
     );
 
     // Wilder smoothing
@@ -605,13 +608,13 @@ class IndicatorEngine {
       // seed sums over p
       let sumTR = 0, sumPDM = 0, sumMDM = 0;
       for (let i = this.candles.length - p; i < this.candles.length; i++) {
-        const c = this.candles[i];
+        const candle = this.candles[i];
         const pr = this.candles[i - 1];
-        const up = c.h - pr.h;
-        const down = pr.l - c.l;
+        const up = _h(candle) - _h(pr);
+        const down = _l(pr) - _l(candle);
         const _pdm = (up > down && up > 0) ? up : 0;
         const _mdm = (down > up && down > 0) ? down : 0;
-        const _tr = Math.max(c.h - c.l, Math.abs(c.h - pr.c), Math.abs(c.l - pr.c));
+        const _tr = Math.max(_h(candle) - _l(candle), Math.abs(_h(candle) - _c(pr)), Math.abs(_l(candle) - _c(pr)));
         sumTR += _tr; sumPDM += _pdm; sumMDM += _mdm;
       }
       this.adxState.smTR = sumTR;
@@ -663,21 +666,21 @@ class IndicatorEngine {
 
     for (let i = 1; i < cs.length; i++) {
       const cur = cs[i], prev = cs[i - 1];
-      const upMove = cur.h - prev.h;
-      const downMove = prev.l - cur.l;
+      const upMove = _h(cur) - _h(prev);
+      const downMove = _l(prev) - _l(cur);
       const pdm = (upMove > downMove && upMove > 0) ? upMove : 0;
       const mdm = (downMove > upMove && downMove > 0) ? downMove : 0;
-      const tr = Math.max(cur.h - cur.l, Math.abs(cur.h - prev.c), Math.abs(cur.l - prev.c));
+      const tr = Math.max(_h(cur) - _l(cur), Math.abs(_h(cur) - _c(prev)), Math.abs(_l(cur) - _c(prev)));
 
       if (i === p) {
         let sumTR = 0, sumPDM = 0, sumMDM = 0;
         for (let j = 1; j <= p; j++) {
-          const c = cs[j], pr = cs[j - 1];
-          const up = c.h - pr.h;
-          const down = pr.l - c.l;
+          const candle = cs[j], pr = cs[j - 1];
+          const up = _h(candle) - _h(pr);
+          const down = _l(pr) - _l(candle);
           const _pdm = (up > down && up > 0) ? up : 0;
           const _mdm = (down > up && down > 0) ? down : 0;
-          const _tr = Math.max(c.h - c.l, Math.abs(c.h - pr.c), Math.abs(c.l - pr.c));
+          const _tr = Math.max(_h(candle) - _l(candle), Math.abs(_h(candle) - _c(pr)), Math.abs(_l(candle) - _c(pr)));
           sumTR += _tr; sumPDM += _pdm; sumMDM += _mdm;
         }
         smTR = sumTR; smPDM = sumPDM; smMDM = sumMDM;
@@ -705,8 +708,8 @@ class IndicatorEngine {
     if (this.candles.length < p + 1) return;
     if (this.atrState.atr == null) return;
 
-    const c = this._lastCandle();
-    const hl2 = (c.h + c.l) / 2;
+    const candle = this._lastCandle();
+    const hl2 = (_h(candle) + _l(candle)) / 2;
     const atr = this.atrState.atr;
 
     const basicUpper = hl2 + m * atr;
@@ -868,10 +871,10 @@ class IndicatorEngine {
     const closes = [];
     const highs = [];
     const lows = [];
-    for (const c of this.candles) {
-      closes.push(c.c);
-      highs.push(c.h);
-      lows.push(c.l);
+    for (const candle of this.candles) {
+      closes.push(_c(candle));
+      highs.push(_h(candle));
+      lows.push(_l(candle));
     }
 
     const out = computeOgzTpo({
@@ -988,7 +991,7 @@ class IndicatorEngine {
     // Chikou = close shifted backward
     const close = this._lastClose();
     const idx = len - 1 - this.config.ichimokuDisplacement;
-    this.ichimokuState.chikou = idx >= 0 ? this.candles[idx].c : null;
+    this.ichimokuState.chikou = idx >= 0 ? _c(this.candles[idx]) : null;
 
     // trim forward arrays to avoid unbounded growth
     const max = this.config.maxCandles + this.config.ichimokuDisplacement + 10;
@@ -1035,13 +1038,13 @@ class IndicatorEngine {
     for (let i = pivotIndex - L; i <= pivotIndex + R; i++) {
       if (i === pivotIndex) continue;
       const cc = this.candles[i];
-      if (cc.h >= pivotC.h) isHigh = false;
-      if (cc.l <= pivotC.l) isLow = false;
+      if (_h(cc) >= _h(pivotC)) isHigh = false;
+      if (_l(cc) <= _l(pivotC)) isLow = false;
       if (!isHigh && !isLow) break;
     }
 
-    if (isHigh) this._pushPivot(this.pivots.highs, { i: pivotIndex, t: pivotC.t, price: pivotC.h });
-    if (isLow)  this._pushPivot(this.pivots.lows,  { i: pivotIndex, t: pivotC.t, price: pivotC.l });
+    if (isHigh) this._pushPivot(this.pivots.highs, { i: pivotIndex, t: pivotC.t, price: _h(pivotC) });
+    if (isLow)  this._pushPivot(this.pivots.lows,  { i: pivotIndex, t: pivotC.t, price: _l(pivotC) });
 
     // trim pivots to lookback
     const maxLook = Math.max(this.config.trendMaxLookback, 500);
@@ -1428,17 +1431,16 @@ class IndicatorEngine {
     this.series = this._blankSeries();
   }
 
-  _validateCandle(c) {
-    const req = ['t', 'o', 'h', 'l', 'c', 'v'];
-    for (const k of req) {
-      if (c[k] == null) throw new Error(`IndicatorEngine: missing candle field ${k}`);
+  _validateCandle(candle) {
+    // Use helper to validate both formats work
+    const o = _o(candle), high = _h(candle), low = _l(candle), close = _c(candle), vol = _v(candle);
+    if (o == null || high == null || low == null || close == null) {
+      throw new Error(`IndicatorEngine: missing candle OHLC fields`);
     }
-    const nums = ['o', 'h', 'l', 'c', 'v'];
-    for (const k of nums) {
-      if (!isFinite(c[k])) throw new Error(`IndicatorEngine: candle ${k} not finite: ${c[k]}`);
+    if (!isFinite(o) || !isFinite(high) || !isFinite(low) || !isFinite(close)) {
+      throw new Error(`IndicatorEngine: candle OHLC values not finite`);
     }
-    if (!isFinite(c.t)) throw new Error(`IndicatorEngine: candle t not finite: ${c.t}`);
-    if (c.h < c.l) throw new Error(`IndicatorEngine: candle invalid h<l (h=${c.h}, l=${c.l})`);
+    if (high < low) throw new Error(`IndicatorEngine: candle invalid h<l (h=${high}, l=${low})`);
   }
 
   _lastCandle() {
@@ -1446,12 +1448,12 @@ class IndicatorEngine {
   }
 
   _lastClose() {
-    const c = this._lastCandle();
-    return c ? c.c : null;
+    const candle = this._lastCandle();
+    return candle ? _c(candle) : null;
   }
 
   _getCloses() {
-    return this.candles.map(x => x.c);
+    return this.candles.map(x => _c(x));
   }
 
   _sumTail(arr, n) {
@@ -1463,16 +1465,16 @@ class IndicatorEngine {
   _computeTRSeries() {
     const trs = [];
     let prevClose = null;
-    for (const c of this.candles) {
+    for (const candle of this.candles) {
       const tr = prevClose == null
-        ? (c.h - c.l)
+        ? (_h(candle) - _l(candle))
         : Math.max(
-            c.h - c.l,
-            Math.abs(c.h - prevClose),
-            Math.abs(c.l - prevClose)
+            _h(candle) - _l(candle),
+            Math.abs(_h(candle) - prevClose),
+            Math.abs(_l(candle) - prevClose)
           );
       trs.push(tr);
-      prevClose = c.c;
+      prevClose = _c(candle);
     }
     return trs;
   }
@@ -1481,9 +1483,9 @@ class IndicatorEngine {
     if (this.candles.length < period) return null;
     const slice = this.candles.slice(-period);
     let hh = -Infinity, ll = Infinity;
-    for (const c of slice) {
-      if (c.h > hh) hh = c.h;
-      if (c.l < ll) ll = c.l;
+    for (const candle of slice) {
+      if (_h(candle) > hh) hh = _h(candle);
+      if (_l(candle) < ll) ll = _l(candle);
     }
     if (!isFinite(hh) || !isFinite(ll)) return null;
     return (hh + ll) / 2;
