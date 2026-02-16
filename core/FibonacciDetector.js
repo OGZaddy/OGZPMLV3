@@ -136,7 +136,7 @@ class FibonacciDetector {
     let swingLowIndex = -1;
     
     // Calculate minimum price change to qualify as significant swing
-    const currentPrice = candles[candles.length - 1].close;
+    const currentPrice = candles[candles.length - 1].c;
     const minSwingChange = currentPrice * (this.config.swingThresholdPercent / 100);
     
     // Array to store potential swing candidates for strength validation
@@ -147,36 +147,36 @@ class FibonacciDetector {
       const candle = candles[i];
       
       // Check for new swing high
-      if (candle.high > swingHigh) {
+      if (candle.h > swingHigh) {
         // Validate swing high meets minimum change threshold
-        if (swingHigh !== -Infinity && candle.high - swingHigh >= minSwingChange) {
+        if (swingHigh !== -Infinity && candle.h - swingHigh >= minSwingChange) {
           potentialSwings.push({
             type: 'high',
-            price: candle.high,
+            price: candle.h,
             index: i,
             strength: this.getSwingStrength(candles, i, 'high')
           });
         }
         
         // Update current swing high
-        swingHigh = candle.high;
+        swingHigh = candle.h;
         swingHighIndex = i;
       }
       
       // Check for new swing low
-      if (candle.low < swingLow) {
+      if (candle.l < swingLow) {
         // Validate swing low meets minimum change threshold
-        if (swingLow !== Infinity && swingLow - candle.low >= minSwingChange) {
+        if (swingLow !== Infinity && swingLow - candle.l >= minSwingChange) {
           potentialSwings.push({
             type: 'low',
-            price: candle.low,
+            price: candle.l,
             index: i,
             strength: this.getSwingStrength(candles, i, 'low')
           });
         }
         
         // Update current swing low
-        swingLow = candle.low;
+        swingLow = candle.l;
         swingLowIndex = i;
       }
     }
@@ -222,32 +222,32 @@ class FibonacciDetector {
    */
   getSwingStrength(candles, index, type) {
     if (type === 'high') {
-      const high = candles[index].high;
+      const high = candles[index].h;
       let strength = 0;
       
       // Count candles before swing that are lower (confirming high)
       for (let i = Math.max(0, index - 5); i < index; i++) {
-        if (candles[i].high < high) strength++;
+        if (candles[i].h < high) strength++;
       }
       
       // Count candles after swing that are lower (confirming high)
       for (let i = index + 1; i < Math.min(candles.length, index + 6); i++) {
-        if (candles[i].high < high) strength++;
+        if (candles[i].h < high) strength++;
       }
       
       return strength;
     } else {
-      const low = candles[index].low;
+      const low = candles[index].l;
       let strength = 0;
       
       // Count candles before swing that are higher (confirming low)
       for (let i = Math.max(0, index - 5); i < index; i++) {
-        if (candles[i].low > low) strength++;
+        if (candles[i].l > low) strength++;
       }
       
       // Count candles after swing that are higher (confirming low)
       for (let i = index + 1; i < Math.min(candles.length, index + 6); i++) {
-        if (candles[i].low > low) strength++;
+        if (candles[i].l > low) strength++;
       }
       
       return strength;

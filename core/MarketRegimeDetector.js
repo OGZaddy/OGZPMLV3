@@ -134,10 +134,10 @@ class MarketRegimeDetector extends EventEmitter {
     // Enhanced regime-specific parameters
     this.regimeParameters = this.initializeRegimeParameters();
     
-    console.log('🔮 ULTIMATE Market Regime Detector initialized');
-    console.log(`📊 Tracking ${this.config.correlationAssets.length} correlation assets`);
-    console.log(`🧠 Correlation Analysis: ${this.config.enableCorrelationAnalysis ? 'ENABLED' : 'DISABLED'}`);
-    console.log(`🌍 Macro Analysis: ${this.config.enableMacroAnalysis ? 'ENABLED' : 'DISABLED'}`);
+    console.log('ðŸ”® ULTIMATE Market Regime Detector initialized');
+    console.log(`ðŸ“Š Tracking ${this.config.correlationAssets.length} correlation assets`);
+    console.log(`ðŸ§  Correlation Analysis: ${this.config.enableCorrelationAnalysis ? 'ENABLED' : 'DISABLED'}`);
+    console.log(`ðŸŒ Macro Analysis: ${this.config.enableMacroAnalysis ? 'ENABLED' : 'DISABLED'}`);
   }
   
   initializeRegimeParameters() {
@@ -282,7 +282,7 @@ class MarketRegimeDetector extends EventEmitter {
     
     // Log regime change
     if (this.previousRegime !== this.currentRegime) {
-      console.log(`📊 Market Regime Changed: ${this.previousRegime} → ${this.currentRegime} (Confidence: ${(regimeConfidence * 100).toFixed(1)}%)`);
+      console.log(`ðŸ“Š Market Regime Changed: ${this.previousRegime} â†’ ${this.currentRegime} (Confidence: ${(regimeConfidence * 100).toFixed(1)}%)`);
     }
     
     return {
@@ -298,7 +298,7 @@ class MarketRegimeDetector extends EventEmitter {
   calculateVolatility(candles) {
     // Calculate ATR-based volatility
     const atr = this.calculateATR(candles, 14);
-    const avgPrice = candles.reduce((sum, c) => sum + c.close, 0) / candles.length;
+    const avgPrice = candles.reduce((sum, c) => sum + c.c, 0) / candles.length;
     
     // Normalize volatility as percentage
     this.metrics.volatility = (atr / avgPrice) * 100;
@@ -311,9 +311,9 @@ class MarketRegimeDetector extends EventEmitter {
     
     // Initial ATR
     for (let i = 1; i <= period; i++) {
-      const high = candles[i].high;
-      const low = candles[i].low;
-      const prevClose = candles[i - 1].close;
+      const high = candles[i].h;
+      const low = candles[i].l;
+      const prevClose = candles[i - 1].c;
       
       const tr = Math.max(
         high - low,
@@ -328,9 +328,9 @@ class MarketRegimeDetector extends EventEmitter {
     
     // Smooth ATR for remaining candles
     for (let i = period + 1; i < candles.length; i++) {
-      const high = candles[i].high;
-      const low = candles[i].low;
-      const prevClose = candles[i - 1].close;
+      const high = candles[i].h;
+      const low = candles[i].l;
+      const prevClose = candles[i - 1].c;
       
       const tr = Math.max(
         high - low,
@@ -348,9 +348,9 @@ class MarketRegimeDetector extends EventEmitter {
     // Multiple trend detection methods
     
     // 1. Moving average trend
-    const ma20 = this.calculateSMA(candles.map(c => c.close), 20);
-    const ma50 = this.calculateSMA(candles.map(c => c.close), 50);
-    const currentPrice = candles[candles.length - 1].close;
+    const ma20 = this.calculateSMA(candles.map(c => c.c), 20);
+    const ma50 = this.calculateSMA(candles.map(c => c.c), 50);
+    const currentPrice = candles[candles.length - 1].c;
     
     let maTrend = 0;
     if (currentPrice > ma20 && ma20 > ma50) maTrend = 1;
@@ -379,19 +379,19 @@ class MarketRegimeDetector extends EventEmitter {
       const candle = recentCandles[i];
       
       // Swing high
-      if (candle.high > recentCandles[i - 1].high && 
-          candle.high > recentCandles[i - 2].high &&
-          candle.high > recentCandles[i + 1].high && 
-          candle.high > recentCandles[i + 2].high) {
-        highs.push({ index: i, price: candle.high });
+      if (candle.h > recentCandles[i - 1].h && 
+          candle.h > recentCandles[i - 2].h &&
+          candle.h > recentCandles[i + 1].h && 
+          candle.h > recentCandles[i + 2].h) {
+        highs.push({ index: i, price: candle.h });
       }
       
       // Swing low
-      if (candle.low < recentCandles[i - 1].low && 
-          candle.low < recentCandles[i - 2].low &&
-          candle.low < recentCandles[i + 1].low && 
-          candle.low < recentCandles[i + 2].low) {
-        lows.push({ index: i, price: candle.low });
+      if (candle.l < recentCandles[i - 1].l && 
+          candle.l < recentCandles[i - 2].l &&
+          candle.l < recentCandles[i + 1].l && 
+          candle.l < recentCandles[i + 2].l) {
+        lows.push({ index: i, price: candle.l });
       }
     }
     
@@ -433,8 +433,8 @@ class MarketRegimeDetector extends EventEmitter {
       return;
     }
     
-    const currentPrice = candles[candles.length - 1].close;
-    const pastPrice = candles[candles.length - lookback - 1].close;
+    const currentPrice = candles[candles.length - 1].c;
+    const pastPrice = candles[candles.length - lookback - 1].c;
     
     this.metrics.momentum = (currentPrice - pastPrice) / pastPrice;
   }
@@ -444,9 +444,9 @@ class MarketRegimeDetector extends EventEmitter {
     const period = Math.min(50, candles.length);
     const recentCandles = candles.slice(-period);
     
-    const highest = Math.max(...recentCandles.map(c => c.high));
-    const lowest = Math.min(...recentCandles.map(c => c.low));
-    const current = candles[candles.length - 1].close;
+    const highest = Math.max(...recentCandles.map(c => c.h));
+    const lowest = Math.min(...recentCandles.map(c => c.l));
+    const current = candles[candles.length - 1].c;
     
     if (highest === lowest) {
       this.metrics.pricePosition = 0.5;
@@ -601,8 +601,8 @@ class MarketRegimeDetector extends EventEmitter {
     // For now, return a value based on trend consistency
     const trendValues = [];
     for (let i = period; i < candles.length; i++) {
-      const prevAvg = this.calculateSMA(candles.slice(i - period, i).map(c => c.close), period);
-      const currAvg = this.calculateSMA(candles.slice(i - period + 1, i + 1).map(c => c.close), period);
+      const prevAvg = this.calculateSMA(candles.slice(i - period, i).map(c => c.c), period);
+      const currAvg = this.calculateSMA(candles.slice(i - period + 1, i + 1).map(c => c.c), period);
       trendValues.push(currAvg > prevAvg ? 1 : -1);
     }
     
@@ -628,7 +628,7 @@ class MarketRegimeDetector extends EventEmitter {
    */
   async restart() {
     try {
-      console.log('🔄 Restarting Market Regime Detector...');
+      console.log('ðŸ”„ Restarting Market Regime Detector...');
       
       // Reset state
       this.currentRegime = this.regimes.RANGING;
@@ -663,11 +663,11 @@ class MarketRegimeDetector extends EventEmitter {
       this.priceData.clear();
       this.returns.clear();
       
-      console.log('✅ Market Regime Detector restarted successfully');
+      console.log('âœ… Market Regime Detector restarted successfully');
       return true;
       
     } catch (error) {
-      console.error('❌ Failed to restart regime detector:', error);
+      console.error('âŒ Failed to restart regime detector:', error);
       throw error;
     }
   }

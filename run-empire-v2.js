@@ -15,7 +15,7 @@ if (process.env.BACKTEST_SILENT === 'true' ||
         msg.includes('PATTERN LEARNING') ||
         msg.includes('Final Balance') ||
         msg.includes('Total P&L') ||
-        msg.includes('❌ Error') ||
+        msg.includes('âŒ Error') ||
         msg.includes('Report saved')) {
       originalLog(...args);
     }
@@ -36,38 +36,38 @@ require('./instrument.js');
  * @description
  * ARCHITECTURE OVERVIEW:
  * ```
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │                         run-empire-v2.js (ORCHESTRATOR)                 │
- * │                                                                         │
- * │  ┌─────────────┐    ┌────────────────┐    ┌──────────────────────────┐ │
- * │  │   KRAKEN    │───▶│  INDICATORS    │───▶│  PATTERN RECOGNITION     │ │
- * │  │  WEBSOCKET  │    │  (RSI,MACD,BB) │    │  (EnhancedPatternRecog)  │ │
- * │  └─────────────┘    └────────────────┘    └──────────────────────────┘ │
- * │         │                   │                        │                  │
- * │         ▼                   ▼                        ▼                  │
- * │  ┌─────────────┐    ┌────────────────┐    ┌──────────────────────────┐ │
- * │  │   REGIME    │◀───│  TRADING BRAIN │◀───│      TRAI (AI)           │ │
- * │  │  DETECTOR   │    │  (Decisions)   │    │  (Optional co-pilot)     │ │
- * │  └─────────────┘    └────────────────┘    └──────────────────────────┘ │
- * │                            │                                            │
- * │                            ▼                                            │
- * │                     ┌────────────────┐                                  │
- * │                     │  RISK MANAGER  │                                  │
- * │                     │  (Pre-trade)   │                                  │
- * │                     └────────────────┘                                  │
- * │                            │                                            │
- * │                            ▼                                            │
- * │  ┌─────────────┐    ┌────────────────┐    ┌──────────────────────────┐ │
- * │  │   STATE     │◀───│  EXECUTION     │───▶│  KRAKEN API              │ │
- * │  │  MANAGER    │    │  LAYER         │    │  (Paper or Live)         │ │
- * │  └─────────────┘    └────────────────┘    └──────────────────────────┘ │
- * │         │                                                               │
- * │         ▼                                                               │
- * │  ┌─────────────┐                                                        │
- * │  │  DASHBOARD  │  (WebSocket to browser)                               │
- * │  │  UPDATES    │                                                        │
- * │  └─────────────┘                                                        │
- * └─────────────────────────────────────────────────────────────────────────┘
+ * â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+ * â”‚                         run-empire-v2.js (ORCHESTRATOR)                 â”‚
+ * â”‚                                                                         â”‚
+ * â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+ * â”‚  â”‚   KRAKEN    â”‚â”€â”€â”€â–¶â”‚  INDICATORS    â”‚â”€â”€â”€â–¶â”‚  PATTERN RECOGNITION     â”‚ â”‚
+ * â”‚  â”‚  WEBSOCKET  â”‚    â”‚  (RSI,MACD,BB) â”‚    â”‚  (EnhancedPatternRecog)  â”‚ â”‚
+ * â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+ * â”‚         â”‚                   â”‚                        â”‚                  â”‚
+ * â”‚         â–¼                   â–¼                        â–¼                  â”‚
+ * â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+ * â”‚  â”‚   REGIME    â”‚â—€â”€â”€â”€â”‚  TRADING BRAIN â”‚â—€â”€â”€â”€â”‚      TRAI (AI)           â”‚ â”‚
+ * â”‚  â”‚  DETECTOR   â”‚    â”‚  (Decisions)   â”‚    â”‚  (Optional co-pilot)     â”‚ â”‚
+ * â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+ * â”‚                            â”‚                                            â”‚
+ * â”‚                            â–¼                                            â”‚
+ * â”‚                     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                                  â”‚
+ * â”‚                     â”‚  RISK MANAGER  â”‚                                  â”‚
+ * â”‚                     â”‚  (Pre-trade)   â”‚                                  â”‚
+ * â”‚                     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                                  â”‚
+ * â”‚                            â”‚                                            â”‚
+ * â”‚                            â–¼                                            â”‚
+ * â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+ * â”‚  â”‚   STATE     â”‚â—€â”€â”€â”€â”‚  EXECUTION     â”‚â”€â”€â”€â–¶â”‚  KRAKEN API              â”‚ â”‚
+ * â”‚  â”‚  MANAGER    â”‚    â”‚  LAYER         â”‚    â”‚  (Paper or Live)         â”‚ â”‚
+ * â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+ * â”‚         â”‚                                                               â”‚
+ * â”‚         â–¼                                                               â”‚
+ * â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                                                        â”‚
+ * â”‚  â”‚  DASHBOARD  â”‚  (WebSocket to browser)                               â”‚
+ * â”‚  â”‚  UPDATES    â”‚                                                        â”‚
+ * â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                                                        â”‚
+ * â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
  * ```
  *
  * MAIN TRADING LOOP (processCandle):
@@ -102,7 +102,7 @@ require('dotenv').config({ path: envPath });
 
 // SAFETY INVARIANT: TEST_MODE or gates requires DATA_DIR to prevent data collision
 if (process.env.TEST_MODE === 'true' && !process.env.DATA_DIR) {
-  console.error('❌ FATAL: TEST_MODE=true requires DATA_DIR to be set');
+  console.error('âŒ FATAL: TEST_MODE=true requires DATA_DIR to be set');
   console.error('   This prevents accidental writes to production data.');
   console.error('   Set DATA_DIR=/path/to/test/data in your .env file.');
   process.exit(1);
@@ -211,7 +211,7 @@ const singletonLock = new OGZSingletonLock('ogz-prime-v14');
   if (process.env.BACKTEST_MODE !== 'true') {
     singletonLock.acquireLock();
   } else {
-    console.log('⏭️ Skipping singleton lock (BACKTEST_MODE)');
+    console.log('â­ï¸ Skipping singleton lock (BACKTEST_MODE)');
   }
   // Skip port check in backtest mode for faster testing
   if (process.env.BACKTEST_MODE !== 'true') {
@@ -219,7 +219,7 @@ const singletonLock = new OGZSingletonLock('ogz-prime-v14');
     // Bot is a CLIENT of 3010, not binding it
     const portsOk = await checkCriticalPorts([3001, 3002, 3003]);
     if (!portsOk) {
-      console.error('🚨 Critical ports in use! Exiting...');
+      console.error('ðŸš¨ Critical ports in use! Exiting...');
       process.exit(1);
     }
   }
@@ -254,7 +254,7 @@ const GridTradingStrategy = loader.get('core', 'GridTradingStrategy');
 // CHANGE 2026-02-13: Re-enable TradeLogger for comprehensive trade logging
 const { logTrade, getTodayStats } = require('./core/tradeLogger');
 
-// 🤖 AI Co-Founder (Change 574 - Opus Architecture + Codex Fix)
+// ðŸ¤– AI Co-Founder (Change 574 - Opus Architecture + Codex Fix)
 const TRAIDecisionModule = loader.get('core', 'TRAIDecisionModule');
 
 // Infrastructure
@@ -291,9 +291,9 @@ function getDirectionDisplayLabel(direction, assetType = 'crypto') {
  */
 class OGZPrimeV14Bot {
   constructor() {
-    console.log('\n🚀 OGZ PRIME V14 FINAL MERGED - INITIALIZING');
-    console.log('📊 Desktop Claude (402-line) + Browser Claude (439-line) = MERGED');
-    console.log('═══════════════════════════════════════════════════════════════════\n');
+    console.log('\nðŸš€ OGZ PRIME V14 FINAL MERGED - INITIALIZING');
+    console.log('ðŸ“Š Desktop Claude (402-line) + Browser Claude (439-line) = MERGED');
+    console.log('â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n');
 
     // Environment validation
     this.validateEnvironment();
@@ -305,12 +305,12 @@ class OGZPrimeV14Bot {
     this.tier = process.env.BOT_TIER || 'ml';
     this.tierFlagManager = new TierFeatureFlags(this.tier);
     this.tierFlags = this.tierFlagManager.getTierSummary();
-    console.log(`🎯 Tier: ${this.tier.toUpperCase()}`);
+    console.log(`ðŸŽ¯ Tier: ${this.tier.toUpperCase()}`);
 
     // Initialize core modules
     console.log('[CHECKPOINT-008] Creating pattern checker...');
     if (!EnhancedPatternChecker) {
-      console.error('❌ EnhancedPatternChecker is undefined! Module loading failed.');
+      console.error('âŒ EnhancedPatternChecker is undefined! Module loading failed.');
       process.exit(1);
     }
     this.patternChecker = new EnhancedPatternChecker();
@@ -322,7 +322,7 @@ class OGZPrimeV14Bot {
       : null;
 
     if (this.ogzTpo) {
-      console.log('🎯 OGZ TPO initialized with mode:', this.tierFlagManager.getValue('ogzTpoMode'));
+      console.log('ðŸŽ¯ OGZ TPO initialized with mode:', this.tierFlagManager.getValue('ogzTpoMode'));
     }
 
     // CHANGE 665: Initialize TradingProfileManager for manual profile switching
@@ -335,7 +335,7 @@ class OGZPrimeV14Bot {
     // Set initial profile based on environment or default
     const initialProfile = process.env.TRADING_PROFILE || 'balanced';
     this.profileManager.setActiveProfile(initialProfile);
-    console.log(`📊 Trading Profile: ${initialProfile.toUpperCase()} (manual switching only)`);
+    console.log(`ðŸ“Š Trading Profile: ${initialProfile.toUpperCase()} (manual switching only)`);
 
     // CHANGE 610: Centralized configuration - all trading params from .env
     // Profile settings are for reference only - env vars take precedence
@@ -345,7 +345,7 @@ class OGZPrimeV14Bot {
       tier: this.tier,
 
       // Phase 1: High-priority risk management (env vars ONLY)
-      // CHANGE 661: Fix percentage conversion (15 → 0.15, not 15.0)
+      // CHANGE 661: Fix percentage conversion (15 â†’ 0.15, not 15.0)
       minConfidenceThreshold: process.env.MIN_TRADE_CONFIDENCE
         ? (parseFloat(process.env.MIN_TRADE_CONFIDENCE) > 1
           ? parseFloat(process.env.MIN_TRADE_CONFIDENCE) / 100
@@ -413,7 +413,7 @@ class OGZPrimeV14Bot {
       const PatternBasedExitModel = require('./core/PatternBasedExitModel');
       this.patternExitModel = new PatternBasedExitModel(featureFlags.features.PATTERN_EXIT_MODEL.settings || {});
       this.patternExitShadowMode = featureFlags.features.PATTERN_EXIT_MODEL.shadowMode !== false;
-      console.log(`🎯 Pattern Exit Model: ${this.patternExitShadowMode ? 'SHADOW MODE' : 'ACTIVE'}`);
+      console.log(`ðŸŽ¯ Pattern Exit Model: ${this.patternExitShadowMode ? 'SHADOW MODE' : 'ACTIVE'}`);
     }
 
     // CHANGE 2026-02-02: TradeIntelligenceEngine - intelligent per-trade evaluation
@@ -429,7 +429,7 @@ class OGZPrimeV14Bot {
       staleTradeTime: 30
     });
     this.tradeIntelligenceShadowMode = process.env.TRADE_INTELLIGENCE_SHADOW === 'true'; // ACTIVE by default
-    console.log(`🧠 Trade Intelligence Engine: ${this.tradeIntelligenceShadowMode ? 'SHADOW MODE' : 'ACTIVE'}`);
+    console.log(`ðŸ§  Trade Intelligence Engine: ${this.tradeIntelligenceShadowMode ? 'SHADOW MODE' : 'ACTIVE'}`);
 
     // CHANGE 2026-02-10: Modular Entry System (V2 format: c/o/h/l/v/t)
     this.mtfAdapter = new MultiTimeframeAdapter({
@@ -441,13 +441,13 @@ class OGZPrimeV14Bot {
       sessionOpenHour: 0,    // Midnight UTC for crypto (24/7 market)
       sessionOpenMinute: 0,
     });
-    console.log('📊 Modular Entry System: MTF + Crossovers + S/R + Liquidity initialized');
+    console.log('ðŸ“Š Modular Entry System: MTF + Crossovers + S/R + Liquidity initialized');
 
     // EXIT_SYSTEM feature flag: Only ONE exit system active at a time
     // Options: maxprofit, intelligence, pattern, brain, legacy (all active)
     // Hard stop loss + stale trade exit + confidence crash ALWAYS run regardless
     this.activeExitSystem = process.env.EXIT_SYSTEM || featureFlags.features?.EXIT_SYSTEM?.settings?.activeSystem || 'maxprofit';
-    console.log(`🚪 Active Exit System: ${this.activeExitSystem.toUpperCase()} (set EXIT_SYSTEM env to change)`);
+    console.log(`ðŸšª Active Exit System: ${this.activeExitSystem.toUpperCase()} (set EXIT_SYSTEM env to change)`);
 
     // CHANGE 670: Initialize Grid Trading Strategy
     this.gridStrategy = null; // Initialize on demand based on strategy mode
@@ -458,7 +458,7 @@ class OGZPrimeV14Bot {
         orderSize: parseFloat(process.env.GRID_ORDER_SIZE) || 100,
         autoRange: process.env.GRID_AUTO_RANGE !== 'false'
       });
-      console.log('🎯 Grid Trading Mode ENABLED');
+      console.log('ðŸŽ¯ Grid Trading Mode ENABLED');
     }
 
     // CHANGE 657: Aggressive trading rate limiter (fixed for 8% confidence)
@@ -469,7 +469,7 @@ class OGZPrimeV14Bot {
       burstAllowed: 10              // allow 10 rapid trades (was 2)
     });
 
-    // 🤖 TRAI DECISION MODULE (Change 574 - Opus Architecture + Codex Fix)
+    // ðŸ¤– TRAI DECISION MODULE (Change 574 - Opus Architecture + Codex Fix)
     // OPTIMIZECEPTION FIX: Skip TRAI initialization when ENABLE_TRAI=false (4x faster backtests)
     if (process.env.ENABLE_TRAI !== 'false') {
       this.trai = new TRAIDecisionModule({
@@ -483,10 +483,10 @@ class OGZPrimeV14Bot {
       });
     } else {
       this.trai = null;  // TRAI disabled for fast optimization runs
-      console.log('⚡ TRAI disabled for fast backtest mode');
+      console.log('âš¡ TRAI disabled for fast backtest mode');
     }
 
-    // 🔥 CRITICAL FIX (Change 547): Connect modules to TradingBrain
+    // ðŸ”¥ CRITICAL FIX (Change 547): Connect modules to TradingBrain
     // Without these connections, confidence calculation fails (stuck at 10-35%)
     this.tradingBrain.optimizedIndicators = OptimizedIndicators;
     this.tradingBrain.marketRegimeDetector = this.regimeDetector;
@@ -499,8 +499,8 @@ class OGZPrimeV14Bot {
     // this.safetyNet = new TradingSafetyNet(); // DISABLED - blocking everything
     // this.tradeLogger = new TradeLogger(); // Module doesn't exist
 
-    console.log('🔍 [DEBUG] About to create Kraken adapter...');
-    console.log('🔍 [DEBUG] BrokerFactory available:', typeof createBrokerAdapter);
+    console.log('ðŸ” [DEBUG] About to create Kraken adapter...');
+    console.log('ðŸ” [DEBUG] BrokerFactory available:', typeof createBrokerAdapter);
 
     // EMPIRE V2: Create Kraken adapter through BrokerFactory (SINGLE SOURCE OF TRUTH)
     // NO FALLBACK - if BrokerFactory fails, bot fails. No bypasses.
@@ -508,8 +508,8 @@ class OGZPrimeV14Bot {
       apiKey: process.env.KRAKEN_API_KEY,
       apiSecret: process.env.KRAKEN_API_SECRET
     });
-    console.log('🏭 [EMPIRE V2] Created Kraken adapter via BrokerFactory');
-    console.log('🔍 [DEBUG] Kraken adapter type:', this.kraken.constructor.name);
+    console.log('ðŸ­ [EMPIRE V2] Created Kraken adapter via BrokerFactory');
+    console.log('ðŸ” [DEBUG] Kraken adapter type:', this.kraken.constructor.name);
 
     // Connect execution layer to Kraken
     this.executionLayer.setKrakenAdapter(this.kraken);
@@ -531,7 +531,7 @@ class OGZPrimeV14Bot {
     this.dashboardWs = null;
     this.dashboardWsConnected = false;
     // CHANGE 661: Always connect to dashboard WebSocket (defaults to localhost)
-    console.log('🔌 Initializing Dashboard WebSocket connection...');
+    console.log('ðŸ”Œ Initializing Dashboard WebSocket connection...');
     this.initializeDashboardWebSocket();
 
     // Trading state
@@ -575,14 +575,14 @@ class OGZPrimeV14Bot {
     // CRITICAL FIX: Don't overwrite saved state on startup!
     const currentState = stateManager.getState();
     if (!currentState.balance || currentState.balance === 0) {
-      console.log('🆕 Initializing fresh state with balance:', initialBalance);
+      console.log('ðŸ†• Initializing fresh state with balance:', initialBalance);
       stateManager.updateState({
         balance: initialBalance,
         totalBalance: initialBalance,
         activeTrades: new Map()  // CHANGE 2025-12-13: Centralized active trades
       }, { action: 'INIT' });
     } else {
-      console.log('✅ Using existing state - Balance:', currentState.balance, 'Trades:', currentState.activeTrades?.size || 0);
+      console.log('âœ… Using existing state - Balance:', currentState.balance, 'Trades:', currentState.activeTrades?.size || 0);
     }
 
     // CHANGE 644: Initialize trade tracking Maps in constructor to prevent crashes
@@ -599,7 +599,7 @@ class OGZPrimeV14Bot {
       minProcessingGapMs: 5,
       staleThresholdMs: 3000,
       onProcess: (data) => this.handleMarketData(data),
-      onError: (msg, err) => console.error('❌ MessageQueue:', msg, err.message)
+      onError: (msg, err) => console.error('âŒ MessageQueue:', msg, err.message)
     });
 
     // MODE DETECTION: Paper, Live, or Backtest (MUTUAL EXCLUSION)
@@ -609,7 +609,7 @@ class OGZPrimeV14Bot {
 
     // Enforce mutual exclusion: Only ONE mode can be active
     if (enableLiveTrading && enableBacktestMode) {
-      throw new Error('❌ FATAL: Cannot enable both LIVE trading and BACKTEST mode simultaneously!');
+      throw new Error('âŒ FATAL: Cannot enable both LIVE trading and BACKTEST mode simultaneously!');
     }
 
     // Determine trading mode
@@ -618,11 +618,11 @@ class OGZPrimeV14Bot {
     if (enableBacktestMode) tradingMode = 'BACKTEST';
     if (enableTestMode) {
       tradingMode = 'TEST';
-      console.log('🧪 TEST MODE ACTIVATED:');
-      console.log('   ✅ Patterns will NOT be saved');
-      console.log('   ✅ Trades are simulated');
-      console.log('   ✅ To inject signal: Set TEST_CONFIDENCE env var (0-100)');
-      console.log('   ✅ Example: TEST_CONFIDENCE=75 npm start');
+      console.log('ðŸ§ª TEST MODE ACTIVATED:');
+      console.log('   âœ… Patterns will NOT be saved');
+      console.log('   âœ… Trades are simulated');
+      console.log('   âœ… To inject signal: Set TEST_CONFIDENCE env var (0-100)');
+      console.log('   âœ… Example: TEST_CONFIDENCE=75 npm start');
     }
 
     this.config = {
@@ -639,11 +639,11 @@ class OGZPrimeV14Bot {
       tradingMode
     };
 
-    console.log(`🎯 Trading Mode: ${tradingMode}`);
+    console.log(`ðŸŽ¯ Trading Mode: ${tradingMode}`);
 
-    console.log('✅ All modules initialized successfully');
+    console.log('âœ… All modules initialized successfully');
     console.log(`   Risk Management: ENABLED`);
-    console.log(`   Change 513 Compliance: ✅\n`);
+    console.log(`   Change 513 Compliance: âœ…\n`);
   }
 
   /**
@@ -653,7 +653,7 @@ class OGZPrimeV14Bot {
     const required = ['KRAKEN_API_KEY', 'KRAKEN_API_SECRET', 'POLYGON_API_KEY'];
     const missing = required.filter(key => !process.env[key]);
     if (missing.length > 0) {
-      console.error('❌ Missing environment variables:', missing);
+      console.error('âŒ Missing environment variables:', missing);
       throw new Error(`Missing required environment: ${missing.join(', ')}`);
     }
   }
@@ -669,29 +669,29 @@ class OGZPrimeV14Bot {
     // Check if attempting live mode
     if (enableLive) {
       if (!confirmLive) {
-        console.log('\n' + '═'.repeat(70));
-        console.log('⚠️  TWO-KEY SAFETY CHECK FAILED');
-        console.log('═'.repeat(70));
+        console.log('\n' + 'â•'.repeat(70));
+        console.log('âš ï¸  TWO-KEY SAFETY CHECK FAILED');
+        console.log('â•'.repeat(70));
         console.log('You have set ENABLE_LIVE_TRADING=true');
         console.log('But CONFIRM_LIVE_TRADING is not set to true');
         console.log('\nTo enable LIVE trading, you must set BOTH:');
         console.log('  ENABLE_LIVE_TRADING=true');
         console.log('  CONFIRM_LIVE_TRADING=true');
-        console.log('\n🛡️ Starting in PAPER TRADING mode for safety');
-        console.log('═'.repeat(70) + '\n');
+        console.log('\nðŸ›¡ï¸ Starting in PAPER TRADING mode for safety');
+        console.log('â•'.repeat(70) + '\n');
 
         // Force paper mode
         process.env.ENABLE_LIVE_TRADING = 'false';
         this.mode = 'PAPER';
       } else {
         // BOTH keys confirmed - show BIG warning
-        console.log('\n' + '╔'.repeat(70));
-        console.log('║' + ' '.repeat(20) + '⚠️  LIVE TRADING MODE ACTIVE  ⚠️' + ' '.repeat(17) + '║');
-        console.log('║' + ' '.repeat(68) + '║');
-        console.log('║' + ' '.repeat(20) + '    REAL MONEY AT RISK!' + ' '.repeat(25) + '║');
-        console.log('║' + ' '.repeat(68) + '║');
-        console.log('║' + ' '.repeat(15) + 'Two-key safety confirmed. Proceeding...' + ' '.repeat(14) + '║');
-        console.log('╚'.repeat(70) + '\n');
+        console.log('\n' + 'â•”'.repeat(70));
+        console.log('â•‘' + ' '.repeat(20) + 'âš ï¸  LIVE TRADING MODE ACTIVE  âš ï¸' + ' '.repeat(17) + 'â•‘');
+        console.log('â•‘' + ' '.repeat(68) + 'â•‘');
+        console.log('â•‘' + ' '.repeat(20) + '    REAL MONEY AT RISK!' + ' '.repeat(25) + 'â•‘');
+        console.log('â•‘' + ' '.repeat(68) + 'â•‘');
+        console.log('â•‘' + ' '.repeat(15) + 'Two-key safety confirmed. Proceeding...' + ' '.repeat(14) + 'â•‘');
+        console.log('â•š'.repeat(70) + '\n');
 
         // 10-second countdown
         console.log('Starting in:');
@@ -699,13 +699,13 @@ class OGZPrimeV14Bot {
           process.stdout.write(`\r  ${i} seconds...`);
           require('child_process').execSync('sleep 1');
         }
-        console.log('\r  🚀 LIVE TRADING ENGAGED!\n');
+        console.log('\r  ðŸš€ LIVE TRADING ENGAGED!\n');
 
         this.mode = 'LIVE';
       }
     } else {
       // Paper mode
-      console.log('📝 PAPER TRADING MODE (safe mode)');
+      console.log('ðŸ“ PAPER TRADING MODE (safe mode)');
       this.mode = 'PAPER';
     }
   }
@@ -718,38 +718,38 @@ class OGZPrimeV14Bot {
     // Bot connects to WebSocket relay on port 3010
     const wsUrl = process.env.WS_URL || 'ws://localhost:3010/ws';
 
-    console.log(`\n📊 Connecting to Dashboard WebSocket at ${wsUrl}...`);
+    console.log(`\nðŸ“Š Connecting to Dashboard WebSocket at ${wsUrl}...`);
 
     try {
       this.dashboardWs = new WebSocket(wsUrl);
 
       this.dashboardWs.on('open', () => {
-        console.log('✅ Dashboard WebSocket connected!');
+        console.log('âœ… Dashboard WebSocket connected!');
         this.dashboardWsConnected = true;
         this.lastPongReceived = Date.now(); // CHANGE 2026-01-28: Track pong for heartbeat
 
-        // 🔒 SECURITY (Change 582): Authenticate first before sending any data
+        // ðŸ”’ SECURITY (Change 582): Authenticate first before sending any data
         const authToken = process.env.WEBSOCKET_AUTH_TOKEN || 'CHANGE_ME_IN_PRODUCTION';
         if (!authToken || authToken === 'CHANGE_ME_IN_PRODUCTION') {
-          console.error('⚠️ WEBSOCKET_AUTH_TOKEN not set in .env - using default token');
+          console.error('âš ï¸ WEBSOCKET_AUTH_TOKEN not set in .env - using default token');
         }
 
         this.dashboardWs.send(JSON.stringify({
           type: 'auth',
           token: authToken
         }));
-        console.log('🔐 Sent authentication to dashboard');
+        console.log('ðŸ” Sent authentication to dashboard');
 
         // DON'T send identify here - wait for auth_success message
       });
 
       this.dashboardWs.on('error', (error) => {
-        console.error('⚠️ Dashboard WebSocket error:', error.message);
+        console.error('âš ï¸ Dashboard WebSocket error:', error.message);
         this.dashboardWsConnected = false;
       });
 
       this.dashboardWs.on('close', () => {
-        console.log('⚠️ Dashboard WebSocket closed - reconnecting in 2s...');
+        console.log('âš ï¸ Dashboard WebSocket closed - reconnecting in 2s...');
         this.dashboardWsConnected = false;
         // CHANGE 2026-01-31: Clear both intervals on close
         if (this.heartbeatInterval) {
@@ -775,7 +775,7 @@ class OGZPrimeV14Bot {
 
           // Handle authentication success
           if (msg.type === 'auth_success') {
-            console.log('🔓 Dashboard authentication successful!');
+            console.log('ðŸ”“ Dashboard authentication successful!');
 
             // Now send identify message after successful auth
             this.dashboardWs.send(JSON.stringify({
@@ -806,7 +806,7 @@ class OGZPrimeV14Bot {
 
           // Handle authentication errors
           if (msg.type === 'error') {
-            console.error('❌ Dashboard error:', msg.message);
+            console.error('âŒ Dashboard error:', msg.message);
             return;
           }
 
@@ -820,7 +820,7 @@ class OGZPrimeV14Bot {
           // Fetch REAL historical data from Kraken REST API, not just cached WebSocket data
           if (msg.type === 'timeframe_change') {
             const newTimeframe = msg.timeframe || '1m';
-            console.log(`📊 Dashboard timeframe changed to: ${newTimeframe}`);
+            console.log(`ðŸ“Š Dashboard timeframe changed to: ${newTimeframe}`);
             this.dashboardTimeframe = newTimeframe;
 
             // Fetch historical candles from Kraken REST API
@@ -848,7 +848,7 @@ class OGZPrimeV14Bot {
 
           // CHANGE 665: Handle profile switching and dashboard commands
           if (msg.type === 'command') {
-            console.log('📨 Dashboard command received:', msg.command);
+            console.log('ðŸ“¨ Dashboard command received:', msg.command);
 
             // Profile switching (manual only - does NOT affect confidence)
             if (msg.command === 'switch_profile' && msg.profile) {
@@ -883,7 +883,7 @@ class OGZPrimeV14Bot {
             // PAUSE TRADING - Manual safety stop from dashboard
             else if (msg.command === 'pause_trading') {
               const reason = msg.reason || 'Manual pause from dashboard';
-              console.log('🛑 [Dashboard] Pause command received:', reason);
+              console.log('ðŸ›‘ [Dashboard] Pause command received:', reason);
               stateManager.pauseTrading(reason);
               this.dashboardWs.send(JSON.stringify({
                 type: 'pause_confirmed',
@@ -894,7 +894,7 @@ class OGZPrimeV14Bot {
 
             // RESUME TRADING - Manual resume from dashboard
             else if (msg.command === 'resume_trading') {
-              console.log('✅ [Dashboard] Resume command received');
+              console.log('âœ… [Dashboard] Resume command received');
               stateManager.resumeTrading();
               this.dashboardWs.send(JSON.stringify({
                 type: 'resume_confirmed',
@@ -905,16 +905,16 @@ class OGZPrimeV14Bot {
 
           // TRAI Chat Support - Tech support queries from dashboard
           if (msg.type === 'trai_query' && this.trai) {
-            console.log('🧠 [TRAI] Received chat query:', msg.query?.substring(0, 50) + '...');
+            console.log('ðŸ§  [TRAI] Received chat query:', msg.query?.substring(0, 50) + '...');
             this.handleTraiQuery(msg);
           }
         } catch (error) {
-          console.error('❌ Dashboard message parse error:', error.message);
+          console.error('âŒ Dashboard message parse error:', error.message);
         }
       });
 
     } catch (error) {
-      console.error('❌ Dashboard WebSocket initialization failed:', error.message);
+      console.error('âŒ Dashboard WebSocket initialization failed:', error.message);
       this.dashboardWsConnected = false;
     }
   }
@@ -945,25 +945,25 @@ class OGZPrimeV14Bot {
     this.heartbeatInterval = setInterval(() => {
       // Check if socket exists and thinks it's open
       if (!this.dashboardWs) {
-        console.log('⚠️ [Heartbeat] No WebSocket instance - triggering reconnect');
+        console.log('âš ï¸ [Heartbeat] No WebSocket instance - triggering reconnect');
         this.initializeDashboardWebSocket();
         return;
       }
 
       const state = this.dashboardWs.readyState;
       if (state !== 1) {
-        console.log(`⚠️ [Heartbeat] Socket not open (readyState=${state}) - waiting for reconnect`);
+        console.log(`âš ï¸ [Heartbeat] Socket not open (readyState=${state}) - waiting for reconnect`);
         return;
       }
 
       // Check if last pong is too old
       const timeSinceLastPong = Date.now() - (this.lastPongReceived || 0);
       if (timeSinceLastPong > PONG_TIMEOUT) {
-        console.log('💔 [Heartbeat] TIMEOUT - no pong in ' + Math.round(timeSinceLastPong/1000) + 's - forcing reconnect');
+        console.log('ðŸ’” [Heartbeat] TIMEOUT - no pong in ' + Math.round(timeSinceLastPong/1000) + 's - forcing reconnect');
         try {
           this.dashboardWs.terminate();
         } catch (e) {
-          console.error('❌ [Heartbeat] Terminate failed:', e.message);
+          console.error('âŒ [Heartbeat] Terminate failed:', e.message);
         }
         return;
       }
@@ -972,7 +972,7 @@ class OGZPrimeV14Bot {
       try {
         this.dashboardWs.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
       } catch (err) {
-        console.error('❌ [Heartbeat] Ping failed:', err.message, '- forcing reconnect');
+        console.error('âŒ [Heartbeat] Ping failed:', err.message, '- forcing reconnect');
         try {
           this.dashboardWs.terminate();
         } catch (e) {}
@@ -987,16 +987,16 @@ class OGZPrimeV14Bot {
 
       const timeSinceData = Date.now() - (this.lastDashboardMessageReceived || 0);
       if (timeSinceData > DATA_TIMEOUT) {
-        console.log('🚨 [Watchdog] NO DATA for ' + Math.round(timeSinceData/1000) + 's - forcing reconnect');
+        console.log('ðŸš¨ [Watchdog] NO DATA for ' + Math.round(timeSinceData/1000) + 's - forcing reconnect');
         try {
           this.dashboardWs.terminate();
         } catch (e) {
-          console.error('❌ [Watchdog] Terminate failed:', e.message);
+          console.error('âŒ [Watchdog] Terminate failed:', e.message);
         }
       }
     }, 30000); // Check every 30s
 
-    console.log('💓 Heartbeat started (ping every 15s, pong timeout 30s, data timeout 60s)');
+    console.log('ðŸ’“ Heartbeat started (ping every 15s, pong timeout 30s, data timeout 60s)');
   }
 
   /**
@@ -1015,13 +1015,13 @@ class OGZPrimeV14Bot {
           // Filter out candles older than 4 hours (stale data)
           const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
           this.priceHistory = saved.filter(c => c.t > fourHoursAgo);
-          console.log(`📂 Loaded ${this.priceHistory.length} candles from disk (filtered from ${saved.length})`);
+          console.log(`ðŸ“‚ Loaded ${this.priceHistory.length} candles from disk (filtered from ${saved.length})`);
         }
       } else {
-        console.log('📂 No saved candle history found - starting fresh');
+        console.log('ðŸ“‚ No saved candle history found - starting fresh');
       }
     } catch (error) {
-      console.error('⚠️ Failed to load candle history:', error.message);
+      console.error('âš ï¸ Failed to load candle history:', error.message);
       this.priceHistory = [];
     }
   }
@@ -1041,7 +1041,7 @@ class OGZPrimeV14Bot {
       fs.writeFileSync(candleFile, JSON.stringify(toSave));
       // Silent save - only log errors
     } catch (error) {
-      console.error('⚠️ Failed to save candle history:', error.message);
+      console.error('âš ï¸ Failed to save candle history:', error.message);
     }
   }
 
@@ -1049,16 +1049,16 @@ class OGZPrimeV14Bot {
    * Start the trading bot
    */
   async start() {
-    console.log('🚀 Starting OGZ Prime V14 MERGED...\n');
+    console.log('ðŸš€ Starting OGZ Prime V14 MERGED...\n');
     this.isRunning = true;
 
-    // 🤖 Initialize TRAI Decision Module (Change 574)
+    // ðŸ¤– Initialize TRAI Decision Module (Change 574)
     if (this.trai) {
       try {
         await this.trai.initialize();
-        console.log('✅ TRAI Decision Module initialized - IN THE HOT PATH!\n');
+        console.log('âœ… TRAI Decision Module initialized - IN THE HOT PATH!\n');
       } catch (error) {
-        console.error('⚠️ TRAI initialization failed:', error.message);
+        console.error('âš ï¸ TRAI initialization failed:', error.message);
         console.log('   Bot will continue without TRAI...\n');
         this.trai = null;
       }
@@ -1067,10 +1067,10 @@ class OGZPrimeV14Bot {
     try {
       // FEATURE FLAG: Backtest mode uses historical data, Live/Paper use WebSocket
       if (this.config.enableBacktestMode) {
-        console.log('📊 BACKTEST MODE: Loading historical data...');
+        console.log('ðŸ“Š BACKTEST MODE: Loading historical data...');
         await this.loadHistoricalDataAndBacktest();
       } else {
-        console.log('📡 LIVE/PAPER MODE: Connecting to real-time data...');
+        console.log('ðŸ“¡ LIVE/PAPER MODE: Connecting to real-time data...');
         // V2 ARCHITECTURE: Get market data from BrokerFactory
         // Subscribe to broker events instead of direct connection
         this.subscribeToMarketData();
@@ -1079,9 +1079,9 @@ class OGZPrimeV14Bot {
 
         // EVENT LOOP MONITORING: DISABLED 2026-02-04
         // if (this.eventLoopMonitor) {
-        //   console.log('⚡ Starting event loop monitoring...');
+        //   console.log('âš¡ Starting event loop monitoring...');
         //   this.eventLoopMonitor.start();
-        //   console.log('✅ Event loop monitor active');
+        //   console.log('âœ… Event loop monitor active');
         // }
 
         // CHANGE 2026-02-10: Initialize Multi-Asset Manager
@@ -1093,10 +1093,10 @@ class OGZPrimeV14Bot {
         // Start trading cycle
         this.startTradingCycle();
 
-        console.log('✅ Bot is now LIVE and trading\n');
+        console.log('âœ… Bot is now LIVE and trading\n');
       }
     } catch (error) {
-      console.error('❌ Startup failed:', error.message);
+      console.error('âŒ Startup failed:', error.message);
       await this.shutdown();
     }
   }
@@ -1106,7 +1106,7 @@ class OGZPrimeV14Bot {
    * Single source of truth - no direct connections
    */
   subscribeToMarketData() {
-    console.log('📡 V2 ARCHITECTURE: Subscribing to market data from BrokerFactory...');
+    console.log('ðŸ“¡ V2 ARCHITECTURE: Subscribing to market data from BrokerFactory...');
 
     if (this.kraken) {
       // Start market data subscription immediately
@@ -1115,7 +1115,7 @@ class OGZPrimeV14Bot {
 
       // Subscribe to candles if method exists
       if (this.kraken.subscribeToCandles) {
-        console.log(`🔌 Starting ${symbol} ${timeframe} subscription...`);
+        console.log(`ðŸ”Œ Starting ${symbol} ${timeframe} subscription...`);
         this.kraken.subscribeToCandles(symbol, timeframe);
       }
 
@@ -1131,21 +1131,21 @@ class OGZPrimeV14Bot {
 
           // Only process 1m candles through trading logic
           if (timeframe === '1m') {
-            console.log('📊 V2: Received 1m OHLC from broker');
+            console.log('ðŸ“Š V2: Received 1m OHLC from broker');
             this.handleMarketData(ohlcData);
           }
         });
 
         this.kraken.on('ticker', (data) => {
           if (data && data.price) {
-            console.log(`💹 V2 Ticker: $${data.price}`);
+            console.log(`ðŸ’¹ V2 Ticker: $${data.price}`);
           }
         });
 
-        console.log('✅ V2: Subscribed to BrokerFactory events (single source of truth)');
+        console.log('âœ… V2: Subscribed to BrokerFactory events (single source of truth)');
       }
     } else {
-      console.error('❌ Broker not initialized');
+      console.error('âŒ Broker not initialized');
     }
   }
 
@@ -1158,7 +1158,7 @@ class OGZPrimeV14Bot {
 
     // OHLC data is array: [time, etime, open, high, low, close, vwap, volume, count]
     if (!Array.isArray(ohlcData) || ohlcData.length < 8) {
-      console.warn('⚠️ Invalid OHLC data format:', ohlcData);
+      console.warn('âš ï¸ Invalid OHLC data format:', ohlcData);
       return;
     }
 
@@ -1175,11 +1175,11 @@ class OGZPrimeV14Bot {
 
     // If data is more than 2 minutes old, it's stale (but NOT during backtesting!)
     if (dataAge > 120000 && !isBacktesting) {
-      console.error('🚨 STALE DATA:', Math.round(dataAge / 1000), 'seconds old');
+      console.error('ðŸš¨ STALE DATA:', Math.round(dataAge / 1000), 'seconds old');
 
       // AUTO-PAUSE TRADING
       if (!this.staleFeedPaused) {
-        console.error('⏸️ PAUSING NEW ENTRIES DUE TO STALE DATA');
+        console.error('â¸ï¸ PAUSING NEW ENTRIES DUE TO STALE DATA');
         this.staleFeedPaused = true;
 
         // Notify StateManager to pause
@@ -1193,7 +1193,7 @@ class OGZPrimeV14Bot {
       }
     } else if (this.staleFeedPaused && dataAge < 30000) {
       // Data is fresh again - resume
-      console.log('✅ Fresh data restored, resuming');
+      console.log('âœ… Fresh data restored, resuming');
       this.staleFeedPaused = false;
       this.feedRecoveryCandles = 0;
       stateManager.resumeTrading();
@@ -1231,7 +1231,7 @@ class OGZPrimeV14Bot {
         const h = Math.round(candle.h);
         const l = Math.round(candle.l);
         const c = Math.round(candle.c);
-        console.log(`🕯️ Candle #${this.priceHistory.length} [${candleTime}]: $${c.toLocaleString()} (H:${h.toLocaleString()} L:${l.toLocaleString()})`);
+        console.log(`ðŸ•¯ï¸ Candle #${this.priceHistory.length} [${candleTime}]: $${c.toLocaleString()} (H:${h.toLocaleString()} L:${l.toLocaleString()})`);
       }
     } else {
       // New candle (new minute) - etime changed
@@ -1246,7 +1246,7 @@ class OGZPrimeV14Bot {
       // Only log during warmup phase (first 20 candles)
       if (this.priceHistory.length <= 20) {
         const candleTime = new Date(candle.t).toLocaleTimeString();
-        console.log(`✅ Candle #${this.priceHistory.length}/15 [${candleTime}]`);
+        console.log(`âœ… Candle #${this.priceHistory.length}/15 [${candleTime}]`);
       }
 
       if (this.priceHistory.length > 200) {
@@ -1396,11 +1396,11 @@ class OGZPrimeV14Bot {
   async fetchAndSendHistoricalCandles(timeframe, limit = 200) {
     try {
       if (!this.kraken || !this.dashboardWs) {
-        console.warn('⚠️ Cannot fetch historical candles - broker or dashboard not connected');
+        console.warn('âš ï¸ Cannot fetch historical candles - broker or dashboard not connected');
         return;
       }
 
-      console.log(`📊 Fetching ${limit} historical ${timeframe} candles from Kraken REST API...`);
+      console.log(`ðŸ“Š Fetching ${limit} historical ${timeframe} candles from Kraken REST API...`);
 
       // CHANGE 2026-02-10: Use active asset from MultiAssetManager if available
       const symbol = this.assetManager
@@ -1419,9 +1419,9 @@ class OGZPrimeV14Bot {
           candles: candles
         }));
 
-        console.log(`✅ Sent ${candles.length} historical ${timeframe} candles to dashboard`);
+        console.log(`âœ… Sent ${candles.length} historical ${timeframe} candles to dashboard`);
       } else {
-        console.warn(`⚠️ No historical candles returned for ${timeframe}`);
+        console.warn(`âš ï¸ No historical candles returned for ${timeframe}`);
         // Fall back to cached WebSocket data if available
         const cached = this.getCandlesForTimeframe(timeframe);
         if (cached.length > 0) {
@@ -1430,11 +1430,11 @@ class OGZPrimeV14Bot {
             timeframe: timeframe,
             candles: cached
           }));
-          console.log(`📊 Sent ${cached.length} cached ${timeframe} candles as fallback`);
+          console.log(`ðŸ“Š Sent ${cached.length} cached ${timeframe} candles as fallback`);
         }
       }
     } catch (error) {
-      console.error(`❌ Failed to fetch historical ${timeframe} candles:`, error.message);
+      console.error(`âŒ Failed to fetch historical ${timeframe} candles:`, error.message);
       // Fall back to cached data
       const cached = this.getCandlesForTimeframe(timeframe);
       if (cached.length > 0 && this.dashboardWs) {
@@ -1456,19 +1456,19 @@ class OGZPrimeV14Bot {
     this.tradingInterval = setInterval(async () => {
       // Reduced to 3 candles - fuck the over-engineering
       if (!this.marketData || this.priceHistory.length < 3) {
-        console.log(`⏳ Warming up... ${this.priceHistory.length}/3 candles`);
+        console.log(`â³ Warming up... ${this.priceHistory.length}/3 candles`);
         return;
       }
 
       try {
         await this.analyzeAndTrade();
       } catch (error) {
-        console.error('❌ Trading cycle error:', error.message);
+        console.error('âŒ Trading cycle error:', error.message);
         console.error(error.stack);
       }
     }, interval);
 
-    console.log(`⏰ Trading cycle started (${interval}ms interval)`);
+    console.log(`â° Trading cycle started (${interval}ms interval)`);
 
     // CHANGE 2026-01-16: Liveness watchdog - catches "no data at all" scenario
     this.startLivenessWatchdog();
@@ -1491,8 +1491,8 @@ class OGZPrimeV14Bot {
       const silenceDuration = Date.now() - this.lastDataReceived;
 
       if (silenceDuration > MAX_DATA_SILENCE && !this.staleFeedPaused) {
-        console.error('🚨🚨🚨 LIVENESS WATCHDOG: NO DATA RECEIVED FOR', Math.round(silenceDuration / 1000), 'SECONDS');
-        console.error('⏸️ PAUSING TRADING - DATA FEED APPEARS DEAD');
+        console.error('ðŸš¨ðŸš¨ðŸš¨ LIVENESS WATCHDOG: NO DATA RECEIVED FOR', Math.round(silenceDuration / 1000), 'SECONDS');
+        console.error('â¸ï¸ PAUSING TRADING - DATA FEED APPEARS DEAD');
         this.staleFeedPaused = true;
 
         // Notify StateManager to pause
@@ -1506,7 +1506,7 @@ class OGZPrimeV14Bot {
       }
     }, LIVENESS_CHECK_INTERVAL);
 
-    console.log('🔍 Liveness watchdog started (checks every 60s, alerts if no data for 2min)');
+    console.log('ðŸ” Liveness watchdog started (checks every 60s, alerts if no data for 2min)');
   }
 
   /**
@@ -1551,7 +1551,7 @@ class OGZPrimeV14Bot {
       const rsiJump = Math.abs(indicators.rsi - lastRSI);
 
       if (rsiJump > 30) {
-        console.log(`🔄 RSI Smoothing: Jump ${lastRSI.toFixed(1)}→${indicators.rsi.toFixed(1)} smoothed to ${smoothedRSI.toFixed(1)}`);
+        console.log(`ðŸ”„ RSI Smoothing: Jump ${lastRSI.toFixed(1)}â†’${indicators.rsi.toFixed(1)} smoothed to ${smoothedRSI.toFixed(1)}`);
         indicators.rsi = smoothedRSI;
       }
     }
@@ -1575,7 +1575,7 @@ class OGZPrimeV14Bot {
       patterns.forEach(pattern => {
         const signature = pattern.signature || pattern.name || 'unknown_pattern';
         if (!signature || signature === 'unknown_pattern') {
-          console.warn('⚠️ Pattern missing proper signature, using generic fallback:', pattern);
+          console.warn('âš ï¸ Pattern missing proper signature, using generic fallback:', pattern);
           // Don't return - still record for statistics even with generic signature
         }
 
@@ -1584,7 +1584,7 @@ class OGZPrimeV14Bot {
 
         // DEBUG: Check what we're getting
         if (!Array.isArray(pattern.features)) {
-          console.error('❌ Pattern features is not an array:', {
+          console.error('âŒ Pattern features is not an array:', {
             type: typeof pattern.features,
             value: pattern.features,
             pattern: pattern
@@ -1597,7 +1597,7 @@ class OGZPrimeV14Bot {
           featuresForRecording = pattern.features;
         } else {
           // Create fallback array from indicators
-          console.warn('⚠️ Creating fallback features array');
+          console.warn('âš ï¸ Creating fallback features array');
           // FIX 2026-02-01: Convert trend to numeric if string (bullish=1, bearish=-1, else=0)
         const trendNumeric = typeof indicators.trend === 'string'
           ? (indicators.trend === 'bullish' || indicators.trend === 'uptrend' ? 1 :
@@ -1635,7 +1635,7 @@ class OGZPrimeV14Bot {
         memorySize: this.patternChecker.getMemorySize ? this.patternChecker.getMemorySize() : 0
       });
 
-      console.log(`📊 Recorded ${patterns.length} patterns for learning`);
+      console.log(`ðŸ“Š Recorded ${patterns.length} patterns for learning`);
     }
 
     // Update OGZ Two-Pole Oscillator with latest candle
@@ -1643,17 +1643,17 @@ class OGZPrimeV14Bot {
     if (this.ogzTpo && this.priceHistory.length > 0) {
       const latestCandle = this.priceHistory[this.priceHistory.length - 1];
       tpoResult = this.ogzTpo.update({
-        o: latestCandle.open,
-        h: latestCandle.high,
-        l: latestCandle.low,
-        c: latestCandle.close,
+        o: latestCandle.o,
+        h: latestCandle.h,
+        l: latestCandle.l,
+        c: latestCandle.c,
         t: latestCandle.time || Date.now()
       });
 
       if (tpoResult.signal) {
-        console.log(`\n🎯 OGZ TPO Signal: ${tpoResult.signal.action} (${tpoResult.signal.zone})`);
+        console.log(`\nðŸŽ¯ OGZ TPO Signal: ${tpoResult.signal.action} (${tpoResult.signal.zone})`);
         console.log(`   Strength: ${(tpoResult.signal.strength * 100).toFixed(2)}%`);
-        console.log(`   High Probability: ${tpoResult.signal.highProbability ? '⭐ YES' : 'NO'}`);
+        console.log(`   High Probability: ${tpoResult.signal.highProbability ? 'â­ YES' : 'NO'}`);
         if (tpoResult.signal.levels) {
           console.log(`   SL: $${tpoResult.signal.levels.stopLoss.toFixed(2)}`);
           console.log(`   TP: $${tpoResult.signal.levels.takeProfit.toFixed(2)}`);
@@ -1664,11 +1664,21 @@ class OGZPrimeV14Bot {
     // NOTE: PreviousDayRangeStrategy removed (was using wrong property names c.high vs c.h)
     // Will be re-implemented with correct math when user provides specs
 
-    // 📡 Broadcast pattern analysis to dashboard
+    // ðŸ“¡ Broadcast pattern analysis to dashboard
     this.broadcastPatternAnalysis(patterns, indicators);
 
     // Detect market regime
-    const regime = this.regimeDetector.detectRegime(this.priceHistory);
+    // FIX 2026-02-15: Call analyzeMarket() not detectRegime()
+    // detectRegime() takes no args (ignores priceHistory), returns a plain string,
+    // but downstream reads regime.currentRegime — getting undefined → 'unknown'.
+    // analyzeMarket() processes candles, populates metrics, returns {regime, confidence, parameters}.
+    const regimeResult = this.regimeDetector.analyzeMarket(this.priceHistory, indicators);
+    const regime = {
+      currentRegime: regimeResult?.regime || this.regimeDetector.currentRegime || 'unknown',
+      confidence: regimeResult?.confidence || 0,
+      parameters: regimeResult?.parameters || {}
+    };
+    this.marketRegime = regime;  // Store for downstream reads (line 1928+)
 
     // Change 596: Use TradingBrain.getDecision() instead of calculateRealConfidence()
     // This properly integrates direction + confidence from TradingBrain's analysis
@@ -1685,7 +1695,7 @@ class OGZPrimeV14Bot {
       mtfAdapter: this.mtfAdapter
     };
 
-    // 🔧 FIX: Pass priceData to TradingBrain for MarketRegimeDetector
+    // ðŸ”§ FIX: Pass priceData to TradingBrain for MarketRegimeDetector
     this.tradingBrain.priceData = this.priceHistory;
 
     // FIX BRAIN_001: Apply AGGRESSIVE_LEARNING_MODE threshold BEFORE TradingBrain decides
@@ -1697,7 +1707,7 @@ class OGZPrimeV14Bot {
       this.tradingBrain.config.minConfidenceThreshold = aggressiveThreshold;
       // Log once per minute to avoid spam
       if (!this._lastAggLog || Date.now() - this._lastAggLog > 60000) {
-        console.log(`🔥 AGGRESSIVE LEARNING: TradingBrain threshold set to ${(aggressiveThreshold * 100).toFixed(0)}%`);
+        console.log(`ðŸ”¥ AGGRESSIVE LEARNING: TradingBrain threshold set to ${(aggressiveThreshold * 100).toFixed(0)}%`);
         this._lastAggLog = Date.now();
       }
     }
@@ -1720,23 +1730,23 @@ class OGZPrimeV14Bot {
     const currentPosition = stateManager.get('position');
     if (tradingDirection === 'sell' && currentPosition === 0) {
       // SPOT MARKET: Can only sell what we own - no position means nothing to sell
-      console.log('🚫 TradingBrain said SELL but no position to sell (SPOT market) - converting to HOLD');
+      console.log('ðŸš« TradingBrain said SELL but no position to sell (SPOT market) - converting to HOLD');
       tradingDirection = 'hold';
     } else if (tradingDirection === 'sell' && currentPosition > 0) {
       // CHANGE 638: Allow SELL to proceed when we have a position
       // MaxProfitManager was never being checked due to this conversion to HOLD
-      console.log('📊 TradingBrain bearish - executing SELL of position');
+      console.log('ðŸ“Š TradingBrain bearish - executing SELL of position');
       // Let the SELL proceed instead of converting to HOLD
     }
 
     // TEST MODE: Use patterns for decisions but DON'T save new patterns
     let rawConfidence = brainDecision.confidence;
     if (this.config.tradingMode === 'TEST') {
-      console.log(`🧪 TEST MODE: Using EXISTING patterns (${patterns.length} found) but NOT saving new ones`);
+      console.log(`ðŸ§ª TEST MODE: Using EXISTING patterns (${patterns.length} found) but NOT saving new ones`);
       if (process.env.TEST_CONFIDENCE) {
         const testConfidence = parseFloat(process.env.TEST_CONFIDENCE);
         rawConfidence = testConfidence / 100;
-        console.log(`🧪 Override confidence: ${testConfidence}% (was ${(brainDecision.confidence * 100).toFixed(1)}%)`);
+        console.log(`ðŸ§ª Override confidence: ${testConfidence}% (was ${(brainDecision.confidence * 100).toFixed(1)}%)`);
       }
     }
 
@@ -1744,7 +1754,7 @@ class OGZPrimeV14Bot {
       totalConfidence: rawConfidence * 100
     };
 
-    // 🤖 STEP 5: TRAI DECISION PROCESSING (IN THE HOT PATH - Change 574)
+    // ðŸ¤– STEP 5: TRAI DECISION PROCESSING (IN THE HOT PATH - Change 574)
     let finalConfidence = confidenceData.totalConfidence;
     let traiDecision = null;
 
@@ -1755,7 +1765,7 @@ class OGZPrimeV14Bot {
       try {
         // Prepare signal for TRAI (Change 596: Use TradingBrain's direction, not trend)
         const signal = {
-          action: tradingDirection.toUpperCase(), // 'buy' → 'BUY', 'sell' → 'SELL', 'hold' → 'HOLD'
+          action: tradingDirection.toUpperCase(), // 'buy' â†’ 'BUY', 'sell' â†’ 'SELL', 'hold' â†’ 'HOLD'
           confidence: rawConfidence,
           patterns: patterns,
           indicators: indicators,
@@ -1774,36 +1784,24 @@ class OGZPrimeV14Bot {
           currentPosition: stateManager.get('position')
         };
 
-        // CHANGE 2025-12-13: TRAI DISABLED FOR CLEAN PROFESSIONAL LOGS
-        // TRAI was async but still cluttering output
-        // Pure mathematical trading only - no AI interference
-
-        /* DISABLED - Uncomment to re-enable TRAI learning
+        // FIX 2026-02-14: TRAI ASYNC OBSERVER — learns from trades, doesn't touch confidence
+        // Observes every decision async, stores for learning feedback at trade close,
+        // feeds dashboard widget, builds PatternMemoryBank for promotion/quarantine.
+        // finalConfidence is NEVER modified — pure math stays in control.
         this.trai.processDecision(signal, context)
           .then(decision => {
-            // Log when TRAI completes (async)
-            console.log(`🤖 [TRAI Async] Completed: ${(decision.traiConfidence * 100).toFixed(1)}% → ${(decision.finalConfidence * 100).toFixed(1)}% | ${decision.traiRecommendation}`);
-
-            // Store for post-trade learning (but don't block)
-            if (decision.id) {
-              this.pendingTraiDecisions.set(`async_${Date.now()}`, {
-                decisionId: decision.id,
-                originalConfidence: decision.originalConfidence,
-                traiConfidence: decision.traiConfidence,
-                timestamp: Date.now()
-              });
+            if (decision && decision.id) {
+              this._lastTraiDecision = decision;  // Hold until executeTrade gives us orderId
             }
           })
           .catch(err => {
             console.warn('⚠️ [TRAI Async] Error (non-blocking):', err.message);
           });
-        */
 
         // CRITICAL: Do NOT wait for TRAI - use mathematical confidence immediately
         // finalConfidence stays at rawConfidence - TRAI no longer affects real-time decisions
-
       } catch (error) {
-        console.error('⚠️ TRAI processing error:', error.message);
+        console.error('âš ï¸ TRAI processing error:', error.message);
         // Continue with original confidence
       }
     }
@@ -1812,7 +1810,7 @@ class OGZPrimeV14Bot {
     const bestPattern = patterns.length > 0 ? patterns[0].name : 'none';
     // CHANGE 634: Clean human-readable output
     const cleanPrice = Math.round(price).toLocaleString();
-    console.log(`\n📊 $${cleanPrice} | Conf: ${confidenceData.totalConfidence.toFixed(0)}% | RSI: ${Math.round(indicators.rsi)} | ${indicators.trend} | ${regime.currentRegime || 'analyzing'}`);
+    console.log(`\nðŸ“Š $${cleanPrice} | Conf: ${confidenceData.totalConfidence.toFixed(0)}% | RSI: ${Math.round(indicators.rsi)} | ${indicators.trend} | ${regime.currentRegime || 'analyzing'}`);
 
     // CHECK FOR STRONG INDICATOR SIGNALS (TPO) THAT CAN OVERRIDE
     let overrideSignal = null;
@@ -1820,7 +1818,7 @@ class OGZPrimeV14Bot {
 
     // Check if TPO has a high-probability signal
     if (tpoResult && tpoResult.signal && tpoResult.signal.highProbability) {
-      console.log(`\n⚡ TPO Override: High probability ${tpoResult.signal.zone} signal`);
+      console.log(`\nâš¡ TPO Override: High probability ${tpoResult.signal.zone} signal`);
 
       if (tpoResult.signal.strength > 0.03) {
         overrideSignal = tpoResult.signal;
@@ -1843,11 +1841,11 @@ class OGZPrimeV14Bot {
       if (overrideSignal.levels) {
         decision.suggestedStopLoss = overrideSignal.levels.stopLoss || overrideSignal.stop;
         decision.suggestedTakeProfit = overrideSignal.levels.takeProfit || overrideSignal.target1;
-        console.log(`   📍 Using ${signalSource} levels: SL=$${decision.suggestedStopLoss?.toFixed(2)}, TP=$${decision.suggestedTakeProfit?.toFixed(2)}`);
+        console.log(`   ðŸ“ Using ${signalSource} levels: SL=$${decision.suggestedStopLoss?.toFixed(2)}, TP=$${decision.suggestedTakeProfit?.toFixed(2)}`);
       } else if (overrideSignal.stop && overrideSignal.target1) {
         decision.suggestedStopLoss = overrideSignal.stop;
         decision.suggestedTakeProfit = overrideSignal.target1;
-        console.log(`   📍 Using ${signalSource} levels: SL=$${decision.suggestedStopLoss.toFixed(2)}, TP=$${decision.suggestedTakeProfit.toFixed(2)}`);
+        console.log(`   ðŸ“ Using ${signalSource} levels: SL=$${decision.suggestedStopLoss.toFixed(2)}, TP=$${decision.suggestedTakeProfit.toFixed(2)}`);
       }
     }
 
@@ -1887,7 +1885,7 @@ class OGZPrimeV14Bot {
 
       try {
         this.dashboardWs.send(JSON.stringify(chainOfThought));
-        console.log(`🧠 [TRAI] Chain-of-thought sent to dashboard: ${decision.action}`);
+        console.log(`ðŸ§  [TRAI] Chain-of-thought sent to dashboard: ${decision.action}`);
       } catch (err) {
         console.error('Failed to send TRAI reasoning to dashboard:', err.message);
       }
@@ -1913,7 +1911,7 @@ class OGZPrimeV14Bot {
     if (flagManager.isEnabled('AGGRESSIVE_LEARNING_MODE')) {
       const aggressiveThreshold = flagManager.getSetting('AGGRESSIVE_LEARNING_MODE', 'minConfidenceThreshold', 55);
       if (aggressiveThreshold < minConfidence) {
-        console.log(`🔥 AGGRESSIVE LEARNING: Confidence threshold ${minConfidence}% → ${aggressiveThreshold}%`);
+        console.log(`ðŸ”¥ AGGRESSIVE LEARNING: Confidence threshold ${minConfidence}% â†’ ${aggressiveThreshold}%`);
         minConfidence = aggressiveThreshold;
       }
     }
@@ -1939,7 +1937,7 @@ class OGZPrimeV14Bot {
       const gridSignal = this.gridStrategy.getGridSignal(currentPrice, indicators);
 
       if (gridSignal.action !== 'HOLD') {
-        console.log(`\n🎯 GRID BOT SIGNAL: ${gridSignal.action} | ${gridSignal.reason}`);
+        console.log(`\nðŸŽ¯ GRID BOT SIGNAL: ${gridSignal.action} | ${gridSignal.reason}`);
         console.log(`   Grid Stats: ${gridSignal.gridStats.completedTrades} trades | $${gridSignal.gridStats.totalProfit.toFixed(2)} profit`);
 
         // Grid signals override normal trading logic
@@ -1961,7 +1959,7 @@ class OGZPrimeV14Bot {
     // Check if we should BUY (when flat) - Brain direction MUST agree
     // FIX 2026-02-05: Was buying on bearish/hold signals (~50% of positions opened wrong direction)
     if (pos === 0 && totalConfidence >= minConfidence && brainDirection === 'buy') {
-      console.log(`✅ BUY DECISION: Confidence ${totalConfidence.toFixed(1)}% >= ${minConfidence}% | Brain: ${brainDirection} - ALIGNED TRADE!`);
+      console.log(`âœ… BUY DECISION: Confidence ${totalConfidence.toFixed(1)}% >= ${minConfidence}% | Brain: ${brainDirection} - ALIGNED TRADE!`);
 
         // CHANGE 2025-12-11: Pass 2 - Include decision context and pattern quality
         return {
@@ -2047,7 +2045,7 @@ class OGZPrimeV14Bot {
           if (this.tradeIntelligenceShadowMode) {
             // Shadow mode - just log what would happen
             if (intelligenceResult.action !== 'HOLD_CAUTIOUS' && intelligenceResult.action !== 'HOLD_STRONG') {
-              console.log(`🧠 [INTELLIGENCE-SHADOW] Would recommend: ${intelligenceResult.action}`);
+              console.log(`ðŸ§  [INTELLIGENCE-SHADOW] Would recommend: ${intelligenceResult.action}`);
               console.log(`   Confidence: ${(intelligenceResult.confidence * 100).toFixed(0)}%`);
               console.log(`   Reasoning: ${intelligenceResult.reasoning.slice(0, 3).join(' | ')}`);
               console.log(`   Score breakdown: regime=${intelligenceResult.scores.regime?.score || 0}, momentum=${intelligenceResult.scores.momentum?.score || 0}, ema=${intelligenceResult.scores.ema?.score || 0}`);
@@ -2055,15 +2053,15 @@ class OGZPrimeV14Bot {
           } else if (this.activeExitSystem === 'intelligence' || this.activeExitSystem === 'legacy') {
             // ACTIVE MODE - actually use the intelligence
             if (intelligenceResult.action === 'EXIT_LOSS' && intelligenceResult.confidence > 0.7) {
-              console.log(`🧠 [INTELLIGENCE] EXIT_LOSS: ${intelligenceResult.reasoning.join(' | ')}`);
+              console.log(`ðŸ§  [INTELLIGENCE] EXIT_LOSS: ${intelligenceResult.reasoning.join(' | ')}`);
               return { action: 'SELL', direction: 'close', confidence: totalConfidence, source: 'TradeIntelligence' };
             }
             if (intelligenceResult.action === 'EXIT_PROFIT' && intelligenceResult.confidence > 0.7) {
-              console.log(`🧠 [INTELLIGENCE] EXIT_PROFIT: ${intelligenceResult.reasoning.join(' | ')}`);
+              console.log(`ðŸ§  [INTELLIGENCE] EXIT_PROFIT: ${intelligenceResult.reasoning.join(' | ')}`);
               return { action: 'SELL', direction: 'close', confidence: totalConfidence, source: 'TradeIntelligence' };
             }
             if (intelligenceResult.action === 'TRAIL_TIGHT') {
-              console.log(`🧠 [INTELLIGENCE] TRAIL_TIGHT - tightening stop`);
+              console.log(`ðŸ§  [INTELLIGENCE] TRAIL_TIGHT - tightening stop`);
               // Could adjust MaxProfitManager here
             }
           }
@@ -2079,7 +2077,7 @@ class OGZPrimeV14Bot {
          let profitResult = null;
          if (this.activeExitSystem === 'maxprofit' || this.activeExitSystem === 'legacy') {
            if (!this.tradingBrain?.maxProfitManager?.state?.active) {
-             console.log('⚠️ MaxProfitManager not active for position, will check other exit conditions');
+             console.log('âš ï¸ MaxProfitManager not active for position, will check other exit conditions');
            } else {
              profitResult = this.tradingBrain.maxProfitManager.update(currentPrice, {
              volatility: indicators.volatility || 0,
@@ -2109,7 +2107,7 @@ class OGZPrimeV14Bot {
            if (this.patternExitShadowMode) {
              // Shadow mode - just log what would happen
              if (exitDecision.exitRecommended) {
-               console.log(`🕵️ [SHADOW] Pattern Exit would trigger:`);
+               console.log(`ðŸ•µï¸ [SHADOW] Pattern Exit would trigger:`);
                console.log(`   Action: ${exitDecision.action}`);
                console.log(`   Urgency: ${exitDecision.exitUrgency}`);
                console.log(`   Exit %: ${(exitDecision.exitPercent * 100).toFixed(0)}%`);
@@ -2119,7 +2117,7 @@ class OGZPrimeV14Bot {
                  (exitDecision.adjustments.targetMultiplier !== 1.0 ||
                   exitDecision.adjustments.stopMultiplier !== 1.0 ||
                   exitDecision.adjustments.trailMultiplier !== 1.0)) {
-               console.log(`🕵️ [SHADOW] Pattern adjustments would apply:`);
+               console.log(`ðŸ•µï¸ [SHADOW] Pattern adjustments would apply:`);
                console.log(`   Target: ${exitDecision.adjustments.targetMultiplier.toFixed(2)}x`);
                console.log(`   Stop: ${exitDecision.adjustments.stopMultiplier.toFixed(2)}x`);
                console.log(`   Trail: ${exitDecision.adjustments.trailMultiplier.toFixed(2)}x`);
@@ -2127,7 +2125,7 @@ class OGZPrimeV14Bot {
            } else if (exitDecision.exitRecommended &&
                       (exitDecision.exitUrgency === 'high' || exitDecision.exitUrgency === 'critical')) {
              // Active mode - actually trigger exit on high urgency
-             console.log(`🎯 Pattern Exit ACTIVE: ${exitDecision.reasons.join(', ')}`);
+             console.log(`ðŸŽ¯ Pattern Exit ACTIVE: ${exitDecision.reasons.join(', ')}`);
              return { action: 'SELL', direction: 'close', confidence: totalConfidence * 1.2 };
            }
          }
@@ -2135,7 +2133,7 @@ class OGZPrimeV14Bot {
         // Check if MaxProfitManager signals exit (only when maxprofit or legacy active)
         // FIX 2026-02-05: Added exit_partial - tiered profit exits were silently dropped
         if (profitResult && (profitResult.action === 'exit' || profitResult.action === 'exit_full' || profitResult.action === 'exit_partial') && (this.activeExitSystem === 'maxprofit' || this.activeExitSystem === 'legacy')) {
-          console.log(`📉 SELL Signal: ${profitResult.reason || 'MaxProfitManager exit'} (${profitResult.action})`);
+          console.log(`ðŸ“‰ SELL Signal: ${profitResult.reason || 'MaxProfitManager exit'} (${profitResult.action})`);
           return { action: 'SELL', direction: 'close', confidence: totalConfidence, exitSize: profitResult.exitSize };
         }
 
@@ -2151,14 +2149,14 @@ class OGZPrimeV14Bot {
 
         // HARD STOP LOSS - ALWAYS ENFORCED
         if (pnl < -1.5) {
-          console.log(`🛑 HARD STOP LOSS: Exiting at ${pnl.toFixed(2)}% loss`);
+          console.log(`ðŸ›‘ HARD STOP LOSS: Exiting at ${pnl.toFixed(2)}% loss`);
           return { action: 'SELL', direction: 'close', confidence: totalConfidence };
         }
 
         // DISABLED 2026-02-06: Moving to 1-hour timeframe - 30min stale timer was killing trades
         // SHIT OR GET OFF THE POT - DISABLED FOR HOURLY TRADING
         // if (holdTime > 30 && pnl < feeBuffer && pnl > -1.5) {
-        //   console.log(`💩 SHIT OR GET OFF THE POT: ${holdTime.toFixed(0)} min hold, P&L: ${pnl.toFixed(2)}% - Taking the L and moving on`);
+        //   console.log(`ðŸ’© SHIT OR GET OFF THE POT: ${holdTime.toFixed(0)} min hold, P&L: ${pnl.toFixed(2)}% - Taking the L and moving on`);
         //   return { action: 'SELL', direction: 'close', confidence: totalConfidence };
         // }
 
@@ -2166,13 +2164,13 @@ class OGZPrimeV14Bot {
         if (this.activeExitSystem === 'legacy' && !this.tradingBrain?.maxProfitManager?.state?.active) {
           // Exit if profitable above fees
           if (pnl > feeBuffer) {
-            console.log(`✅ EXIT: Taking profit at ${pnl.toFixed(2)}% (covers ${feeBuffer}% fees)`);
+            console.log(`âœ… EXIT: Taking profit at ${pnl.toFixed(2)}% (covers ${feeBuffer}% fees)`);
             return { action: 'SELL', direction: 'close', confidence: totalConfidence };
           }
 
           // Exit on brain sell signal after minimum hold - BUT ONLY IF PROFITABLE
           if (brainDirection === 'sell' && holdTime > 0.5 && pnl > feeBuffer) {
-            console.log(`🧠 Brain SELL signal: Exiting after ${holdTime.toFixed(1)} min hold (P&L: ${pnl.toFixed(2)}%)`);
+            console.log(`ðŸ§  Brain SELL signal: Exiting after ${holdTime.toFixed(1)} min hold (P&L: ${pnl.toFixed(2)}%)`);
             return { action: 'SELL', direction: 'close', confidence: totalConfidence };
           }
         }
@@ -2196,19 +2194,19 @@ class OGZPrimeV14Bot {
             const pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
 
             if (holdTime >= minHoldTime && pnl > 0.35) {  // MUST COVER FEES (0.32% + buffer)
-              console.log(`🧠 Brain bearish & profitable - allowing SELL (held ${holdTime.toFixed(2)} min, PnL: ${pnl.toFixed(2)}%)`);
+              console.log(`ðŸ§  Brain bearish & profitable - allowing SELL (held ${holdTime.toFixed(2)} min, PnL: ${pnl.toFixed(2)}%)`);
               return { action: 'SELL', direction: 'close', confidence: totalConfidence };
             } else if (holdTime >= minHoldTime && pnl < -2) {
               // Emergency: Allow Brain to cut losses if down > 2%
-              console.log(`🚨 Brain emergency sell - cutting losses (PnL: ${pnl.toFixed(2)}%)`);
+              console.log(`ðŸš¨ Brain emergency sell - cutting losses (PnL: ${pnl.toFixed(2)}%)`);
               return { action: 'SELL', direction: 'close', confidence: totalConfidence };
             } else if (holdTime >= 5 && pnl < 0 && pnl >= -2) {
               // CHANGE 2026-01-25: Gradual loss exit - don't bag hold small losses forever
               // After 5 minutes, exit gracefully if losing but not yet at emergency threshold
-              console.log(`📉 Gradual exit - held ${holdTime.toFixed(1)} min at ${pnl.toFixed(2)}% loss, cutting loose`);
+              console.log(`ðŸ“‰ Gradual exit - held ${holdTime.toFixed(1)} min at ${pnl.toFixed(2)}% loss, cutting loose`);
               return { action: 'SELL', direction: 'close', confidence: totalConfidence };
             } else {
-              console.log(`🧠 Brain wants sell but conditions not met (hold: ${holdTime.toFixed(3)} min, PnL: ${pnl.toFixed(2)}%)`);
+              console.log(`ðŸ§  Brain wants sell but conditions not met (hold: ${holdTime.toFixed(3)} min, PnL: ${pnl.toFixed(2)}%)`);
             }
           }
         }
@@ -2230,7 +2228,7 @@ class OGZPrimeV14Bot {
 
         // ONLY exit on MASSIVE confidence drops (market crash scenario)
         if (confidenceDrop > 50) {
-          console.log(`📉 SELL Signal: EXTREME reversal (${confidenceDrop.toFixed(1)}% confidence drop)`);
+          console.log(`ðŸ“‰ SELL Signal: EXTREME reversal (${confidenceDrop.toFixed(1)}% confidence drop)`);
           return { action: 'SELL', direction: 'close', confidence: totalConfidence };
         }
 
@@ -2238,7 +2236,7 @@ class OGZPrimeV14Bot {
       }
     }
 
-    // 🚫 CRYPTO: NO SHORTING/MARGIN - Too risky, disabled permanently
+    // ðŸš« CRYPTO: NO SHORTING/MARGIN - Too risky, disabled permanently
     // (Shorting only enabled for stocks/forex if needed in future)
 
     // HOLD means we're uncertain - should have LOW confidence, not high!
@@ -2261,18 +2259,18 @@ class OGZPrimeV14Bot {
     });
 
     if (!gate.ok) {
-      console.log(`🛑 RATE LIMIT: ${gate.reason} - ${gate.message}`);
+      console.log(`ðŸ›‘ RATE LIMIT: ${gate.reason} - ${gate.message}`);
       if (gate.retryInMs) {
-        console.log(`⏱️ Retry in ${(gate.retryInMs/1000).toFixed(1)}s`);
+        console.log(`â±ï¸ Retry in ${(gate.retryInMs/1000).toFixed(1)}s`);
       }
       return; // Block only entries, exits always allowed
     }
 
     // Log allowed trade
-    console.log(`\n🎯 ${decision.action} SIGNAL @ $${price.toFixed(2)} | Confidence: ${decision.confidence.toFixed(1)}%`);
+    console.log(`\nðŸŽ¯ ${decision.action} SIGNAL @ $${price.toFixed(2)} | Confidence: ${decision.confidence.toFixed(1)}%`);
 
     // CHECKPOINT 1: Entry
-    console.log(`📍 CP1: executeTrade ENTRY - Balance: $${stateManager.get('balance')}, Position: ${stateManager.get('position')}`);
+    console.log(`ðŸ“ CP1: executeTrade ENTRY - Balance: $${stateManager.get('balance')}, Position: ${stateManager.get('position')}`);
 
     // FIXED: Use actual balance from StateManager, not stale systemState
     const currentBalance = stateManager.get('balance') || 10000;
@@ -2283,7 +2281,7 @@ class OGZPrimeV14Bot {
     if (aggressiveLearning) {
       const multiplier = flagManager.getSetting('AGGRESSIVE_LEARNING_MODE', 'positionSizeMultiplier', 2.0);
       basePositionPercent = basePositionPercent * multiplier;
-      console.log(`🔥 AGGRESSIVE LEARNING: Position size ${multiplier}x → ${(basePositionPercent * 100).toFixed(1)}%`);
+      console.log(`ðŸ”¥ AGGRESSIVE LEARNING: Position size ${multiplier}x â†’ ${(basePositionPercent * 100).toFixed(1)}%`);
     }
     const baseSizeUSD = currentBalance * basePositionPercent;
 
@@ -2291,7 +2289,7 @@ class OGZPrimeV14Bot {
     const positionSizeUSD = baseSizeUSD; // This is in USD
     const positionSizeBTC = positionSizeUSD / price; // Convert to BTC amount
 
-    console.log(`💰 Position sizing: Balance=$${currentBalance.toFixed(2)}, Percent=${(basePositionPercent*100).toFixed(1)}%, USD=$${positionSizeUSD.toFixed(2)}, BTC=${positionSizeBTC.toFixed(8)}`);
+    console.log(`ðŸ’° Position sizing: Balance=$${currentBalance.toFixed(2)}, Percent=${(basePositionPercent*100).toFixed(1)}%, USD=$${positionSizeUSD.toFixed(2)}, BTC=${positionSizeBTC.toFixed(8)}`);
 
     // CHANGE 2025-12-11: Pass 2 - Pattern-based position sizing
     const patternIds = decision.decisionContext?.patternsActive ||
@@ -2301,7 +2299,7 @@ class OGZPrimeV14Bot {
     const positionSize = adjustedPositionBTC; // Final position size in BTC
 
     // CHECKPOINT 2: Position sizing
-    console.log(`📍 CP2: Position size calculated: ${positionSize.toFixed(8)} BTC (base: ${positionSizeBTC.toFixed(8)} BTC, adjusted for pattern quality)`);
+    console.log(`ðŸ“ CP2: Position size calculated: ${positionSize.toFixed(8)} BTC (base: ${positionSizeBTC.toFixed(8)} BTC, adjusted for pattern quality)`);
 
     // Change 587: SafetyNet DISABLED - too restrictive
     // Was blocking legitimate trades with overly conservative limits
@@ -2328,7 +2326,7 @@ class OGZPrimeV14Bot {
     });
 
     if (!safetyCheck.allowed) {
-      console.log(`🛡️ SafetyNet BLOCKED: ${safetyCheck.reason}`);
+      console.log(`ðŸ›¡ï¸ SafetyNet BLOCKED: ${safetyCheck.reason}`);
       return;
     }
     */
@@ -2336,11 +2334,11 @@ class OGZPrimeV14Bot {
     try {
       // CHECKPOINT 3: Before ExecutionLayer call
       const usdAmount = positionSize * price;
-      console.log(`📍 CP3: Calling ExecutionLayer.executeTrade with USD=$${usdAmount.toFixed(2)} (${positionSize.toFixed(8)} BTC)`);
+      console.log(`ðŸ“ CP3: Calling ExecutionLayer.executeTrade with USD=$${usdAmount.toFixed(2)} (${positionSize.toFixed(8)} BTC)`);
 
       // Circuit breaker check before execution
       if (this.tradingBrain?.errorHandler?.isCircuitBreakerActive('ExecutionLayer')) {
-        console.log('🚨 CIRCUIT BREAKER: Execution blocked due to repeated failures');
+        console.log('ðŸš¨ CIRCUIT BREAKER: Execution blocked due to repeated failures');
         console.log('   Error count:', this.tradingBrain.errorHandler.getErrorStatus());
         // Don't return - let's see what error occurs
         // return;
@@ -2364,10 +2362,10 @@ class OGZPrimeV14Bot {
       });
 
       // CHECKPOINT 4: After ExecutionLayer call
-      console.log(`📍 CP4: ExecutionLayer returned:`, tradeResult ? `success=${tradeResult.success}` : 'NULL');
+      console.log(`ðŸ“ CP4: ExecutionLayer returned:`, tradeResult ? `success=${tradeResult.success}` : 'NULL');
 
       if (tradeResult && tradeResult.success) {
-        console.log(`📍 CP4.5: Trade SUCCESS confirmed, creating unified result`);
+        console.log(`ðŸ“ CP4.5: Trade SUCCESS confirmed, creating unified result`);
         // Change 588: Create unified tradeResult format
         const unifiedResult = {
           orderId: tradeResult.orderId || `SIM_${Date.now()}`,
@@ -2394,7 +2392,7 @@ class OGZPrimeV14Bot {
           }
         };
 
-        console.log(`📍 CP4.6: Unified result created with orderId: ${unifiedResult.orderId}`);
+        console.log(`ðŸ“ CP4.6: Unified result created with orderId: ${unifiedResult.orderId}`);
 
         // Store for pattern learning and post-trade analysis
         // CHANGE 2025-12-13: Store in StateManager (single source of truth)
@@ -2403,35 +2401,37 @@ class OGZPrimeV14Bot {
         // closePosition() only removes trades where type === 'BUY'.
         // This caused 96 SELL trades to accumulate, destroying the paper balance.
         if (decision.action === 'BUY') {
-          console.log(`📍 CP4.7: About to call stateManager.updateActiveTrade (BUY only)`);
+          console.log(`ðŸ“ CP4.7: About to call stateManager.updateActiveTrade (BUY only)`);
           try {
             stateManager.updateActiveTrade(unifiedResult.orderId, unifiedResult);
-            console.log(`📍 CP4.8: updateActiveTrade completed successfully`);
+            console.log(`ðŸ“ CP4.8: updateActiveTrade completed successfully`);
           } catch (error) {
-            console.error(`❌ CP4.8 ERROR: updateActiveTrade failed:`, error.message);
+            console.error(`âŒ CP4.8 ERROR: updateActiveTrade failed:`, error.message);
             console.error(`   Full error:`, error);
           }
         } else {
-          console.log(`📍 CP4.7: SKIPPING updateActiveTrade for ${decision.action} (only BUY trades stored)`);
+          console.log(`ðŸ“ CP4.7: SKIPPING updateActiveTrade for ${decision.action} (only BUY trades stored)`);
         }
 
-        // CHANGE 647: Store TRAI decision for learning feedback loop
-        // CHANGE 650: Use correct field name 'id' not 'decisionId'
-        if (traiDecision && traiDecision.id && unifiedResult.orderId) {
+        // FIX 2026-02-14: Store TRAI decision for learning feedback loop
+        // Use _lastTraiDecision from async observer OR traiDecision param
+        const traiDecisionToStore = traiDecision || this._lastTraiDecision;
+        if (traiDecisionToStore && traiDecisionToStore.id && unifiedResult.orderId) {
           this.pendingTraiDecisions.set(unifiedResult.orderId, {
-            decisionId: traiDecision.id,  // Use 'id' field from TRAI decision
-            originalConfidence: traiDecision.originalConfidence,
-            traiConfidence: traiDecision.traiConfidence,
+            decisionId: traiDecisionToStore.id,
+            originalConfidence: traiDecisionToStore.originalConfidence,
+            traiConfidence: traiDecisionToStore.traiConfidence,
+            traiRecommendation: traiDecisionToStore.traiRecommendation,
             timestamp: Date.now()
           });
-          console.log(`📚 [TRAI] Decision stored for learning (ID: ${traiDecision.id})`);
+          this._lastTraiDecision = null;  // Clear after storing
+          console.log(`📚 [TRAI] Decision stored for learning (orderId: ${unifiedResult.orderId})`);
         }
-
         // Update position tracking
         if (decision.action === 'BUY') {
           // CHECKPOINT 5: Before position update
           const stateBefore = stateManager.getState();
-          console.log(`📍 CP5: BEFORE BUY - Position: ${stateBefore.position}, Balance: $${stateBefore.balance}`);
+          console.log(`ðŸ“ CP5: BEFORE BUY - Position: ${stateBefore.position}, Balance: $${stateBefore.balance}`);
 
           // CHANGE 2025-12-11: Use StateManager for atomic position updates
           // CHANGE 2025-12-11 FIX: orderId was undefined - use unifiedResult.orderId
@@ -2451,7 +2451,7 @@ class OGZPrimeV14Bot {
 
           // CHANGE 2025-12-12: Validate StateManager.openPosition() success
           if (!positionResult.success) {
-            console.error('❌ StateManager.openPosition failed:', positionResult.error);
+            console.error('âŒ StateManager.openPosition failed:', positionResult.error);
             // CHANGE 2025-12-13: Remove from StateManager (single source of truth)
             stateManager.removeActiveTrade(unifiedResult.orderId);
             return; // Abort trade
@@ -2461,7 +2461,7 @@ class OGZPrimeV14Bot {
           const stateAfter = stateManager.getState();
 
           // CHECKPOINT 6: After position update
-          console.log(`📍 CP6: AFTER BUY - Position: ${stateAfter.position}, Balance: $${stateAfter.balance} (spent $${positionSize})`);
+          console.log(`ðŸ“ CP6: AFTER BUY - Position: ${stateAfter.position}, Balance: $${stateAfter.balance} (spent $${positionSize})`);
 
           // Change 605: Start MaxProfitManager on BUY to track profit targets
           this.tradingBrain.maxProfitManager.start(price, 'buy', positionSize, {
@@ -2469,7 +2469,7 @@ class OGZPrimeV14Bot {
             confidence: decision.confidence / 100,
             trend: indicators.trend || 'sideways'
           });
-          console.log(`💰 MaxProfitManager started - tracking 1-2% profit targets`);
+          console.log(`ðŸ’° MaxProfitManager started - tracking 1-2% profit targets`);
 
           // CHANGE 2026-02-01: Send Telegram notification for trade
           // BACKTEST_FAST: Skip notifications during backtest
@@ -2480,7 +2480,7 @@ class OGZPrimeV14Bot {
               price: price,
               size: positionSize / stateAfter.balance,
               confidence: decision.confidence / 100
-            }).catch(err => console.warn(`📱 Telegram notify failed: ${err.message}`));
+            }).catch(err => console.warn(`ðŸ“± Telegram notify failed: ${err.message}`));
 
             // CHANGE 2026-02-01: Re-enable Discord notifications (broken since v7)
             discordNotifier.notifyTrade('buy', price, positionSize);
@@ -2498,7 +2498,7 @@ class OGZPrimeV14Bot {
             });
 
             if (this.patternExitShadowMode) {
-              console.log(`🕵️ [SHADOW] Pattern Exit Tracking Started:`);
+              console.log(`ðŸ•µï¸ [SHADOW] Pattern Exit Tracking Started:`);
               console.log(`   Pattern Target: ${(exitTracking.patternTarget * 100).toFixed(2)}%`);
               console.log(`   Pattern Stop: ${(exitTracking.patternStop * 100).toFixed(2)}%`);
             }
@@ -2527,7 +2527,7 @@ class OGZPrimeV14Bot {
               timestamp: Date.now(),
               confidence: decision.confidence
             }));
-            console.log(`📡 Broadcast BUY trade to dashboard at $${price.toFixed(2)}`);
+            console.log(`ðŸ“¡ Broadcast BUY trade to dashboard at $${price.toFixed(2)}`);
           }
 
           // CHANGE 2026-01-25: Log trade for website proof
@@ -2547,7 +2547,7 @@ class OGZPrimeV14Bot {
         } else if (decision.action === 'SELL') {
           // CHECKPOINT 7: SELL execution
           const currentState = stateManager.getState();
-          console.log(`📍 CP7: SELL PATH - Position: ${currentState.position}, Balance: $${currentState.balance}`);
+          console.log(`ðŸ“ CP7: SELL PATH - Position: ${currentState.position}, Balance: $${currentState.balance}`);
 
           // Change 589: Complete post-trade integrations
           // Find the matching BUY trade
@@ -2558,7 +2558,7 @@ class OGZPrimeV14Bot {
 
           // CHANGE 644: Add error handling for SELL with no matching BUY
           if (buyTrades.length === 0) {
-            console.error('❌ CRITICAL: SELL signal but no matching BUY trade found!');
+            console.error('âŒ CRITICAL: SELL signal but no matching BUY trade found!');
             console.log('   Current position:', currentState.position);
             // CHANGE 2025-12-13: Read from StateManager (single source of truth)
             const allTrades = stateManager.getAllTrades();
@@ -2570,7 +2570,7 @@ class OGZPrimeV14Bot {
             })));
 
             // Force reset to prevent permanent lockup via StateManager
-            console.log('   ⚠️ Force resetting position to 0 to prevent lockup');
+            console.log('   âš ï¸ Force resetting position to 0 to prevent lockup');
             await stateManager.emergencyReset();
             // CHANGE 2025-12-13: No local balance sync needed
 
@@ -2593,12 +2593,12 @@ class OGZPrimeV14Bot {
               exitPrice: price,
               exitTime: exitTimestamp,
               pnl: pnl,
-              pnlDollars: buyTrade.size * (price - buyTrade.entryPrice),  // BUGFIX 2026-02-01: BTC × price_diff = USD profit
+              pnlDollars: buyTrade.size * (price - buyTrade.entryPrice),  // BUGFIX 2026-02-01: BTC Ã— price_diff = USD profit
               holdDuration: holdDuration,
               exitReason: 'signal'
             };
 
-            console.log(`📊 Trade closed: ${pnl >= 0 ? '✅' : '❌'} ${pnl.toFixed(2)}% | Hold: ${(holdDuration/60000).toFixed(1)}min`);
+            console.log(`ðŸ“Š Trade closed: ${pnl >= 0 ? 'âœ…' : 'âŒ'} ${pnl.toFixed(2)}% | Hold: ${(holdDuration/60000).toFixed(1)}min`);
 
             // CHANGE 2025-12-11: Use StateManager for atomic position close
             const positionState = stateManager.getState();
@@ -2612,7 +2612,7 @@ class OGZPrimeV14Bot {
 
             // CHANGE 2025-12-12: Validate StateManager.closePosition() success
             if (!closeResult.success) {
-              console.error('❌ StateManager.closePosition failed:', closeResult.error);
+              console.error('âŒ StateManager.closePosition failed:', closeResult.error);
               return; // Abort close
             }
             
@@ -2623,10 +2623,10 @@ class OGZPrimeV14Bot {
             // Calculate display values
             // BUGFIX 2026-02-01: btcPosition IS already in BTC, no division needed!
             const btcAmount = btcPosition;  // Already BTC, not USD
-            const sellValue = btcAmount * price;  // BTC × current price = USD received
-            const entryValue = btcAmount * buyTrade.entryPrice;  // BTC × entry price = USD spent
+            const sellValue = btcAmount * price;  // BTC Ã— current price = USD received
+            const entryValue = btcAmount * buyTrade.entryPrice;  // BTC Ã— entry price = USD spent
             const profitLoss = sellValue - entryValue;  // USD received - USD spent = profit
-            console.log(`📍 CP8: SELL COMPLETE - New Balance: $${stateManager.get('balance')} (received $${sellValue.toFixed(2)}, P&L: $${profitLoss.toFixed(2)})`);
+            console.log(`ðŸ“ CP8: SELL COMPLETE - New Balance: $${stateManager.get('balance')} (received $${sellValue.toFixed(2)}, P&L: $${profitLoss.toFixed(2)})`);
 
             // CHANGE 2026-02-01: Send notifications for trade close with P&L
             // BACKTEST_FAST: Skip notifications during backtest
@@ -2636,7 +2636,7 @@ class OGZPrimeV14Bot {
                 entryPrice: buyTrade.entryPrice,
                 exitPrice: price,
                 duration: `${Math.round((Date.now() - buyTrade.entryTime) / 60000)}m`
-              }).catch(err => console.warn(`📱 Telegram notify failed: ${err.message}`));
+              }).catch(err => console.warn(`ðŸ“± Telegram notify failed: ${err.message}`));
 
               // CHANGE 2026-02-01: Re-enable Discord notifications for SELL
               discordNotifier.notifyTrade('sell', price, btcAmount, profitLoss);
@@ -2682,7 +2682,7 @@ class OGZPrimeV14Bot {
                 duration: `${(holdDuration / 60000).toFixed(1)}m`,
                 confidence: decision.confidence
               }));
-              console.log(`📡 Broadcast SELL trade to dashboard at $${price.toFixed(2)} (P&L: $${completeTradeResult.pnlDollars.toFixed(2)})`);
+              console.log(`ðŸ“¡ Broadcast SELL trade to dashboard at $${price.toFixed(2)} (P&L: $${completeTradeResult.pnlDollars.toFixed(2)})`);
             }
 
             // CHANGE 2026-01-25: Log trade for website proof
@@ -2726,7 +2726,7 @@ class OGZPrimeV14Bot {
               if (Array.isArray(pattern.features)) {
                 featuresForRecording = pattern.features;
               } else {
-                console.warn('⚠️ Pattern features not an array in trade completion, creating fallback');
+                console.warn('âš ï¸ Pattern features not an array in trade completion, creating fallback');
                 // FIX 2026-02-01: Convert trend to numeric if string (bullish=1, bearish=-1, else=0)
                 const entryTrend = buyTrade.entryIndicators?.trend;
                 const trendNumeric = typeof entryTrend === 'string'
@@ -2751,9 +2751,9 @@ class OGZPrimeV14Bot {
                   timestamp: Date.now()
                 });
               } else if (this.config.tradingMode === 'TEST') {
-                console.log('🧪 TEST MODE: Would record P&L pattern but SKIPPING - pattern base protected');
+                console.log('ðŸ§ª TEST MODE: Would record P&L pattern but SKIPPING - pattern base protected');
               }
-              console.log(`🧠 Pattern learning: ${pattern.name} → ${pnl.toFixed(2)}%`);
+              console.log(`ðŸ§  Pattern learning: ${pattern.name} â†’ ${pnl.toFixed(2)}%`);
             }
 
             // 3. Update PerformanceAnalyzer (using processTrade, not recordTrade)
@@ -2829,22 +2829,57 @@ class OGZPrimeV14Bot {
                 winRate: this.performanceAnalyzer?.getWinRate?.() || 0
               });
             } catch (logErr) {
-              console.warn(`⚠️ TradeLogger error: ${logErr.message}`);
+              console.warn(`âš ï¸ TradeLogger error: ${logErr.message}`);
             }
 
-            // 5. TRAI learning (if applicable)
+            // 5. TRAI learning — feed PatternMemoryBank for promotion/quarantine
+            // FIX 2026-02-14: Pass complete trade object matching PatternMemoryBank schema
+            // recordTradeOutcome() takes ONE arg. extractPattern() needs .indicators and .trend
             if (this.trai && this.pendingTraiDecisions?.has(buyTrade.orderId)) {
-              const traiDecision = this.pendingTraiDecisions.get(buyTrade.orderId);
-              this.trai.recordTradeOutcome(traiDecision.decisionId, {
-                actualPnL: pnl,
-                exitPrice: price,
-                exitTime: Date.now(),
-                holdDuration: holdDuration
+              const traiDecisionData = this.pendingTraiDecisions.get(buyTrade.orderId);
+              this.trai.recordTradeOutcome({
+                tradeId: buyTrade.orderId,
+                decisionId: traiDecisionData.decisionId,
+                symbol: this.tradingPair || 'BTC-USD',
+                profitLoss: profitLoss,
+                profitLossPercent: pnl,
+                holdDuration: holdDuration,
+                entry: {
+                  price: buyTrade.entryPrice || buyTrade.price,
+                  timestamp: buyTrade.entryTime,
+                  indicators: {
+                    rsi: buyTrade.entryIndicators?.rsi || 50,
+                    macd: buyTrade.entryIndicators?.macd?.macd || buyTrade.entryIndicators?.macd || 0,
+                    macdHistogram: buyTrade.entryIndicators?.macd?.histogram || 0,
+                    primaryPattern: buyTrade.patterns?.[0]?.name || 'none'
+                  },
+                  trend: buyTrade.entryIndicators?.trend || 'neutral',
+                  volatility: buyTrade.entryIndicators?.volatility || 0
+                },
+                exit: {
+                  price: price,
+                  timestamp: Date.now(),
+                  indicators: {
+                    rsi: indicators.rsi,
+                    macd: indicators.macd?.macd || 0,
+                    macdHistogram: indicators.macd?.histogram || 0
+                  },
+                  trend: indicators.trend || 'neutral'
+                },
+                indicators: {
+                  rsi: buyTrade.entryIndicators?.rsi || 50,
+                  macd: buyTrade.entryIndicators?.macd?.macd || buyTrade.entryIndicators?.macd || 0,
+                  macdHistogram: buyTrade.entryIndicators?.macd?.histogram || 0,
+                  primaryPattern: buyTrade.patterns?.[0]?.name || 'none'
+                },
+                trend: buyTrade.entryIndicators?.trend || 'neutral',
+                volatility: buyTrade.entryIndicators?.volatility || 0,
+                traiConfidence: traiDecisionData.traiConfidence,
+                originalConfidence: traiDecisionData.originalConfidence
               });
               this.pendingTraiDecisions.delete(buyTrade.orderId);
-              console.log(`🤖 [TRAI] Learning from ${pnl.toFixed(2)}% outcome`);
+              console.log(`🤖 [TRAI] Learning from ${pnl >= 0 ? 'WIN' : 'LOSS'}: ${pnl.toFixed(2)}% ($${profitLoss.toFixed(2)})`);
             }
-
             // Clean up active trade
             // CHANGE 2025-12-13: Remove from StateManager (single source of truth)
             stateManager.removeActiveTrade(buyTrade.orderId);
@@ -2853,7 +2888,7 @@ class OGZPrimeV14Bot {
           // CHANGE 645: Reset MaxProfitManager after successful SELL
           if (this.tradingBrain?.maxProfitManager) {
             this.tradingBrain.maxProfitManager.reset();
-            console.log(`💰 MaxProfitManager deactivated - ready for next trade`);
+            console.log(`ðŸ’° MaxProfitManager deactivated - ready for next trade`);
           }
 
           // Stop pattern exit tracking
@@ -2865,7 +2900,7 @@ class OGZPrimeV14Bot {
               exitReason: 'manual_sell'
             });
             if (this.patternExitShadowMode) {
-              console.log(`🕵️ [SHADOW] Pattern Exit tracking stopped`);
+              console.log(`ðŸ•µï¸ [SHADOW] Pattern Exit tracking stopped`);
             }
           }
 
@@ -2887,13 +2922,13 @@ class OGZPrimeV14Bot {
         // CHANGE 650: REMOVED DUPLICATE TRAI STORAGE - Already properly stored at line 853-861
         // This was overwriting the complete data with incomplete data
 
-        console.log(`✅ ${decision.action} executed: ${tradeResult.orderId || 'SIMULATED'} | Size: $${positionSize.toFixed(2)}\n`);
+        console.log(`âœ… ${decision.action} executed: ${tradeResult.orderId || 'SIMULATED'} | Size: $${positionSize.toFixed(2)}\n`);
       } else {
-        console.log(`⛔ Trade blocked: ${tradeResult?.reason || 'Risk limits'}\n`);
+        console.log(`â›” Trade blocked: ${tradeResult?.reason || 'Risk limits'}\n`);
       }
 
     } catch (error) {
-      console.error(`❌ Trade execution failed at checkpoint between CP3 and CP4`);
+      console.error(`âŒ Trade execution failed at checkpoint between CP3 and CP4`);
       console.error(`   Error message: ${error.message}`);
       console.error(`   Stack trace:`, error.stack);
       console.error(`   Decision: ${decision?.action}, Confidence: ${decision?.confidence}`);
@@ -2946,7 +2981,7 @@ class OGZPrimeV14Bot {
             count: patternMemoryCount,
             uniquePatterns: patternMemorySize,
             growthRate: `${(patternMemoryCount / Math.max(1, this.candleCount)).toFixed(2)} patterns/candle`,
-            status: patternMemoryCount > 100 ? 'Learning Active 🧠' : 'Building Memory 📚'
+            status: patternMemoryCount > 100 ? 'Learning Active ðŸ§ ' : 'Building Memory ðŸ“š'
           },
           indicators: {
             rsi: indicators.rsi,
@@ -2972,7 +3007,7 @@ class OGZPrimeV14Bot {
       }
     } catch (error) {
       // Fail silently - don't let dashboard issues affect trading
-      console.error('⚠️ Pattern broadcast failed:', error.message);
+      console.error('âš ï¸ Pattern broadcast failed:', error.message);
     }
   }
 
@@ -2981,7 +3016,7 @@ class OGZPrimeV14Bot {
    * Ported from Change 572 - loads Polygon historical data and feeds through trading logic
    */
   async loadHistoricalDataAndBacktest() {
-    console.log('📊 BACKTEST MODE: Loading historical data...');
+    console.log('ðŸ“Š BACKTEST MODE: Loading historical data...');
 
     const fs = require('fs').promises;
     const path = require('path');
@@ -2992,13 +3027,13 @@ class OGZPrimeV14Bot {
       if (process.env.CANDLE_DATA_FILE) {
         // Use custom candle data file (e.g., 5-second candles for optimization)
         dataPath = process.env.CANDLE_DATA_FILE;
-        console.log(`📂 Using custom data file: ${dataPath}`);
+        console.log(`ðŸ“‚ Using custom data file: ${dataPath}`);
       } else {
         // Default behavior - CHANGE 633: Use 5-second candles for fast backtest
         const dataFile = process.env.FAST_BACKTEST === 'true'
           ? 'polygon-btc-5sec.json'  // 60k 5-second candles for rapid testing
           : 'polygon-btc-1y.json';    // 60k 1-minute candles for full validation
-        console.log(`📂 Data file: data/${dataFile}`);
+        console.log(`ðŸ“‚ Data file: data/${dataFile}`);
         dataPath = path.join(__dirname, 'data', dataFile);
       }
       const rawData = await fs.readFile(dataPath, 'utf8');
@@ -3006,9 +3041,9 @@ class OGZPrimeV14Bot {
       // Handle both formats: array of candles or object with .candles property
       const historicalCandles = parsedData.candles || parsedData;
 
-      console.log(`✅ Loaded ${historicalCandles.length.toLocaleString()} historical candles`);
-      console.log(`📅 Date range: ${new Date(historicalCandles[0].timestamp).toLocaleDateString()} → ${new Date(historicalCandles[historicalCandles.length - 1].timestamp).toLocaleDateString()}`);
-      console.log(`⏱️  Starting backtest simulation...\n`);
+      console.log(`âœ… Loaded ${historicalCandles.length.toLocaleString()} historical candles`);
+      console.log(`ðŸ“… Date range: ${new Date(historicalCandles[0].timestamp).toLocaleDateString()} â†’ ${new Date(historicalCandles[historicalCandles.length - 1].timestamp).toLocaleDateString()}`);
+      console.log(`â±ï¸  Starting backtest simulation...\n`);
 
       let processedCount = 0;
       let errorCount = 0;
@@ -3051,26 +3086,26 @@ class OGZPrimeV14Bot {
           if (processedCount % 5000 === 0) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             const rate = (processedCount / (elapsed || 1)).toFixed(0);
-            console.log(`📊 Progress: ${processedCount.toLocaleString()}/${historicalCandles.length.toLocaleString()} candles (${rate}/sec) | Errors: ${errorCount}`);
+            console.log(`ðŸ“Š Progress: ${processedCount.toLocaleString()}/${historicalCandles.length.toLocaleString()} candles (${rate}/sec) | Errors: ${errorCount}`);
           }
 
         } catch (err) {
           errorCount++;
           if (errorCount <= 5) {
-            console.error(`❌ Error processing candle #${processedCount}:`, err.message);
+            console.error(`âŒ Error processing candle #${processedCount}:`, err.message);
           }
         }
       }
 
       // Final summary
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`\n✅ BACKTEST COMPLETE!`);
-      console.log(`   📊 Candles processed: ${processedCount.toLocaleString()}`);
-      console.log(`   ⏱️  Duration: ${totalTime}s`);
-      console.log(`   ⚡ Rate: ${(processedCount / totalTime).toFixed(0)} candles/sec`);
-      console.log(`   ❌ Errors: ${errorCount}`);
-      console.log(`   💰 Final Balance: $${stateManager.get('balance').toFixed(2)}`);
-      console.log(`   📈 Total P&L: $${(stateManager.get('balance') - 10000).toFixed(2)} (${((stateManager.get('balance') / 10000 - 1) * 100).toFixed(2)}%)`);
+      console.log(`\nâœ… BACKTEST COMPLETE!`);
+      console.log(`   ðŸ“Š Candles processed: ${processedCount.toLocaleString()}`);
+      console.log(`   â±ï¸  Duration: ${totalTime}s`);
+      console.log(`   âš¡ Rate: ${(processedCount / totalTime).toFixed(0)} candles/sec`);
+      console.log(`   âŒ Errors: ${errorCount}`);
+      console.log(`   ðŸ’° Final Balance: $${stateManager.get('balance').toFixed(2)}`);
+      console.log(`   ðŸ“ˆ Total P&L: $${(stateManager.get('balance') - 10000).toFixed(2)} (${((stateManager.get('balance') / 10000 - 1) * 100).toFixed(2)}%)`);
 
       // Pattern Learning Summary - Visual proof patterns are being recorded
       if (this.patternChecker?.getMemoryStats) {
@@ -3079,13 +3114,13 @@ class OGZPrimeV14Bot {
         const losses = patternStats.totalLosses || 0;
         const totalTrades = wins + losses;
         const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
-        console.log(`\n   🧠 PATTERN LEARNING SUMMARY:`);
-        console.log(`      📊 Patterns Recorded: ${patternStats.tradeResults || 0}`);
-        console.log(`      ✅ Wins: ${wins}`);
-        console.log(`      ❌ Losses: ${losses}`);
-        console.log(`      📈 Win Rate: ${winRate}%`);
-        console.log(`      🎯 Promoted Patterns: ${patternStats.promoted || 0}`);
-        console.log(`      🔬 Candidates: ${patternStats.candidates || 0}`);
+        console.log(`\n   ðŸ§  PATTERN LEARNING SUMMARY:`);
+        console.log(`      ðŸ“Š Patterns Recorded: ${patternStats.tradeResults || 0}`);
+        console.log(`      âœ… Wins: ${wins}`);
+        console.log(`      âŒ Losses: ${losses}`);
+        console.log(`      ðŸ“ˆ Win Rate: ${winRate}%`);
+        console.log(`      ðŸŽ¯ Promoted Patterns: ${patternStats.promoted || 0}`);
+        console.log(`      ðŸ”¬ Candidates: ${patternStats.candidates || 0}`);
       }
 
       // Generate backtest report
@@ -3125,35 +3160,35 @@ class OGZPrimeV14Bot {
 
       // Write report FIRST (sync to prevent 0-byte files on timeout/exit)
       require('fs').writeFileSync(reportPath, JSON.stringify(report, null, 2));
-      console.log(`\n📄 Report saved: ${reportPath}`);
+      console.log(`\nðŸ“„ Report saved: ${reportPath}`);
 
       // FIX 2026-02-10: Save pattern memory after backtest (was never being saved!)
       if (this.patternChecker?.cleanup) {
         this.patternChecker.cleanup();
-        console.log('🧠 Backtest patterns saved to disk');
+        console.log('ðŸ§  Backtest patterns saved to disk');
       }
 
-      // 🤖 TRAI Analysis of Backtest Results (Change 586)
+      // ðŸ¤– TRAI Analysis of Backtest Results (Change 586)
       // Run AFTER report is saved so we always have results even if TRAI hangs
       if (this.trai && this.trai.analyzeBacktestResults) {
-        console.log('\n🤖 [TRAI] Analyzing backtest results for optimization insights...');
+        console.log('\nðŸ¤– [TRAI] Analyzing backtest results for optimization insights...');
         try {
           const traiAnalysis = await this.trai.analyzeBacktestResults(report);
           report.traiAnalysis = traiAnalysis;
-          console.log('✅ TRAI Analysis Complete:', traiAnalysis.summary);
+          console.log('âœ… TRAI Analysis Complete:', traiAnalysis.summary);
           // Re-save with TRAI analysis appended
           require('fs').writeFileSync(reportPath, JSON.stringify(report, null, 2));
         } catch (error) {
-          console.error('⚠️ TRAI analysis failed:', error.message);
+          console.error('âš ï¸ TRAI analysis failed:', error.message);
         }
       }
 
       // Exit after backtest
-      console.log('\n🛑 Backtest complete - exiting...');
+      console.log('\nðŸ›‘ Backtest complete - exiting...');
       process.exit(0);
 
     } catch (err) {
-      console.error('❌ BACKTEST FAILED:', err.message);
+      console.error('âŒ BACKTEST FAILED:', err.message);
       console.error(err.stack);
       process.exit(1);
     }
@@ -3199,14 +3234,14 @@ class OGZPrimeV14Bot {
   async fetchWebMarketContext(query = '') {
     // Detect what asset the user is asking about
     let asset = this.detectAssetFromQuery(query);
-    console.log(`🌐 [TRAI Web] Detected asset: ${asset.type} - ${asset.symbol || asset.id || asset.query}`);
+    console.log(`ðŸŒ [TRAI Web] Detected asset: ${asset.type} - ${asset.symbol || asset.id || asset.query}`);
 
     try {
       let result;
 
       // If type is 'search', we need to find the asset via API
       if (asset.type === 'search') {
-        console.log(`🔍 [TRAI Web] Searching for: "${asset.query}"`);
+        console.log(`ðŸ” [TRAI Web] Searching for: "${asset.query}"`);
 
         // Try crypto search first
         const cryptoResult = await this.searchCrypto(asset.query);
@@ -3219,7 +3254,7 @@ class OGZPrimeV14Bot {
             asset = stockResult;
           } else {
             // Fall back to BTC
-            console.log('🌐 [TRAI Web] No match found, defaulting to BTC');
+            console.log('ðŸŒ [TRAI Web] No match found, defaulting to BTC');
             asset = { type: 'crypto', id: 'bitcoin', symbol: 'BTC' };
           }
         }
@@ -3234,10 +3269,10 @@ class OGZPrimeV14Bot {
         result = await this.fetchCryptoContext('bitcoin', 'BTC');
       }
 
-      console.log(`✅ [TRAI Web] Fetched ${result.asset}: $${result.price} (${result.change24h} 24h)`);
+      console.log(`âœ… [TRAI Web] Fetched ${result.asset}: $${result.price} (${result.change24h} 24h)`);
       return result;
     } catch (error) {
-      console.warn('⚠️ Failed to fetch web market context:', error.message);
+      console.warn('âš ï¸ Failed to fetch web market context:', error.message);
       return null;
     }
   }
@@ -3249,7 +3284,7 @@ class OGZPrimeV14Bot {
     const q = query.toLowerCase().replace(/[^a-z0-9\s]/g, ''); // Clean query
     const words = q.split(/\s+/);
 
-    // Common crypto names → CoinGecko ID (case insensitive, fuzzy)
+    // Common crypto names â†’ CoinGecko ID (case insensitive, fuzzy)
     const cryptoPatterns = [
       { patterns: ['bitcoin', 'btc'], id: 'bitcoin', symbol: 'BTC' },
       { patterns: ['ethereum', 'eth', 'ether'], id: 'ethereum', symbol: 'ETH' },
@@ -3268,7 +3303,7 @@ class OGZPrimeV14Bot {
       { patterns: ['uniswap', 'uni'], id: 'uniswap', symbol: 'UNI' }
     ];
 
-    // Common stock names → Yahoo symbol (fuzzy matching)
+    // Common stock names â†’ Yahoo symbol (fuzzy matching)
     const stockPatterns = [
       { patterns: ['apple', 'aapl'], symbol: 'AAPL' },
       { patterns: ['tesla', 'tsla'], symbol: 'TSLA' },
@@ -3364,11 +3399,11 @@ class OGZPrimeV14Bot {
       const coins = response.data.coins || [];
       if (coins.length > 0) {
         const top = coins[0];
-        console.log(`🔍 [TRAI Search] Found crypto: ${top.name} (${top.symbol})`);
+        console.log(`ðŸ” [TRAI Search] Found crypto: ${top.name} (${top.symbol})`);
         return { type: 'crypto', id: top.id, symbol: top.symbol.toUpperCase() };
       }
     } catch (error) {
-      console.warn('⚠️ Crypto search failed:', error.message);
+      console.warn('âš ï¸ Crypto search failed:', error.message);
     }
     return null;
   }
@@ -3385,11 +3420,11 @@ class OGZPrimeV14Bot {
       const quotes = response.data.quotes || [];
       if (quotes.length > 0) {
         const top = quotes[0];
-        console.log(`🔍 [TRAI Search] Found stock: ${top.shortname || top.symbol} (${top.symbol})`);
+        console.log(`ðŸ” [TRAI Search] Found stock: ${top.shortname || top.symbol} (${top.symbol})`);
         return { type: 'stock', symbol: top.symbol };
       }
     } catch (error) {
-      console.warn('⚠️ Stock search failed:', error.message);
+      console.warn('âš ï¸ Stock search failed:', error.message);
     }
     return null;
   }
@@ -3506,7 +3541,7 @@ class OGZPrimeV14Bot {
         nextUpdate: data.time_until_update || 'unknown'
       };
     } catch (error) {
-      console.warn(`⚠️ [TRAI] Fear & Greed fetch failed: ${error.message}`);
+      console.warn(`âš ï¸ [TRAI] Fear & Greed fetch failed: ${error.message}`);
       return null;
     }
   }
@@ -3531,7 +3566,7 @@ class OGZPrimeV14Bot {
 
       return headlines;
     } catch (error) {
-      console.warn(`⚠️ [TRAI] News fetch failed: ${error.message}`);
+      console.warn(`âš ï¸ [TRAI] News fetch failed: ${error.message}`);
       return [];
     }
   }
@@ -3618,10 +3653,10 @@ class OGZPrimeV14Bot {
             : (response.message || response.text || 'Unable to generate response'),
           timestamp: Date.now()
         }));
-        console.log('🧠 [TRAI] Sent chat response');
+        console.log('ðŸ§  [TRAI] Sent chat response');
       }
     } catch (error) {
-      console.error('❌ [TRAI] Chat query failed:', error.message);
+      console.error('âŒ [TRAI] Chat query failed:', error.message);
 
       // Send error response
       if (this.dashboardWs && this.dashboardWs.readyState === 1) {
@@ -3641,7 +3676,7 @@ class OGZPrimeV14Bot {
    * Graceful shutdown
    */
   async shutdown() {
-    console.log('\n🛑 Shutting down OGZ Prime V14 MERGED...');
+    console.log('\nðŸ›‘ Shutting down OGZ Prime V14 MERGED...');
     this.isRunning = false;
 
     if (this.tradingInterval) {
@@ -3651,21 +3686,21 @@ class OGZPrimeV14Bot {
     // CHANGE 2026-01-21: Clear liveness watchdog interval (memory leak fix)
     if (this.livenessCheckInterval) {
       clearInterval(this.livenessCheckInterval);
-      console.log('🔍 Liveness watchdog interval cleaned up');
+      console.log('ðŸ” Liveness watchdog interval cleaned up');
     }
 
     // CHANGE 2026-01-29: Clear heartbeat interval (memory leak fix)
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
-      console.log('💓 Heartbeat interval cleaned up');
+      console.log('ðŸ’“ Heartbeat interval cleaned up');
     }
 
-    // 🔥 CRITICAL: Remove event listeners before closing (Change 575 - Memory leak fix)
+    // ðŸ”¥ CRITICAL: Remove event listeners before closing (Change 575 - Memory leak fix)
     if (this.ws) {
       this.ws.removeAllListeners();
       this.ws.close();
-      console.log('📡 Market data WebSocket cleaned up');
+      console.log('ðŸ“¡ Market data WebSocket cleaned up');
     }
 
     // CHANGE 2026-02-10: Cleanup modular entry system
@@ -3673,38 +3708,38 @@ class OGZPrimeV14Bot {
     if (this.emaCrossover) this.emaCrossover.destroy();
     if (this.maDynamicSR) this.maDynamicSR.destroy();
     if (this.liquiditySweep) this.liquiditySweep.destroy();
-    console.log('📊 Modular Entry System cleaned up');
+    console.log('ðŸ“Š Modular Entry System cleaned up');
 
     if (this.dashboardWs) {
       this.dashboardWs.removeAllListeners();
       this.dashboardWs.close();
-      console.log('📊 Dashboard WebSocket cleaned up');
+      console.log('ðŸ“Š Dashboard WebSocket cleaned up');
     }
 
-    // 🤖 Shutdown TRAI LLM server (Change 579)
+    // ðŸ¤– Shutdown TRAI LLM server (Change 579)
     if (this.trai && this.trai.traiCore) {
       this.trai.traiCore.shutdown();
-      console.log('🤖 TRAI Core shutdown complete');
+      console.log('ðŸ¤– TRAI Core shutdown complete');
     }
 
     // CHANGE 2025-12-12: Cleanup RiskManager timer leak
     if (this.riskManager) {
       this.riskManager.shutdown();
-      console.log('🛡️ RiskManager timers cleaned up');
+      console.log('ðŸ›¡ï¸ RiskManager timers cleaned up');
     }
 
     // FIX 2026-02-10: Save pattern memory before exit (was never being saved!)
     if (this.patternChecker?.cleanup) {
       this.patternChecker.cleanup();
-      console.log('🧠 Pattern memory saved to disk');
+      console.log('ðŸ§  Pattern memory saved to disk');
     }
 
     // Print final performance stats
-    console.log('\n📊 Final Performance:');
+    console.log('\nðŸ“Š Final Performance:');
     console.log(`   Session Duration: ${((Date.now() - this.startTime) / 1000 / 60).toFixed(1)} minutes`);
     console.log(`   Final Balance: $${stateManager.get('balance').toFixed(2)}`);
 
-    console.log('\n✅ Shutdown complete\n');
+    console.log('\nâœ… Shutdown complete\n');
     process.exit(0);
   }
 
@@ -3927,7 +3962,7 @@ class OGZPrimeV14Bot {
       }
 
     } catch (error) {
-      console.error('⚠️ Edge analytics broadcast failed:', error.message);
+      console.error('âš ï¸ Edge analytics broadcast failed:', error.message);
     }
   }
 
@@ -4003,13 +4038,13 @@ async function main() {
   process.on('SIGINT', () => bot.shutdown());
   process.on('SIGTERM', () => bot.shutdown());
   process.on('uncaughtException', (error) => {
-    console.error('❌ Uncaught exception:', error);
+    console.error('âŒ Uncaught exception:', error);
     bot.shutdown();
   });
 
-  // 🔥 CRITICAL: Handle unhandled promise rejections (Change 575)
+  // ðŸ”¥ CRITICAL: Handle unhandled promise rejections (Change 575)
   process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Unhandled Promise Rejection:', reason);
+    console.error('âŒ Unhandled Promise Rejection:', reason);
     console.error('   Promise:', promise);
     // Log but don't shutdown - async failures shouldn't kill bot
     console.error('   Bot continuing despite rejection...');
@@ -4021,7 +4056,7 @@ async function main() {
 // Run bot
 if (require.main === module) {
   main().catch(error => {
-    console.error('❌ Fatal error:', error);
+    console.error('âŒ Fatal error:', error);
     process.exit(1);
   });
 }

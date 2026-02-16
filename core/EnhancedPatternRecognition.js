@@ -19,7 +19,7 @@
  * [rsi, macdDelta, trend, bodySize, wickRatio, bbWidth, vol, momentum, pricePos]
  *
  * LEARNING FLOW:
- * 1. Trade entry: Extract features → recordPatternResult(features, { pnl: 0 })
+ * 1. Trade entry: Extract features â†’ recordPatternResult(features, { pnl: 0 })
  * 2. Trade exit: recordPatternResult(features, { pnl: actualPnL })
  * 3. Pattern memory updates win/loss counts and average P&L
  * 4. Future trades consult pattern history for confidence adjustment
@@ -83,14 +83,14 @@ class FeatureExtractor {
       const trendEncoded = calculatedTrend?.toLowerCase?.() === 'uptrend' ? 1 : calculatedTrend?.toLowerCase?.() === 'downtrend' ? -1 : 0;
 
       // Candle pattern features
-      const bodySize = Math.abs(latestCandle.close - latestCandle.open) / latestCandle.close;
-      const wickRatio = latestCandle.high !== latestCandle.low
-        ? (Math.abs(latestCandle.close - latestCandle.open) / (latestCandle.high - latestCandle.low))
+      const bodySize = Math.abs(latestCandle.c - latestCandle.o) / latestCandle.c;
+      const wickRatio = latestCandle.h !== latestCandle.l
+        ? (Math.abs(latestCandle.c - latestCandle.o) / (latestCandle.h - latestCandle.l))
         : 0.5;
 
       // Price momentum
-      const priceChange = previousCandle && previousCandle.close > 0
-        ? (latestCandle.close - previousCandle.close) / previousCandle.close
+      const priceChange = previousCandle && previousCandle.c > 0
+        ? (latestCandle.c - previousCandle.c) / previousCandle.c
         : 0;
 
       // Position context
@@ -98,8 +98,8 @@ class FeatureExtractor {
       const lastDirection = lastTrade?.direction?.toLowerCase?.() === 'buy' ? 1 : lastTrade?.direction?.toLowerCase?.() === 'sell' ? -1 : 0;
 
       // Volume features if available
-      const volumeChange = latestCandle.volume && previousCandle.volume && previousCandle.volume > 0
-        ? latestCandle.volume / previousCandle.volume - 1
+      const volumeChange = latestCandle.v && previousCandle.v && previousCandle.v > 0
+        ? latestCandle.v / previousCandle.v - 1
         : 0;
 
       // Return comprehensive feature vector
@@ -213,7 +213,7 @@ class PatternMemorySystem {
     const mode = process.env.BACKTEST_MODE === 'true' ? 'backtest' :
                  process.env.PAPER_TRADING === 'true' ? 'paper' : 'live';
     const memoryFileName = `pattern-memory.${mode}.json`;
-    console.log(`📁 Pattern Memory: Using ${memoryFileName} (mode: ${mode})`);
+    console.log(`ðŸ“ Pattern Memory: Using ${memoryFileName} (mode: ${mode})`);
 
     this.options = {
       memoryFile: path.join(process.cwd(), 'data', memoryFileName),
@@ -284,10 +284,10 @@ class PatternMemorySystem {
         // Only initialize seed patterns if BOTH memory and count are empty
         // CRITICAL FIX: Don't wipe patterns just because count is 0
         if (Object.keys(this.memory).length === 0 && this.patternCount === 0) {
-          console.log('⚠️ Pattern memory truly empty, initializing fresh');
+          console.log('âš ï¸ Pattern memory truly empty, initializing fresh');
           this.initializeSeedPatterns();
         } else {
-          console.log(`✅ Keeping existing ${Object.keys(this.memory).length} patterns in memory`);
+          console.log(`âœ… Keeping existing ${Object.keys(this.memory).length} patterns in memory`);
         }
       } else {
         console.log('No pattern memory file found, initializing with seed patterns');
@@ -304,7 +304,7 @@ class PatternMemorySystem {
    * Initialize memory with seed patterns for learning bootstrapping
    */
   initializeSeedPatterns() {
-  console.log('🧠 Initializing minimum required patterns for bot operation');
+  console.log('ðŸ§  Initializing minimum required patterns for bot operation');
 
   // Keep existing patterns but ensure we have at least one base pattern
   if (!this.memory) {
@@ -321,9 +321,9 @@ class PatternMemorySystem {
       lastSeen: Date.now()
     };
     this.patternCount = 1;
-    console.log('✅ Added minimal seed pattern for bot startup');
+    console.log('âœ… Added minimal seed pattern for bot startup');
   } else {
-    console.log(`✅ Keeping ${Object.keys(this.memory).length} existing patterns`);
+    console.log(`âœ… Keeping ${Object.keys(this.memory).length} existing patterns`);
   }
   }
 
@@ -380,14 +380,14 @@ class PatternMemorySystem {
       return '';
     }
 
-    // 🛡️ CORRUPTION PROTECTION: Validate features array before processing
+    // ðŸ›¡ï¸ CORRUPTION PROTECTION: Validate features array before processing
     if (features.length > 50) {
-      console.warn('⚠️ Feature vector too large, truncating to prevent corruption');
+      console.warn('âš ï¸ Feature vector too large, truncating to prevent corruption');
       features = features.slice(0, 50);
     }
 
     try {
-      // 🛡️ SAFE PROCESSING: Validate each feature and handle edge cases
+      // ðŸ›¡ï¸ SAFE PROCESSING: Validate each feature and handle edge cases
       const safeFeatures = features.map((n, index) => {
         // Handle various input types safely
         if (typeof n === 'number' && isFinite(n)) {
@@ -403,22 +403,22 @@ class PatternMemorySystem {
         }
 
         // Default fallback for invalid values
-        console.warn(`⚠️ Invalid feature at index ${index}:`, n, 'defaulting to 0.00');
+        console.warn(`âš ï¸ Invalid feature at index ${index}:`, n, 'defaulting to 0.00');
         return '0.00';
       });
 
-      // 🛡️ LENGTH VALIDATION: Ensure result isn't too long
+      // ðŸ›¡ï¸ LENGTH VALIDATION: Ensure result isn't too long
       const result = safeFeatures.join(',');
       if (result.length > 1000) {
-        console.warn('⚠️ Pattern key too long, truncating to prevent memory issues');
+        console.warn('âš ï¸ Pattern key too long, truncating to prevent memory issues');
         return safeFeatures.slice(0, 20).join(','); // Truncate to safe length
       }
 
       return result;
 
     } catch (error) {
-      console.error('🚨 Pattern key generation error:', error);
-      console.error('🚨 Features causing error:', features);
+      console.error('ðŸš¨ Pattern key generation error:', error);
+      console.error('ðŸš¨ Features causing error:', features);
 
       // Emergency fallback - return safe default
       return Array(Math.min(features.length, 20)).fill('0.00').join(',');
@@ -483,7 +483,7 @@ class PatternMemorySystem {
       this.pruneMemory();
     }
 
-    // 🚀 SCALPER OPTIMIZATION: Skip disk saves during active scalping for speed
+    // ðŸš€ SCALPER OPTIMIZATION: Skip disk saves during active scalping for speed
     const timeSinceLastSave = Date.now() - this.lastSaveTime;
     const isScalperActive = this.scalperModeActive || false; // Will be set by trading brain
 
@@ -926,7 +926,7 @@ class EnhancedPatternChecker {
   recordPatternResult(featuresOrSignature, result) {
     // CHANGE 659: Features array required - strict validation
     if (!Array.isArray(featuresOrSignature)) {
-      console.error('❌ recordPatternResult: Expected features array, got:', typeof featuresOrSignature);
+      console.error('âŒ recordPatternResult: Expected features array, got:', typeof featuresOrSignature);
       console.error('   Value received:', featuresOrSignature);
       console.error('   Stack trace:', new Error().stack);
       return false;
@@ -934,7 +934,7 @@ class EnhancedPatternChecker {
 
     // Skip empty arrays (no features to record)
     if (featuresOrSignature.length === 0) {
-      console.warn('⚠️ recordPatternResult: Empty features array, skipping');
+      console.warn('âš ï¸ recordPatternResult: Empty features array, skipping');
       return false;
     }
     
@@ -944,7 +944,7 @@ class EnhancedPatternChecker {
     // PatternMemorySystem already has 5-minute periodic saves (line 234-236)
     // Calling saveToDisk on every recordPatternResult caused massive I/O spam
     // DEBUG 2026-02-02: Confirm pattern was recorded
-    console.log(`✅ Pattern RECORDED: features[${featuresOrSignature.length}], pnl=${result?.pnl?.toFixed(2) || '?'}%, total=${this.stats.tradeResults}`);
+    console.log(`âœ… Pattern RECORDED: features[${featuresOrSignature.length}], pnl=${result?.pnl?.toFixed(2) || '?'}%, total=${this.stats.tradeResults}`);
     return true;
   }
 
@@ -985,7 +985,7 @@ class EnhancedPatternChecker {
       ...options
     };
 
-    // 🚀 SCALPER FAST PATH: Skip complex similarity matching for speed
+    // ðŸš€ SCALPER FAST PATH: Skip complex similarity matching for speed
     if (evalOptions.scalperMode || evalOptions.fastPath) {
       return this.evaluatePatternFastPath(features, evalOptions);
     }
@@ -1002,7 +1002,7 @@ class EnhancedPatternChecker {
   }
 
   /**
-   * 🚀 SCALPER FAST PATH: Lightning-fast pattern evaluation for high-frequency trading
+   * ðŸš€ SCALPER FAST PATH: Lightning-fast pattern evaluation for high-frequency trading
    * @param {Array} features - Feature vector
    * @param {Object} options - Evaluation options
    * @returns {Object} Fast evaluation result
@@ -1149,7 +1149,7 @@ function trackPatternResult(patternId, entryTime, exitTime, pnl, confidence) {
 
   // Log result for marketing
   const isWin = pnl > 0;
-  console.log(`${isWin ? '💰' : '📉'} Pattern ${patternId} trade result: ${pnl.toFixed(2)}`);
+  console.log(`${isWin ? 'ðŸ’°' : 'ðŸ“‰'} Pattern ${patternId} trade result: ${pnl.toFixed(2)}`);
 
   return true;
 }
