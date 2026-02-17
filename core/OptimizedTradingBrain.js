@@ -60,6 +60,7 @@ const PersistentPatternMap = require('./PersistentPatternMap');  // CHANGE 631: 
 const { getInstance: getStateManager } = require('./StateManager');  // CHANGE 2025-12-11: StateManager sync
 const ErrorHandler = require('./ErrorHandler');  // CHANGE 2025-12-11: Error escalation
 const { RollingWindow } = require('./MemoryManager');  // CHANGE 2025-12-11: Memory leak prevention
+const { c: _c } = require('./CandleHelper');  // FIX 2026-02-17: Candle format compatibility
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION: OptimizedTradingBrain Class
@@ -2691,7 +2692,7 @@ console.log(`   📊 EMA9=${ema9?.toFixed(2) || 'null'}, EMA20=${ema20?.toFixed(
 
         // EMA Crossover Signals - DIRECTIONAL
         if (ema9 && ema20 && ema50) {
-          const price = marketData.price || this.priceData[this.priceData.length - 1]?.c;
+          const price = marketData.price || (this.priceData[this.priceData.length - 1] ? _c(this.priceData[this.priceData.length - 1]) : 0);
           
           // Golden cross: EMA9 > EMA20 > EMA50 = strong bullish
           if (ema9 > ema20 && ema20 > ema50) {

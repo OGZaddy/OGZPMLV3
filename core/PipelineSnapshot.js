@@ -24,6 +24,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { c } = require('./CandleHelper');
 
 class PipelineSnapshot {
   constructor(bot, options = {}) {
@@ -131,7 +132,7 @@ class PipelineSnapshot {
   _getPrice(bot) {
     try {
       if (bot.priceHistory?.length > 0) {
-        return bot.priceHistory[bot.priceHistory.length - 1].c;
+        return c(bot.priceHistory[bot.priceHistory.length - 1]);
       }
       return bot.lastPrice || bot.marketData?.price || 0;
     } catch(e) { return 0; }

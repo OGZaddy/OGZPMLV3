@@ -14,6 +14,8 @@
 
 'use strict';
 
+const { c, o, h, l, v } = require('./CandleHelper');
+
 class CandlePatternDetector {
   constructor() {
     this.detectedPatterns = [];
@@ -121,14 +123,14 @@ class CandlePatternDetector {
   }
 
   // ─── HELPERS ────────────────────────────────────────
-  _bodySize(candle) { return Math.abs(candle.c - candle.o); }
-  _range(candle) { return candle.h - candle.l || 0.001; }
-  _isBullish(candle) { return candle.c > candle.o; }
-  _isBearish(candle) { return candle.c < candle.o; }
-  _upperWick(candle) { return candle.h - Math.max(candle.o, candle.c); }
-  _lowerWick(candle) { return Math.min(candle.o, candle.c) - candle.l; }
+  _bodySize(candle) { return Math.abs(c(candle) - o(candle)); }
+  _range(candle) { return h(candle) - l(candle) || 0.001; }
+  _isBullish(candle) { return c(candle) > o(candle); }
+  _isBearish(candle) { return c(candle) < o(candle); }
+  _upperWick(candle) { return h(candle) - Math.max(o(candle), c(candle)); }
+  _lowerWick(candle) { return Math.min(o(candle), c(candle)) - l(candle); }
   _bodyRatio(candle) { return this._bodySize(candle) / this._range(candle); }
-  _midpoint(candle) { return (candle.o + candle.c) / 2; }
+  _midpoint(candle) { return (o(candle) + c(candle)) / 2; }
 
   // ─── SINGLE CANDLE ─────────────────────────────────
 
@@ -149,7 +151,7 @@ class CandlePatternDetector {
         name: 'hammer',
         confidence: conf,
         direction: 'buy',
-        description: `Hammer at $${curr.c.toFixed(2)} — lower wick ${(lowerWick/body).toFixed(1)}x body`
+        description: `Hammer at $${c(curr).toFixed(2)} — lower wick ${(lowerWick/body).toFixed(1)}x body`
       };
     }
     return null;
@@ -171,7 +173,7 @@ class CandlePatternDetector {
         name: 'shooting_star',
         confidence: conf,
         direction: 'sell',
-        description: `Shooting star at $${curr.c.toFixed(2)} — upper wick ${(upperWick/body).toFixed(1)}x body`
+        description: `Shooting star at $${c(curr).toFixed(2)} — upper wick ${(upperWick/body).toFixed(1)}x body`
       };
     }
     return null;
@@ -187,7 +189,7 @@ class CandlePatternDetector {
         name: 'doji',
         confidence: 0.4,
         direction: 'neutral',
-        description: `Doji at $${curr.c.toFixed(2)} — indecision, watch for breakout`
+        description: `Doji at $${c(curr).toFixed(2)} — indecision, watch for breakout`
       };
     }
     return null;
@@ -200,7 +202,7 @@ class CandlePatternDetector {
     const prevBody = this._bodySize(prev);
 
     // Current green candle completely covers previous red candle
-    if (curr.o <= prev.c && curr.c >= prev.o && currBody > prevBody * 1.2) {
+    if (o(curr) <= c(prev) && c(curr) >= o(prev) && currBody > prevBody * 1.2) {
       const ratio = currBody / prevBody;
       const trendBonus = (indicators.trend === 'downtrend' || indicators.trend === 'bearish') ? 0.15 : 0;
       const conf = Math.min(0.5 + Math.min(ratio * 0.1, 0.25) + trendBonus, 0.92);
@@ -221,7 +223,7 @@ class CandlePatternDetector {
     const currBody = this._bodySize(curr);
     const prevBody = this._bodySize(prev);
 
-    if (curr.o >= prev.c && curr.c <= prev.o && currBody > prevBody * 1.2) {
+    if (o(curr) >= c(prev) && c(curr) <= o(prev) && currBody > prevBody * 1.2) {
       const ratio = currBody / prevBody;
       const trendBonus = (indicators.trend === 'uptrend' || indicators.trend === 'bullish') ? 0.15 : 0;
       const conf = Math.min(0.5 + Math.min(ratio * 0.1, 0.25) + trendBonus, 0.92);
@@ -280,8 +282,8 @@ class CandlePatternDetector {
   // ─── STRUCTURE PATTERNS ────────────────────────────
 
   _detectDoubleBottom(candles) {
-    const lows = candles.map(c => c.l);
-    const highs = candles.map(c => c.h);
+    const lows = candles.map(candle => l(candle));
+    const highs = candles.map(candle => h(candle));
     const avgRange = (Math.max(...highs) - Math.min(...lows)) || 1;
     const tolerance = avgRange * 0.02; // 2% of range
 
@@ -314,7 +316,7 @@ class CandlePatternDetector {
     if (necklineDistance < avgRange * 0.03) return null;
 
     // Last candle should be recovering (above midpoint)
-    const lastClose = candles[candles.length - 1].c;
+    const lastClose = c(candles[candles.length - 1]);
     if (lastClose < minVal + necklineDistance * 0.3) return null;
 
     const conf = Math.min(0.55 + (necklineDistance / avgRange) * 0.3, 0.85);
@@ -327,8 +329,8 @@ class CandlePatternDetector {
   }
 
   _detectDoubleTop(candles) {
-    const highs = candles.map(c => c.h);
-    const lows = candles.map(c => c.l);
+    const highs = candles.map(candle => h(candle));
+    const lows = candles.map(candle => l(candle));
     const avgRange = (Math.max(...highs) - Math.min(...lows)) || 1;
     const tolerance = avgRange * 0.02;
 
@@ -356,7 +358,7 @@ class CandlePatternDetector {
     const necklineDistance = maxVal - midLow;
     if (necklineDistance < avgRange * 0.03) return null;
 
-    const lastClose = candles[candles.length - 1].c;
+    const lastClose = c(candles[candles.length - 1]);
     if (lastClose > maxVal - necklineDistance * 0.3) return null;
 
     const conf = Math.min(0.55 + (necklineDistance / avgRange) * 0.3, 0.85);
@@ -369,13 +371,13 @@ class CandlePatternDetector {
   }
 
   _detectAscendingTriangle(candles) {
-    const highs = candles.map(c => c.h);
-    const lows = candles.map(c => c.l);
-    
+    const highs = candles.map(candle => h(candle));
+    const lows = candles.map(candle => l(candle));
+
     // Flat resistance (highs are consistent)
     const recentHighs = highs.slice(-10);
     const highRange = Math.max(...recentHighs) - Math.min(...recentHighs);
-    const avgPrice = candles[candles.length-1].c;
+    const avgPrice = c(candles[candles.length-1]);
     const relHighRange = highRange / avgPrice;
 
     // Rising lows
@@ -399,12 +401,12 @@ class CandlePatternDetector {
   }
 
   _detectDescendingTriangle(candles) {
-    const highs = candles.map(c => c.h);
-    const lows = candles.map(c => c.l);
+    const highs = candles.map(candle => h(candle));
+    const lows = candles.map(candle => l(candle));
 
     const recentLows = lows.slice(-10);
     const lowRange = Math.max(...recentLows) - Math.min(...recentLows);
-    const avgPrice = candles[candles.length-1].c;
+    const avgPrice = c(candles[candles.length-1]);
     const relLowRange = lowRange / avgPrice;
 
     const q1Highs = highs.slice(0, Math.floor(candles.length / 2));
@@ -427,7 +429,7 @@ class CandlePatternDetector {
 
   _detectHeadShoulders(candles) {
     // Find 3 peaks: left shoulder, head (highest), right shoulder
-    const highs = candles.map(c => c.h);
+    const highs = candles.map(candle => h(candle));
     const peaks = this._findPeaks(highs, 3);
     
     if (peaks.length < 3) return null;
@@ -462,7 +464,7 @@ class CandlePatternDetector {
   }
 
   _detectInverseHeadShoulders(candles) {
-    const lows = candles.map(c => c.l);
+    const lows = candles.map(candle => l(candle));
     const troughs = this._findTroughs(lows, 3);
     
     if (troughs.length < 3) return null;
@@ -497,16 +499,16 @@ class CandlePatternDetector {
     const pole = candles.slice(0, Math.floor(candles.length * 0.4));
     const flag = candles.slice(Math.floor(candles.length * 0.4));
 
-    const poleMove = pole[pole.length-1].c - pole[0].c;
+    const poleMove = c(pole[pole.length-1]) - c(pole[0]);
     const poleRange = Math.abs(poleMove);
-    const avgPrice = candles[candles.length-1].c;
+    const avgPrice = c(candles[candles.length-1]);
     const relPole = poleRange / avgPrice;
     
     if (relPole < 0.01) return null; // Need meaningful pole
 
     // Flag should be tight consolidation
-    const flagHighs = flag.map(c => c.h);
-    const flagLows = flag.map(c => c.l);
+    const flagHighs = flag.map(candle => h(candle));
+    const flagLows = flag.map(candle => l(candle));
     const flagRange = Math.max(...flagHighs) - Math.min(...flagLows);
     const relFlag = flagRange / avgPrice;
 
@@ -527,8 +529,8 @@ class CandlePatternDetector {
   }
 
   _detectWedge(candles) {
-    const highs = candles.map(c => c.h);
-    const lows = candles.map(c => c.l);
+    const highs = candles.map(candle => h(candle));
+    const lows = candles.map(candle => l(candle));
 
     // Linear regression on highs and lows
     const n = candles.length;

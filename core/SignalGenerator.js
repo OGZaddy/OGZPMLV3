@@ -14,6 +14,8 @@
  * One input, one output, one decision.
  */
 
+const { c } = require('./CandleHelper');
+
 class SignalGenerator {
   constructor(config = {}) {
     // Weights for each signal source (how much it matters)
@@ -58,9 +60,9 @@ class SignalGenerator {
    */
   evaluate(indicators, patterns = [], regime = null, priceHistory = [], extras = {}) {
     const signals = [];
-    const price = indicators?.lastCandle?.c 
-      || priceHistory[priceHistory.length - 1]?.c 
-      || extras.price 
+    const price = indicators?.lastCandle ? c(indicators.lastCandle)
+      : priceHistory[priceHistory.length - 1] ? c(priceHistory[priceHistory.length - 1])
+      : extras.price
       || 0;
 
     // ─── Gather signals from each source ───
@@ -378,8 +380,8 @@ class SignalGenerator {
     if (!priceHistory || priceHistory.length < 10) return null;
 
     const lookback = 10;
-    const current = priceHistory[priceHistory.length - 1]?.c;
-    const past = priceHistory[priceHistory.length - lookback]?.c;
+    const current = priceHistory[priceHistory.length - 1] ? c(priceHistory[priceHistory.length - 1]) : null;
+    const past = priceHistory[priceHistory.length - lookback] ? c(priceHistory[priceHistory.length - lookback]) : null;
 
     if (!current || !past || past === 0) return null;
 

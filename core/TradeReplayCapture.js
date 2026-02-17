@@ -28,6 +28,7 @@
  */
 
 const fs = require('fs');
+const { c, o, h, l, v, t } = require('./CandleHelper');
 const path = require('path');
 
 class TradeReplayCapture {
@@ -57,9 +58,9 @@ class TradeReplayCapture {
     if (!orderId || !priceHistory || priceHistory.length === 0) return;
 
     // Grab the last N candles leading up to entry
-    const candleSnapshot = priceHistory.slice(-this.candlesBefore).map(c => ({
-      o: c.o, h: c.h, l: c.l, c: c.c, v: c.v || 0,
-      t: c.t  // timestamp in ms
+    const candleSnapshot = priceHistory.slice(-this.candlesBefore).map(candle => ({
+      o: o(candle), h: h(candle), l: l(candle), c: c(candle), v: v(candle),
+      t: t(candle)  // timestamp in ms
     }));
 
     this.pendingEntries.set(orderId, {
@@ -100,9 +101,9 @@ class TradeReplayCapture {
     const entryCandles = pending?.candlesAtEntry || [];
 
     // Grab current candles (includes during + after trade)
-    const currentCandles = (priceHistory || []).slice(-this.candlesBefore).map(c => ({
-      o: c.o, h: c.h, l: c.l, c: c.c, v: c.v || 0,
-      t: c.t
+    const currentCandles = (priceHistory || []).slice(-this.candlesBefore).map(candle => ({
+      o: o(candle), h: h(candle), l: l(candle), c: c(candle), v: v(candle),
+      t: t(candle)
     }));
 
     // Merge: entry candles + current candles, deduplicate by timestamp

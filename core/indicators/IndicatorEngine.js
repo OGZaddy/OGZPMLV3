@@ -727,8 +727,8 @@ class IndicatorEngine {
     if (trend == null) trend = 'up';
 
     // trend switch logic
-    if (trend === 'up' && c.c < lower) trend = 'down';
-    else if (trend === 'down' && c.c > upper) trend = 'up';
+    if (trend === 'up' && _c(candle) < lower) trend = 'down';
+    else if (trend === 'down' && _c(candle) > upper) trend = 'up';
 
     const value = (trend === 'up') ? lower : upper;
 

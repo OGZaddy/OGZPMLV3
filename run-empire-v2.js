@@ -3115,6 +3115,7 @@ class OGZPrimeV14Bot {
           if (errorCount <= 5) {
             console.error(`âŒ Error processing candle #${processedCount}:`, err.message);
           }
+            console.error(err.stack);
         }
       }
 

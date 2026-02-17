@@ -31,6 +31,7 @@
 const fs = require('fs');
 const path = require('path');
 const indicators = require('./OptimizedIndicators'); // Fixed: Import singleton directly
+const { c, o, h, l, v } = require('./CandleHelper');
 
 // Pattern performance tracking for visualization and marketing
 const pattern_performance = {};
@@ -83,14 +84,14 @@ class FeatureExtractor {
       const trendEncoded = calculatedTrend?.toLowerCase?.() === 'uptrend' ? 1 : calculatedTrend?.toLowerCase?.() === 'downtrend' ? -1 : 0;
 
       // Candle pattern features
-      const bodySize = Math.abs(latestCandle.c - latestCandle.o) / latestCandle.c;
-      const wickRatio = latestCandle.h !== latestCandle.l
-        ? (Math.abs(latestCandle.c - latestCandle.o) / (latestCandle.h - latestCandle.l))
+      const bodySize = Math.abs(c(latestCandle) - o(latestCandle)) / c(latestCandle);
+      const wickRatio = h(latestCandle) !== l(latestCandle)
+        ? (Math.abs(c(latestCandle) - o(latestCandle)) / (h(latestCandle) - l(latestCandle)))
         : 0.5;
 
       // Price momentum
-      const priceChange = previousCandle && previousCandle.c > 0
-        ? (latestCandle.c - previousCandle.c) / previousCandle.c
+      const priceChange = previousCandle && c(previousCandle) > 0
+        ? (c(latestCandle) - c(previousCandle)) / c(previousCandle)
         : 0;
 
       // Position context
@@ -98,8 +99,8 @@ class FeatureExtractor {
       const lastDirection = lastTrade?.direction?.toLowerCase?.() === 'buy' ? 1 : lastTrade?.direction?.toLowerCase?.() === 'sell' ? -1 : 0;
 
       // Volume features if available
-      const volumeChange = latestCandle.v && previousCandle.v && previousCandle.v > 0
-        ? latestCandle.v / previousCandle.v - 1
+      const volumeChange = v(latestCandle) && v(previousCandle) && v(previousCandle) > 0
+        ? v(latestCandle) / v(previousCandle) - 1
         : 0;
 
       // Return comprehensive feature vector
