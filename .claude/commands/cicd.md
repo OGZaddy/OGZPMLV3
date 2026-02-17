@@ -140,6 +140,32 @@ fi
 echo "✅ PASS: No fatal errors"
 ```
 
+### TEST 7: Backtest Report Shows Trades (CRITICAL - Added 2026-02-17)
+```bash
+# This catches the brainDecision bug that blocked trades for 3 months
+# The bot ran with 0 errors but 0 trades - unacceptable
+
+REPORT=$(ls -t backtest-report-*.json 2>/dev/null | head -1)
+
+if [ -z "$REPORT" ]; then
+  echo "❌ FAIL: No backtest report generated"
+  exit 1
+fi
+
+TRADES=$(node -e "console.log(require('./$REPORT').metrics.totalTrades)" 2>/dev/null || echo 0)
+
+echo "Backtest report: $REPORT"
+echo "Total trades: $TRADES"
+
+if [ "$TRADES" -eq 0 ]; then
+  echo "❌ FAIL: Backtest produced 0 trades - EXECUTION BUG DETECTED"
+  echo "   This is exactly what happened with brainDecision undefined (Feb 2026)"
+  echo "   The bot looked healthy but trades never fired"
+  exit 1
+fi
+echo "✅ PASS: Backtest executed $TRADES trades"
+```
+
 ## FULL CI/CD RUNNER
 
 ```javascript
@@ -229,6 +255,30 @@ async function runCICD() {
     console.log('   ✅ PASS: All pages exist');
     results.passed++;
   } else {
+    results.failed++;
+  }
+
+  // TEST 5: Backtest Report Shows Trades (CRITICAL - catches silent execution bugs)
+  console.log('\n▶ TEST 5: Backtest Report Trades (CRITICAL)...');
+  const reports = fs.readdirSync('.').filter(f => f.startsWith('backtest-report-') && f.endsWith('.json'));
+  if (reports.length > 0) {
+    const latest = reports.sort().pop();
+    try {
+      const report = JSON.parse(fs.readFileSync(latest, 'utf8'));
+      const totalTrades = report.metrics?.totalTrades || 0;
+      if (totalTrades > 0) {
+        console.log(`   ✅ PASS: ${totalTrades} trades in ${latest}`);
+        results.passed++;
+      } else {
+        console.log(`   ❌ FAIL: 0 trades - EXECUTION BUG (brainDecision-type failure)`);
+        results.failed++;
+      }
+    } catch (e) {
+      console.log(`   ❌ FAIL: Cannot parse ${latest}`);
+      results.failed++;
+    }
+  } else {
+    console.log('   ❌ FAIL: No backtest report found');
     results.failed++;
   }
   
