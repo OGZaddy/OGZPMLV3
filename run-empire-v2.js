@@ -1905,7 +1905,8 @@ class OGZPrimeV14Bot {
     }
 
     if (decision.action !== 'HOLD') {
-      await this.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision);
+      // FIX 2026-02-17: Pass brainDecision to executeTrade (was undefined causing ReferenceError)
+      await this.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, brainDecision);
     }
   }
 
@@ -2271,7 +2272,8 @@ class OGZPrimeV14Bot {
    * Execute a trade through the merged AdvancedExecutionLayer
    * Uses Browser Claude's Change 513 compliant version
    */
-  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null) {
+  // FIX 2026-02-17: Added brainDecision parameter (was out of scope causing ReferenceError)
+  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, brainDecision = null) {
     // CHANGE 657: Codex-recommended rate limiter - NEVER blocks exits!
     // CHANGE 658: Make symbol-specific instead of hardcoded
     const gate = this.rateLimiter.allow({
@@ -2464,10 +2466,10 @@ class OGZPrimeV14Bot {
             patterns: patterns || [],  // Attach detected patterns for outcome learning
             entryIndicators: indicators,  // Attach indicators for feature vector reconstruction
             entryTime: this.marketData?.timestamp || Date.now(),  // FIX 2026-02-05: Use candle time in backtest
-            signalBreakdown: brainDecision.signalBreakdown || null,  // Full decision reasoning
-            bullishScore: brainDecision.bullishScore || 0,
-            bearishScore: brainDecision.bearishScore || 0,
-            reasoning: brainDecision.reasoning || ''
+            signalBreakdown: brainDecision?.signalBreakdown || null,  // Full decision reasoning
+            bullishScore: brainDecision?.bullishScore || 0,
+            bearishScore: brainDecision?.bearishScore || 0,
+            reasoning: brainDecision?.reasoning || ''
           });
 
           // CHANGE 2025-12-12: Validate StateManager.openPosition() success
