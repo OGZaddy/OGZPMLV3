@@ -658,8 +658,15 @@ class OGZPrimeV14Bot {
 
   /**
    * Validate required environment variables
+   * FIX 2026-02-18: Skip in BACKTEST_MODE for Windows local testing
    */
   validateEnvironment() {
+    // Skip API key validation in backtest mode - not needed for historical data
+    if (process.env.BACKTEST_MODE === 'true') {
+      console.log('⏭️ Skipping API key validation (BACKTEST_MODE)');
+      return;
+    }
+
     const required = ['KRAKEN_API_KEY', 'KRAKEN_API_SECRET', 'POLYGON_API_KEY'];
     const missing = required.filter(key => !process.env[key]);
     if (missing.length > 0) {
