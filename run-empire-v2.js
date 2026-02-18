@@ -2558,9 +2558,9 @@ class OGZPrimeV14Bot {
             };
             console.log(`[STRATEGY] LiquiditySweep triggered: conf=${(this.liquiditySweepSignal.confidence * 100).toFixed(0)}%`);
 
-          // Priority 2: EMASMACrossover (direction='buy' and confidence > 0.065)
-          // FIX 2026-02-18: Calibrated from 321k candles - p75=0.066, only top 25% signals pass
-          } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.065) {
+          // Priority 2: EMASMACrossover (direction='buy' and confidence > 0.03)
+          // ROLLBACK 2026-02-18: Was 71% win rate at 0.03 - don't fix what's winning
+          } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.03) {
             entryStrategy = 'EMASMACrossover';
             exitContractSignal = {
               stopLossPercent: -2.0,
@@ -2570,10 +2570,9 @@ class OGZPrimeV14Bot {
             };
             console.log(`[STRATEGY] EMASMACrossover triggered: dir=${this.emaCrossoverSignal.direction}, conf=${(this.emaCrossoverSignal.confidence * 100).toFixed(0)}%`);
 
-          // Priority 3: MADynamicSR - THE MA RETEST BOUNCE (direction='buy' and confidence > 0.10)
-          // FIX 2026-02-18: Calibrated from 321k candles - using 0.10 (between old 0.03 and p50=0.21)
-          // User decision: Want more trades first to evaluate, can tighten later
-          } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.10) {
+          // Priority 3: MADynamicSR - THE MA RETEST BOUNCE (direction='buy' and confidence > 0.05)
+          // FIX 2026-02-18: Loosened to 0.05 - need more trades to evaluate performance
+          } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.05) {
             entryStrategy = 'MADynamicSR';
             exitContractSignal = {
               stopLossPercent: -1.8,
