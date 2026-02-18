@@ -162,6 +162,10 @@ const tradingOptimizations = new TradingOptimizations(patternStatsManager, conso
 const { getInstance: getStateManager } = require('./core/StateManager');
 const stateManager = getStateManager();
 
+// FIX 2026-02-17: ExitContractManager - Strategy-owned exit conditions
+const { getInstance: getExitContractManager } = require('./core/ExitContractManager');
+const exitContractManager = getExitContractManager();
+
 // CHANGE 2025-12-11: MessageQueue - Prevent WebSocket race conditions
 const MessageQueue = require('./core/MessageQueue');
 
@@ -1252,6 +1256,7 @@ class OGZPrimeV14Bot {
       if (this.maDynamicSR) this.maDynamicSRSignal = this.maDynamicSR.update(candle, this.priceHistory);
       if (this.liquiditySweep) this.liquiditySweepSignal = this.liquiditySweep.feedCandle(candle);
 
+
       // Only log during warmup phase (first 20 candles)
       if (this.priceHistory.length <= 20) {
         const candleTime = new Date(candle.t).toLocaleTimeString();
@@ -2009,6 +2014,43 @@ class OGZPrimeV14Bot {
         const activeTrade = buyTrades[0];
 
         // =====================================================================
+        // FIX 2026-02-17: CHECK EXIT CONTRACT FIRST
+        // Strategy-owned exits: each trade has its own SL/TP/invalidation frozen at entry
+        // This prevents premature exits from unrelated strategy confidence drops
+        // =====================================================================
+        if (activeTrade.exitContract) {
+          // Update max profit for trailing stop calculation
+          exitContractManager.updateMaxProfit(activeTrade, currentPrice);
+
+          // Check exit conditions from the trade's own contract
+          const exitCheck = exitContractManager.checkExitConditions(activeTrade, currentPrice, {
+            indicators: indicators,
+            currentTime: this.marketData?.timestamp || Date.now(),
+            accountBalance: stateManager.get('balance'),
+            initialBalance: stateManager.get('initialBalance') || 10000
+          });
+
+          if (exitCheck.shouldExit) {
+            console.log(`[EXIT-CONTRACT] ${exitCheck.details}`);
+            return {
+              action: 'SELL',
+              direction: 'close',
+              confidence: exitCheck.confidence || 100,
+              exitReason: exitCheck.exitReason,
+              decisionContext: {
+                source: 'ExitContract',
+                strategy: activeTrade.entryStrategy,
+                ...decisionContext
+              }
+            };
+          }
+
+          // If exitContract exists but doesn't say exit, DON'T let aggregate confidence trigger exit
+          // Only universal circuit breakers and exitContract conditions can close this trade
+          // This is the key fix: brain aggregate direction is ignored for exit decisions
+        }
+
+        // =====================================================================
         // CHANGE 2026-02-02: TradeIntelligenceEngine - Intelligent Exit Decisions
         // Evaluates each trade on 13 dimensions instead of blanket rules
         // =====================================================================
@@ -2208,15 +2250,23 @@ class OGZPrimeV14Bot {
 
           if (buyTrades.length > 0) {
             const buyTrade = buyTrades[0];
-            const holdTime = ((this.marketData?.timestamp || Date.now()) - buyTrade.entryTime) / 60000; // Convert to minutes
-            const minHoldTime = 0.05; // 3 seconds for 5-sec candles
 
-            // Additional conditions for Brain to override:
-            // 1. Minimum hold time met
-            // 2. Position is in profit (don't panic sell at loss)
-            const pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
+            // FIX 2026-02-17: If trade has exitContract, skip brain aggregate exit
+            // Only the trade's own contract (checked earlier) can trigger exit
+            if (buyTrade.exitContract) {
+              console.log(`[EXIT-CONTRACT] Brain says SELL but trade has exitContract - IGNORING aggregate`);
+              // Don't return SELL - let the trade ride until its own contract triggers
+            } else {
+              // Legacy behavior for trades without exitContract
+              const holdTime = ((this.marketData?.timestamp || Date.now()) - buyTrade.entryTime) / 60000; // Convert to minutes
+              const minHoldTime = 0.05; // 3 seconds for 5-sec candles
 
-            if (holdTime >= minHoldTime && pnl > 0.35) {  // MUST COVER FEES (0.32% + buffer)
+              // Additional conditions for Brain to override:
+              // 1. Minimum hold time met
+              // 2. Position is in profit (don't panic sell at loss)
+              const pnl = ((currentPrice - entryPrice) / entryPrice) * 100;
+
+              if (holdTime >= minHoldTime && pnl > 0.35) {  // MUST COVER FEES (0.32% + buffer)
               console.log(`ðŸ§  Brain bearish & profitable - allowing SELL (held ${holdTime.toFixed(2)} min, PnL: ${pnl.toFixed(2)}%)`);
               return { action: 'SELL', direction: 'close', confidence: totalConfidence };
             } else if (holdTime >= minHoldTime && pnl < -2) {
@@ -2231,6 +2281,7 @@ class OGZPrimeV14Bot {
             } else {
               console.log(`ðŸ§  Brain wants sell but conditions not met (hold: ${holdTime.toFixed(3)} min, PnL: ${pnl.toFixed(2)}%)`);
             }
+            } // close else block for !exitContract
           }
         }
 
@@ -2256,6 +2307,8 @@ class OGZPrimeV14Bot {
         }
 
         // Let profitable trades ride - don't exit on minor confidence fluctuations
+        // DEBUG 2026-02-17: If we get here, no exit condition matched - HOLD
+        console.log(`📊 [EXIT-DEBUG] No exit condition matched. pos=${pos}, pnl=${pnl?.toFixed(3) || 'N/A'}%, conf=${totalConfidence}, brainDir=${brainDirection}`);
       }
     }
 
@@ -2288,6 +2341,19 @@ class OGZPrimeV14Bot {
         console.log(`â±ï¸ Retry in ${(gate.retryInMs/1000).toFixed(1)}s`);
       }
       return; // Block only entries, exits always allowed
+    }
+
+    // FIX 2026-02-17: Dont exit on "no signal" (low confidence)
+    // SELL requires: (1) high confidence SELL signal, (2) stop loss, or (3) profit target
+    const MIN_SELL_CONFIDENCE = 30;
+    const isStopLossExit = decision.exitReason === "stop_loss" || decision.exitReason === "trailing_stop";
+    const isProfitExit = decision.exitReason === "profit_tier" || decision.exitReason === "take_profit";
+    const isEmergencyExit = decision.exitReason === "hard_stop" || decision.confidence >= 70;
+    if (decision.action === "SELL" && decision.confidence < MIN_SELL_CONFIDENCE) {
+      if (!isStopLossExit && !isProfitExit && !isEmergencyExit) {
+        console.log("[EXIT BLOCKED] Confidence " + decision.confidence.toFixed(1) + "% < " + MIN_SELL_CONFIDENCE + "% minimum");
+        return;
+      }
     }
 
     // Log allowed trade
@@ -2460,6 +2526,77 @@ class OGZPrimeV14Bot {
           // CHANGE 2025-12-11 FIX: orderId was undefined - use unifiedResult.orderId
           // FIX 2026-02-02: Attach patterns + indicators for learning feedback at exit
           // CHANGE 2026-02-13: Attach signalBreakdown for comprehensive trade logging
+
+          // FIX 2026-02-17: Determine triggering strategy and create exitContract
+          // Each trade now owns its exit conditions - no more aggregate confidence exits
+          let entryStrategy = 'default';
+          let exitContractSignal = {};
+
+          // Check which signal module contributed most to this entry
+          // FIX 2026-02-17: Fixed detection - modules use 'buy'/'sell' not 'bullish'/'bearish'
+          // and confidence is 0-1.0 (decimal) not 50+ (percentage)
+
+          // Priority 1: LiquiditySweep (hasSignal + confidence > 0.5)
+          if (this.liquiditySweepSignal?.hasSignal && this.liquiditySweepSignal?.confidence > 0.5) {
+            entryStrategy = 'LiquiditySweep';
+            exitContractSignal = {
+              stopLossPercent: -1.5,
+              takeProfitPercent: 2.5,
+              trailingStopPercent: 1.0,
+              invalidationConditions: ['sweep_invalidated']
+            };
+            console.log(`[STRATEGY] LiquiditySweep triggered: conf=${(this.liquiditySweepSignal.confidence * 100).toFixed(0)}%`);
+
+          // Priority 2: EMASMACrossover (direction='buy' and confidence > 0.03)
+          // FIX 2026-02-17: Lowered from 0.2 to 0.03 - module produces 4-5% confidence typically
+          } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.03) {
+            entryStrategy = 'EMASMACrossover';
+            exitContractSignal = {
+              stopLossPercent: -2.0,
+              takeProfitPercent: 4.0,
+              trailingStopPercent: 1.5,
+              invalidationConditions: ['ema_cross_reversal']
+            };
+            console.log(`[STRATEGY] EMASMACrossover triggered: dir=${this.emaCrossoverSignal.direction}, conf=${(this.emaCrossoverSignal.confidence * 100).toFixed(0)}%`);
+
+          // Priority 3: MADynamicSR - THE MA RETEST BOUNCE (direction='buy' and confidence > 0.2)
+          // FIX 2026-02-17: Lowered from 0.2 to 0.03 - module needs bounce/retest events
+          } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.03) {
+            entryStrategy = 'MADynamicSR';
+            exitContractSignal = {
+              stopLossPercent: -1.8,
+              takeProfitPercent: 3.0,
+              trailingStopPercent: 1.2,
+              invalidationConditions: ['sr_level_broken']
+            };
+            console.log(`[STRATEGY] MADynamicSR triggered: dir=${this.maDynamicSRSignal.direction}, conf=${(this.maDynamicSRSignal.confidence * 100).toFixed(0)}%`);
+
+          // Priority 4: CandlePattern (confidence > 0.6)
+          } else if (patterns && patterns.length > 0 && patterns[0]?.confidence > 0.6) {
+            entryStrategy = 'CandlePattern';
+            exitContractSignal = {
+              stopLossPercent: -1.5,
+              takeProfitPercent: 2.0,
+              trailingStopPercent: 0.8,
+              invalidationConditions: ['pattern_negated']
+            };
+          } else if (brainDecision?.signalBreakdown?.signals?.length > 0) {
+            // Use the strongest signal from breakdown
+            const strongest = brainDecision.signalBreakdown.signals.reduce((a, b) =>
+              (b.contribution > a.contribution) ? b : a
+            );
+            entryStrategy = strongest.source || 'Brain';
+          }
+
+          // Create frozen exit contract for this trade
+          const exitContract = exitContractManager.createExitContract(
+            entryStrategy,
+            exitContractSignal,
+            { volatility: indicators.volatility || 0 }
+          );
+
+          console.log(`[EXIT-CONTRACT] Entry via ${entryStrategy}: SL=${exitContract.stopLossPercent}%, TP=${exitContract.takeProfitPercent}%`);
+
           const positionResult = await stateManager.openPosition(positionSize, price, {
             orderId: unifiedResult.orderId,
             confidence: decision.confidence,
@@ -2469,7 +2606,10 @@ class OGZPrimeV14Bot {
             signalBreakdown: brainDecision?.signalBreakdown || null,  // Full decision reasoning
             bullishScore: brainDecision?.bullishScore || 0,
             bearishScore: brainDecision?.bearishScore || 0,
-            reasoning: brainDecision?.reasoning || ''
+            reasoning: brainDecision?.reasoning || '',
+            // FIX 2026-02-17: Strategy-owned exit conditions
+            entryStrategy: entryStrategy,
+            exitContract: exitContract
           });
 
           // CHANGE 2025-12-12: Validate StateManager.openPosition() success
@@ -2528,6 +2668,7 @@ class OGZPrimeV14Bot {
           }
 
           // CHANGE 642: Record BUY trade for backtest reporting
+          // FIX 2026-02-17: Added entryStrategy and exitContract for strategy attribution analysis
           if (this.executionLayer && this.executionLayer.trades) {
             this.executionLayer.trades.push({
               timestamp: new Date().toISOString(),
@@ -2535,7 +2676,9 @@ class OGZPrimeV14Bot {
               price: price,
               amount: positionSize,
               confidence: decision.confidence,
-              balance: stateManager.get('balance')  // CHANGE 2025-12-13: Read from StateManager
+              balance: stateManager.get('balance'),  // CHANGE 2025-12-13: Read from StateManager
+              entryStrategy: entryStrategy,  // FIX 2026-02-17: Strategy attribution
+              exitContract: exitContract     // FIX 2026-02-17: Exit conditions for analysis
             });
           }
 
@@ -2667,6 +2810,7 @@ class OGZPrimeV14Bot {
 
             // CHANGE 642: Record SELL trade for backtest reporting
             // CHANGE 649: Add exit indicators for ML learning
+            // FIX 2026-02-17: Added entryStrategy and exitContract for strategy attribution
             if (this.executionLayer && this.executionLayer.trades) {
               this.executionLayer.trades.push({
                 timestamp: new Date().toISOString(),
@@ -2679,6 +2823,9 @@ class OGZPrimeV14Bot {
                 confidence: decision.confidence,
                 balance: stateManager.get('balance'),
                 holdDuration: holdDuration,
+                // FIX 2026-02-17: Strategy attribution from entry
+                entryStrategy: buyTrade.entryStrategy || 'unknown',
+                exitContract: buyTrade.exitContract || null,
                 // Entry indicators from BUY
                 entryIndicators: buyTrade.indicators,
                 // Exit indicators at SELL time

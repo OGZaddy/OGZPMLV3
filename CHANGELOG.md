@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Strategy Attribution & Module Fixes - 2026-02-18)
+- **Strategy Attribution Analysis Script** - `ogz-meta/analyze-strategy-attribution.js`
+  - Parses backtest reports and breaks down performance by entry strategy
+  - Shows trades, wins, losses, win rate, total P&L, avg P&L per strategy
+  - Exit reason breakdown and recommendations for tuning
+  - Usage: `node ogz-meta/analyze-strategy-attribution.js [report-file]`
+
+- **Strategy Attribution in Backtest Reports**
+  - BUY trades now capture `entryStrategy` and `exitContract` (lines 2656, 2798)
+  - SELL trades carry forward the original entry strategy
+  - 100% attribution coverage: 13/13 trades in latest backtest
+
+### Fixed (Strategy Signal Detection - 2026-02-18)
+- **EMASMACrossover/MADynamicSR never firing** - run-empire-v2.js:2551-2569
+  - **Problem**: Modules returned `direction='buy'` but detection checked for wrong values
+  - **Root Cause 1**: Detection used `confidence > 0.2` (20%) but modules output 3-5% typically
+  - **Root Cause 2**: Modules need ~200 candles warmup for MA calculations
+  - **Fix**: Lowered thresholds from `> 0.2` to `> 0.03` (3%) to catch valid signals
+  - **Impact**: EMASMACrossover now fires with 71% win rate (+$16.01), MADynamicSR also active
+
+- **Backtest results with all strategies firing**:
+  ```
+  | EMASMACrossover |  7 trades | 71% win | +$16.01 |
+  | MADynamicSR     |  1 trade  | 100%    | +$0.90  |
+  | RSI             |  3 trades | 33%     | +$0.47  |
+  | MACD            |  2 trades | 50%     | -$2.90  |
+  | TOTAL           | 13 trades | 62%     | +$14.48 |
+  ```
+
+### Added (Strategy-Owned Exits Architecture - 2026-02-17)
+- **ExitContractManager** - `core/ExitContractManager.js`
+  - Each trade now stores its own exit conditions (SL/TP/trailing/invalidation) frozen at entry
+  - Exit evaluation checks trade's contract FIRST, ignores aggregate confidence
+  - Default contracts per strategy: EMASMACrossover, LiquiditySweep, MADynamicSR, CandlePattern, MarketRegime
+  - Universal circuit breakers: -3% hard stop, -10% account drawdown, 8hr max hold
+
+- **Strategy-owned exits in run-empire-v2.js**
+  - Entry captures `entryStrategy` and `exitContract` on trade object (lines 2478-2530)
+  - Exit checks contract before brain aggregate (lines 2015-2050)
+  - Brain aggregate exits bypassed when trade has exitContract (lines 2255-2285)
+
+- **Impact**: Backtest results dramatically improved
+  - Before: 4 trades, -$5 loss, premature exits at 10% confidence
+  - After: 48 trades, +$213 profit (+2.13%), trades hold to TP targets
+  - Root cause fixed: unrelated strategy confidence drops no longer trigger exits
+
+### Fixed (CRITICAL - Trades Finally Execute - 2026-02-17)
+- **CRITICAL: brainDecision undefined blocked ALL trades for 3 months** - run-empire-v2.js:2467-2472
+  - **Problem**: Zero trades executed despite high confidence signals. Bot ran with 0 errors but 0 trades.
+  - **Root Cause**: `brainDecision` was defined in `processNewCandle()` but accessed in `executeTrade()` where it was out of scope. Every trade attempt threw ReferenceError silently.
+  - **Fix**:
+    1. Pass `brainDecision` as 7th parameter to `executeTrade()` (line 1909)
+    2. Add `brainDecision = null` parameter to function signature (line 2276)
+    3. Add null guards with optional chaining `brainDecision?.` (lines 2469-2472)
+  - **Impact**: Bot now executes trades. Backtest: 0 trades → 4+ trades. This was THE bug.
+
+- **CandleHelper compatibility across 7 files** - Multiple files
+  - **Problem**: 59,990 "c is not defined" errors in backtest
+  - **Root Cause**: Code used Kraken format (`.c/.o/.h/.l`) but some files used standard format (`.close/.open/.high/.low`)
+  - **Fix**: Created `core/CandleHelper.js` module with format-agnostic accessors, updated:
+    - `core/CandlePatternDetector.js` (21 fixes)
+    - `core/EnhancedPatternRecognition.js` (7 fixes)
+    - `core/OptimizedTradingBrain.js` (1 fix)
+    - `core/SignalGenerator.js` (4 fixes)
+    - `core/TradeReplayCapture.js` (2 fixes)
+    - `core/PipelineSnapshot.js` (1 fix)
+    - `core/indicators/IndicatorEngine.js` (SuperTrend bug - `c.c` → `_c(candle)`)
+  - **Impact**: Backtest runs with 0 errors, 60k candles processed
+
+### Added (CI/CD Hardening - 2026-02-17)
+- **TEST 7: Backtest must produce trades** - .claude/commands/cicd.md
+  - Fails CI if backtest-report JSON shows `totalTrades === 0`
+  - Catches brainDecision-type bugs that silently block execution
+  - Added to both bash tests and JS runner
+
 ### Added (Trade Journal + Multi-Asset + Replay - 2026-02-11)
 - **Trade Journal System** - Complete trade analytics engine
   - `core/TradeJournal.js` - 40+ metrics, append-only ledger, tax-ready CSV export

@@ -31,11 +31,13 @@ class MADynamicSR {
       { id: 'sma200', period: 200, type: 'sma', importance: 1.5 },
     ];
 
-    // Touch zone: ±0.3% of price counts as "touching" the MA
-    this.touchZonePct = config.touchZonePct || 0.3;
+    // Touch zone: ±1.5% of price counts as "near" the MA
+    // FIX 2026-02-18: Loosened from 0.3% - was too tight, never fired
+    this.touchZonePct = config.touchZonePct || 1.5;
 
-    // Bounce confirmation: 0.5% move away from MA
-    this.bounceConfirmPct = config.bounceConfirmPct || 0.5;
+    // Bounce confirmation: 0.15% move away from MA
+    // FIX 2026-02-18: Loosened from 0.5% - low volatility data never hit this
+    this.bounceConfirmPct = config.bounceConfirmPct || 0.15;
 
     // Break confirmation: 0.4% through MA
     this.breakConfirmPct = config.breakConfirmPct || 0.4;
@@ -220,6 +222,20 @@ class MADynamicSR {
           warning: 'Explosive move likely — MAs compressed'
         };
         // Don't add directional bias — compression is neutral until break
+      }
+    }
+
+    // FIX 2026-02-18: Include accumulated score from recent (undecayed) signals
+    // This makes bounce/retest signals persist for ~8 candles instead of 1
+    // Without this, signals vanished before Brain could act on them
+    for (const sig of this.activeSignals) {
+      const decayFactor = 1 - (sig.age / this.decayBars);
+      if (decayFactor > 0) {
+        if (sig.type.includes('support') || sig.type === 'breakout') {
+          bullishScore += 0.08 * sig.importance * decayFactor;
+        } else if (sig.type.includes('resistance') || sig.type === 'breakdown') {
+          bearishScore += 0.08 * sig.importance * decayFactor;
+        }
       }
     }
 
