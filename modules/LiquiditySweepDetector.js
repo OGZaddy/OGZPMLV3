@@ -46,6 +46,8 @@ class LiquiditySweepDetector {
       // Session open in UTC — default 14:30 = 9:30 AM ET
       sessionOpenHour: config.sessionOpenHour ?? 14,
       sessionOpenMinute: config.sessionOpenMinute ?? 30,
+      // FIX 2026-02-18: For 24/7 crypto, disable session check to scan anytime
+      disableSessionCheck: config.disableSessionCheck || false,
     };
 
     // Internal aggregation buffers
@@ -71,8 +73,10 @@ class LiquiditySweepDetector {
 
   // ─── RESET ──────────────────────────────────────────────────
   reset() {
+    // FIX 2026-02-18: If disableSessionCheck, start in building_box phase for 24/7 scanning
+    const initialPhase = this.config?.disableSessionCheck ? 'building_box' : 'waiting_for_open';
     this.state = {
-      phase: 'waiting_for_open',
+      phase: initialPhase,
       sessionDate: null,
       dailyCandles: this.state?.dailyCandles || [],  // preserve across resets
       dailyATR: this.state?.dailyATR || null,
@@ -153,6 +157,23 @@ class LiquiditySweepDetector {
         const candle5m = this._aggregate(this._minuteBuffer5m);
         this._minuteBuffer5m = [];
         this._process5mCandle(candle5m);
+      }
+    }
+
+    // DEEP DIAGNOSTIC: Trace LiquiditySweep internals every 1000 candles
+    if (process.env.BACKTEST_VERBOSE) {
+      const candleTs = candle?.t ? new Date(candle.t).toISOString() : 'unknown';
+      const utcH = candle?.t ? new Date(candle.t).getUTCHours() : -1;
+      const utcM = candle?.t ? new Date(candle.t).getUTCMinutes() : -1;
+      // Log every 1000th candle OR on state transitions
+      if ((this.stats?.totalSessionsAnalyzed || 0) % 10 === 0 || this.state.phase !== 'waiting_for_open') {
+        console.log(`[DEEP-LIQSWEEP] ═══════════════════════════════════════`);
+        console.log(`[DEEP-LIQSWEEP] candleTime=${candleTs} utcHour=${utcH} utcMin=${utcM}`);
+        console.log(`[DEEP-LIQSWEEP] sessionOpenRequired=${this.config.sessionOpenHour}:${this.config.sessionOpenMinute} (14:30 UTC)`);
+        console.log(`[DEEP-LIQSWEEP] currentDay=${this._currentDay} phase=${this.state.phase}`);
+        console.log(`[DEEP-LIQSWEEP] dailyCandles=${this.state.dailyCandles?.length||0} need=15 for ATR`);
+        console.log(`[DEEP-LIQSWEEP] dailyATR=${this.state.dailyATR?.toFixed(4)||'null'} manipThreshold=${this.state.manipThreshold?.toFixed(4)||'null'}`);
+        console.log(`[DEEP-LIQSWEEP] WHY_PHASE: ${this.state.phase === 'done' ? 'ATR failed or manip candle rejected' : this.state.phase === 'waiting_for_open' ? 'waiting for 14:30 UTC' : 'active'}`);
       }
     }
 

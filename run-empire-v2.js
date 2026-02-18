@@ -448,8 +448,8 @@ class OGZPrimeV14Bot {
     this.emaCrossover = new EMASMACrossoverSignal();
     this.maDynamicSR = new MADynamicSR();
     this.liquiditySweep = new LiquiditySweepDetector({
-      sessionOpenHour: 0,    // Midnight UTC for crypto (24/7 market)
-      sessionOpenMinute: 0,
+      // FIX 2026-02-18: Disable session check for 24/7 crypto - scan for sweeps anytime
+      disableSessionCheck: true,
     });
     console.log('ðŸ“Š Modular Entry System: MTF + Crossovers + S/R + Liquidity initialized');
 
@@ -2536,6 +2536,17 @@ class OGZPrimeV14Bot {
           // FIX 2026-02-17: Fixed detection - modules use 'buy'/'sell' not 'bullish'/'bearish'
           // and confidence is 0-1.0 (decimal) not 50+ (percentage)
 
+          // DEEP DIAGNOSTIC: Show all module signals at entry time
+          if (process.env.BACKTEST_VERBOSE) {
+            console.log(`[DEEP-ENTRY] ═══════════════════════════════════════`);
+            console.log(`[DEEP-ENTRY] TRADE ENTRY POINT - checking all modules:`);
+            console.log(`[DEEP-ENTRY] LiquiditySweep: hasSignal=${this.liquiditySweepSignal?.hasSignal||false} conf=${(this.liquiditySweepSignal?.confidence||0).toFixed(3)} threshold=0.5`);
+            console.log(`[DEEP-ENTRY] EMASMACrossover: dir=${this.emaCrossoverSignal?.direction||'?'} conf=${(this.emaCrossoverSignal?.confidence||0).toFixed(3)} threshold=0.03`);
+            console.log(`[DEEP-ENTRY] MADynamicSR: dir=${this.maDynamicSRSignal?.direction||'?'} conf=${(this.maDynamicSRSignal?.confidence||0).toFixed(3)} threshold=0.03`);
+            console.log(`[DEEP-ENTRY] patterns[0]: name=${patterns?.[0]?.name||'none'} conf=${(patterns?.[0]?.confidence||0).toFixed(3)} threshold=0.6`);
+            console.log(`[DEEP-ENTRY] brainDecision: dir=${brainDecision?.direction||'?'} conf=${(brainDecision?.confidence||0).toFixed(3)}`);
+          }
+
           // Priority 1: LiquiditySweep (hasSignal + confidence > 0.5)
           if (this.liquiditySweepSignal?.hasSignal && this.liquiditySweepSignal?.confidence > 0.5) {
             entryStrategy = 'LiquiditySweep';
@@ -2547,9 +2558,9 @@ class OGZPrimeV14Bot {
             };
             console.log(`[STRATEGY] LiquiditySweep triggered: conf=${(this.liquiditySweepSignal.confidence * 100).toFixed(0)}%`);
 
-          // Priority 2: EMASMACrossover (direction='buy' and confidence > 0.03)
-          // FIX 2026-02-17: Lowered from 0.2 to 0.03 - module produces 4-5% confidence typically
-          } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.03) {
+          // Priority 2: EMASMACrossover (direction='buy' and confidence > 0.065)
+          // FIX 2026-02-18: Calibrated from 321k candles - p75=0.066, only top 25% signals pass
+          } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.065) {
             entryStrategy = 'EMASMACrossover';
             exitContractSignal = {
               stopLossPercent: -2.0,
@@ -2559,9 +2570,10 @@ class OGZPrimeV14Bot {
             };
             console.log(`[STRATEGY] EMASMACrossover triggered: dir=${this.emaCrossoverSignal.direction}, conf=${(this.emaCrossoverSignal.confidence * 100).toFixed(0)}%`);
 
-          // Priority 3: MADynamicSR - THE MA RETEST BOUNCE (direction='buy' and confidence > 0.2)
-          // FIX 2026-02-17: Lowered from 0.2 to 0.03 - module needs bounce/retest events
-          } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.03) {
+          // Priority 3: MADynamicSR - THE MA RETEST BOUNCE (direction='buy' and confidence > 0.10)
+          // FIX 2026-02-18: Calibrated from 321k candles - using 0.10 (between old 0.03 and p50=0.21)
+          // User decision: Want more trades first to evaluate, can tighten later
+          } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.10) {
             entryStrategy = 'MADynamicSR';
             exitContractSignal = {
               stopLossPercent: -1.8,

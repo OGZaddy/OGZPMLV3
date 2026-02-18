@@ -41,7 +41,9 @@ class MarketRegimeDetector extends EventEmitter {
       updateFrequency: 10,          // Update regime every N candles
       
       // Volatility thresholds
-      lowVolThreshold: 0.5,         // Below = quiet market
+      // FIX 2026-02-18: Calibrated from 321k candles - p10=0.066, using 0.05 (below p10)
+      // Only truly dead markets get labeled "quiet", allowing trending/ranging to trigger
+      lowVolThreshold: 0.05,        // Below = quiet market (< p10 of actual data)
       highVolThreshold: 2.0,        // Above = volatile market
       
       // Trend strength thresholds
@@ -271,7 +273,19 @@ class MarketRegimeDetector extends EventEmitter {
     
     // Calculate regime change confidence
     const regimeConfidence = this.calculateRegimeConfidence(detectedRegime);
-    
+
+    // DEEP DIAGNOSTIC: Trace regime detection internals every 1000 updates
+    if (process.env.BACKTEST_VERBOSE && this.updateCount % 500 === 0) {
+      console.log(`[DEEP-REGIME] ═══════════════════════════════════════`);
+      console.log(`[DEEP-REGIME] updateCount=${this.updateCount}`);
+      console.log(`[DEEP-REGIME] volatility=${this.metrics.volatility?.toFixed(4)||0} thresholds: low=${this.config.lowVolThreshold} high=${this.config.highVolThreshold}`);
+      console.log(`[DEEP-REGIME] trendStrength=${this.metrics.trendStrength?.toFixed(4)||0} threshold=${this.config.strongTrendThreshold}`);
+      console.log(`[DEEP-REGIME] trendDirection=${this.metrics.trendDirection?.toFixed(4)||0}`);
+      console.log(`[DEEP-REGIME] volumeRatio=${this.metrics.volumeRatio?.toFixed(4)||0} pricePos=${this.metrics.pricePosition?.toFixed(4)||0} momentum=${this.metrics.momentum?.toFixed(4)||0}`);
+      console.log(`[DEEP-REGIME] DECISION: vol ${this.metrics.volatility < this.config.lowVolThreshold ? '<' : '>='} ${this.config.lowVolThreshold} => ${detectedRegime}`);
+      console.log(`[DEEP-REGIME] confidence=${regimeConfidence?.toFixed(4)||0}`);
+    }
+
     // Update regime if confidence is high enough
     if (regimeConfidence > 0.7 || detectedRegime === this.currentRegime) {
       this.previousRegime = this.currentRegime;
