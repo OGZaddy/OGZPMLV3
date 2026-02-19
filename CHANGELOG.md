@@ -63,6 +63,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 - **Related:** Commit `1b5cc19` on `fix/candle-helper-wip`
 
+### Refactored (CRITICAL - Entry Pipeline Gate Removal - 2026-02-19)
+- **6 hardcoded gates were killing 99.997% of trade signals** - Desktop Claude analysis
+  - **Problem**: Trades had to survive 6+ independent gates. EMACrossover (71% win rate) only contributed 3-5% but needed 40% to pass directional gate.
+  - **See:** `ogz-meta/ledger/ENTRY-PIPELINE-REFACTOR.md` for full kill chain analysis
+
+- **Gate 1 REMOVED:** `core/OptimizedTradingBrain.js` lines 2999-3012 (0.40 directional gate)
+  - **Before:**
+    ```javascript
+    if (bullishConfidence > bearishConfidence && bullishConfidence > 0.40) {
+        direction = 'buy';
+    } else {
+        // direction stays 'neutral' ← KILLED EVERYTHING
+    }
+    ```
+  - **After:**
+    ```javascript
+    const minDirectionalEdge = 0.05; // 5% minimum advantage
+    if (bullishConfidence > bearishConfidence && directionalSpread >= minDirectionalEdge) {
+        direction = 'buy';
+    }
+    ```
+  - **Impact**: Direction = whoever wins by 5%+. MIN_TRADE_CONFIDENCE handles "is it strong enough"
+
+- **Gate 2 REMOVED:** `core/OptimizedTradingBrain.js` lines 2978-2991 (Regime filter)
+  - **Before:** Hardcoded block if `trending_down + bull < 0.60`
+  - **After:** DELETED. Regime detector already contributes bearish confidence at line 2552
+  - **Impact**: No double-punishment for downtrends
+
+- **Gate 3 NARROWED:** `core/OptimizedTradingBrain.js` lines 3015-3025 (RSI safety)
+  - **Before:** RSI > 80 blocks buy, RSI < 20 blocks sell
+  - **After:** RSI > 88 blocks buy, RSI < 12 blocks sell (extreme only)
+  - **Impact**: Valid trades in 70-80 RSI range no longer blocked
+
+- **Gate 4 SIMPLIFIED:** `core/OptimizedTradingBrain.js` lines 3107-3224 (determineTradingDirection)
+  - **Before:** Re-analyzed everything with different thresholds (122 lines)
+  - **After:** Passthrough - trusts `calculateRealConfidence` decision (12 lines)
+  - **Impact**: No conflicting gate logic
+
+- **Gate 5 FIXED:** `core/EnhancedPatternRecognition.js` lines 624-625 (Pattern thresholds)
+  - **Before:** `minimumMatches: 3, confidenceThreshold: 0.6`
+  - **After:** `minimumMatches: 1, confidenceThreshold: 0.2`
+  - **Impact**: Patterns with 1+ occurrence and 20%+ win rate now contribute
+
+- **Result:** ONE tunable threshold (MIN_TRADE_CONFIDENCE in .env) controls everything
+- **Expected:** Trade count 2 → 50-300+ on 60k candles
+- **Verified:** Pattern system returns `confidence: 1, direction: buy` for winning patterns
+- **Related:** Commit `cbb112e` on `fix/candle-helper-wip`
+
 ### Added (Strategy Attribution & Module Fixes - 2026-02-18)
 - **Strategy Attribution Analysis Script** - `ogz-meta/analyze-strategy-attribution.js`
   - Parses backtest reports and breaks down performance by entry strategy
