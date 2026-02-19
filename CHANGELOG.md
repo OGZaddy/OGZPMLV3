@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (CRITICAL - Pattern Learning Pipeline Repaired - 2026-02-19)
+- **Pattern memory stuck at 8182 patterns with wins:0, losses:0, totalPnL:0** - Multiple files
+  - **Problem**: Pattern learning hadn't updated since Dec 31 (7+ weeks stale). Confidence stuck at 0.1%. All 8182 patterns had `pnl:0`.
+  - **Root Cause 1**: `FeatureExtractor.extract()` returned `[]` when candles < 30
+    - Empty features caused `recordPatternResult()` to skip recording (line 937-940)
+  - **Root Cause 2**: Entry recording was disabled on 2026-02-01
+    - No new patterns created, only existing patterns could update (but never did due to RC1)
+  - **Root Cause 3**: `recordPattern()` didn't distinguish observations from outcomes
+    - All recordings treated the same, polluting with pnl=0
+
+- **Fix 1:** `core/EnhancedPatternRecognition.js` lines 58-65
+  - **Before:**
+    ```javascript
+    if (!candles || candles.length < 30) {
+      return [];
+    }
+    ```
+  - **After:**
+    ```javascript
+    if (!candles || candles.length === 0) {
+      return [0.5, 0, 0, 0.02, 0.01, 0.5, 0, 0, 0];  // Default features
+    }
+    ```
+  - **Impact**: Features always generated, never empty array
+
+- **Fix 2:** `core/EnhancedPatternRecognition.js` lines 453-480 (recordPattern method)
+  - **Before:** Always updated `wins/losses/totalPnL` with `result.pnl || 0`
+  - **After:** Only updates when `typeof result.pnl === 'number'`
+    - `pnl: null` = observation (timesSeen++ only)
+    - `pnl: number` = outcome (wins/losses/totalPnL updated)
+  - **Impact**: Observations don't pollute with pnl=0
+
+- **Fix 3:** `run-empire-v2.js` lines 1636-1644
+  - **Before:** Entry recording commented out (disabled 2026-02-01)
+  - **After:**
+    ```javascript
+    if (this.config.tradingMode !== 'TEST' && process.env.TEST_MODE !== 'true') {
+      this.patternChecker.recordPatternResult(featuresForRecording, {
+        pnl: null,  // observation only
+        timestamp: Date.now(),
+        type: 'observation'
+      });
+    }
+    ```
+  - **Impact**: New patterns created at entry, outcomes recorded at exit
+
+- **Smoke Test Results:**
+  ```
+  TEST 1: FeatureExtractor with empty candles - PASS
+  TEST 2: analyzePatterns with few candles - PASS
+  TEST 3: Record observation (pnl: null) - PASS
+  TEST 4: Record outcome (pnl: 1.5%) - PASS
+  VERIFY: timesSeen=2, wins=1, losses=0 - PASS
+  ```
+- **Related:** Commit `1b5cc19` on `fix/candle-helper-wip`
+
 ### Added (Strategy Attribution & Module Fixes - 2026-02-18)
 - **Strategy Attribution Analysis Script** - `ogz-meta/analyze-strategy-attribution.js`
   - Parses backtest reports and breaks down performance by entry strategy
