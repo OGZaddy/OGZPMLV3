@@ -1048,6 +1048,8 @@ class OGZPrimeV14Bot {
    * Called every 5 new candles to avoid disk thrashing
    */
   saveCandleHistory() {
+    // FIX 2026-02-19: Skip disk writes in backtest to prevent EMFILE (60k writes exhausts OS file handles)
+    if (process.env.BACKTEST_FAST === 'true' || process.env.BACKTEST_MODE === 'true') return;
     const fs = require('fs');
     const path = require('path');
     const candleFile = path.join(__dirname, 'data', 'candle-history.json');
@@ -3342,14 +3344,14 @@ class OGZPrimeV14Bot {
       // Process each candle through the trading logic
       for (const polygonCandle of historicalCandles) {
         try {
-          // Convert Polygon format to OHLCV format that our system expects
+          // Convert to OHLCV format - handle both Polygon format and shorthand
           const ohlcvCandle = {
-            o: polygonCandle.open,
-            h: polygonCandle.high,
-            l: polygonCandle.low,
-            c: polygonCandle.close,
-            v: polygonCandle.volume,
-            t: polygonCandle.timestamp
+            o: polygonCandle.open || polygonCandle.o,
+            h: polygonCandle.high || polygonCandle.h,
+            l: polygonCandle.low || polygonCandle.l,
+            c: polygonCandle.close || polygonCandle.c,
+            v: polygonCandle.volume || polygonCandle.v,
+            t: polygonCandle.timestamp || polygonCandle.t
           };
 
           // Feed through handleMarketData (same as live mode)
@@ -3450,12 +3452,24 @@ class OGZPrimeV14Bot {
       };
 
       // Write report FIRST (sync to prevent 0-byte files on timeout/exit)
-      require('fs').writeFileSync(reportPath, JSON.stringify(report, null, 2));
+      // FIX 2026-02-19: Try/catch with console fallback to prevent losing results on EMFILE
+      try {
+        require('fs').writeFileSync(reportPath, JSON.stringify(report, null, 2));
+      } catch (err) {
+        console.error('⚠️ Could not write report file: ' + err.message);
+        console.log('📊 === BACKTEST RESULTS (CONSOLE DUMP) ===');
+        console.log('Final Balance: $' + report.finalBalance);
+        console.log('Total P&L: $' + report.totalPnL + ' (' + report.totalPnLPercent + '%)');
+        console.log('Total Trades: ' + (report.totalTrades || (report.trades && report.trades.length) || 'N/A'));
+        console.log('Win Rate: ' + (report.winRate || 'N/A'));
+        console.log('📊 === END CONSOLE DUMP ===');
+      }
       console.log(`\nðŸ“„ Report saved: ${reportPath}`);
 
       // FIX 2026-02-10: Save pattern memory after backtest (was never being saved!)
+      // FIX 2026-02-19: Await async cleanup to ensure save completes before exit
       if (this.patternChecker?.cleanup) {
-        this.patternChecker.cleanup();
+        await this.patternChecker.cleanup();
         console.log('ðŸ§  Backtest patterns saved to disk');
       }
 
@@ -4020,8 +4034,9 @@ class OGZPrimeV14Bot {
     }
 
     // FIX 2026-02-10: Save pattern memory before exit (was never being saved!)
+    // FIX 2026-02-19: Await async cleanup
     if (this.patternChecker?.cleanup) {
-      this.patternChecker.cleanup();
+      await this.patternChecker.cleanup();
       console.log('ðŸ§  Pattern memory saved to disk');
     }
 

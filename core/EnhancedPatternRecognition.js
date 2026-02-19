@@ -778,12 +778,13 @@ class PatternMemorySystem {
   /**
    * Clean up resources
    */
-  cleanup() {
+  // FIX 2026-02-19: Make async to ensure save completes before process exits
+  async cleanup() {
     if (this.saveInterval) {
       clearInterval(this.saveInterval);
     }
 
-    this.saveToDisk();
+    await this.saveToDisk();
   }
 
   /**
@@ -1111,8 +1112,9 @@ class EnhancedPatternChecker {
   /**
    * Clean up resources
    */
-  cleanup() {
-    this.memory.cleanup();
+  // FIX 2026-02-19: Make async to await memory cleanup
+  async cleanup() {
+    await this.memory.cleanup();
   }
 }
 
