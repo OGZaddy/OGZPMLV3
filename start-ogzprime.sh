@@ -29,6 +29,15 @@ setup() {
     echo -e "${YELLOW}[Setup] Clearing stale locks...${NC}"
     rm -f "$PROJECT_ROOT/.ogz-prime-v14.lock" 2>/dev/null
 
+    # Check Python dependencies for TRAI
+    echo -e "${YELLOW}[Setup] Checking TRAI Python dependencies...${NC}"
+    if ! python3 -c "import sentence_transformers" 2>/dev/null; then
+        echo -e "${YELLOW}[Setup] Installing sentence-transformers...${NC}"
+        pip3 install sentence-transformers --quiet
+    else
+        echo -e "${GREEN}[Setup] TRAI dependencies OK${NC}"
+    fi
+
     # Verify model
     if [ -f "/opt/ogzprime/trai/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf" ]; then
         echo -e "${GREEN}[Setup] TRAI LLM model found${NC}"
