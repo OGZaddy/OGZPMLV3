@@ -1775,7 +1775,106 @@ class OGZPrimeV14Bot {
       totalConfidence: rawConfidence * 100
     };
 
-    // ðŸ¤– STEP 5: TRAI DECISION PROCESSING (IN THE HOT PATH - Change 574)
+    // ═══════════════════════════════════════════════════════════════════
+    // BROADCAST SIGNAL DATA TO DASHBOARD (restored 2026-02-18)
+    // Shows signal pipeline panel with all signals, modules, and decisions
+    // ═══════════════════════════════════════════════════════════════════
+    if (this.dashboardWs && this.dashboardWs.readyState === 1) {
+      try {
+        // Build signals array from individual indicator/module results
+        const signalsList = [];
+
+        // RSI signal
+        if (indicators.rsi) {
+          const rsiDir = indicators.rsi < 35 ? 'buy' : indicators.rsi > 65 ? 'sell' : 'neutral';
+          const rsiStrength = indicators.rsi < 30 || indicators.rsi > 70 ? 0.8 : 0.4;
+          if (rsiDir !== 'neutral') signalsList.push({ name: `RSI ${indicators.rsi < 35 ? 'Approaching Oversold' : 'Approaching Overbought'} (<${indicators.rsi < 35 ? 35 : 65})`, direction: rsiDir, strength: rsiStrength });
+        }
+
+        // MACD signal
+        if (indicators.macd) {
+          const macdHist = indicators.macd.hist || indicators.macd.histogram || 0;
+          const macdDir = macdHist > 0 ? 'buy' : macdHist < 0 ? 'sell' : 'neutral';
+          if (macdDir !== 'neutral') signalsList.push({ name: `MACD ${macdDir === 'buy' ? 'Bullish' : 'Bearish'} Cross (${macdHist.toFixed(2)})`, direction: macdDir, strength: Math.min(Math.abs(macdHist) / 10, 1) });
+        }
+
+        // EMA signal
+        if (this.emaCrossoverSignal?.direction && this.emaCrossoverSignal.direction !== 'neutral') {
+          signalsList.push({ name: `EMA ${this.emaCrossoverSignal.direction === 'buy' ? 'Bullish' : 'Bearish'} (${this.emaCrossoverSignal.crossovers?.length || 0} crossovers)`, direction: this.emaCrossoverSignal.direction, strength: this.emaCrossoverSignal.confidence || 0.5 });
+        }
+
+        // Bollinger Bands (if available)
+        if (indicators.bollingerBands || indicators.bb) {
+          const bb = indicators.bollingerBands || indicators.bb;
+          if (price <= bb.lower) signalsList.push({ name: 'BB Price at Lower Band (squeeze buy)', direction: 'buy', strength: 0.7 });
+          if (price >= bb.upper) signalsList.push({ name: 'BB Price at Upper Band (squeeze sell)', direction: 'sell', strength: 0.7 });
+        }
+
+        // Regime
+        if (regime?.currentRegime) signalsList.push({ name: `Regime: ${regime.currentRegime}`, direction: 'neutral', strength: regime.confidence || 0.5 });
+
+        // Momentum
+        if (indicators.momentum !== undefined) {
+          const momDir = indicators.momentum > 0.5 ? 'buy' : indicators.momentum < -0.5 ? 'sell' : 'neutral';
+          signalsList.push({ name: `${momDir === 'neutral' ? 'Flat' : momDir === 'buy' ? 'Bullish' : 'Bearish'} Momentum (${(indicators.momentum || 0).toFixed(2)}%)`, direction: momDir, strength: Math.abs(indicators.momentum || 0) / 2 });
+        }
+
+        // Support/Resistance
+        if (indicators.nearResistance) signalsList.push({ name: `Near Resistance ($${Math.round(indicators.resistanceLevel || price)})`, direction: 'sell', strength: 0.6 });
+        if (indicators.nearSupport) signalsList.push({ name: `Near Support ($${Math.round(indicators.supportLevel || price)})`, direction: 'buy', strength: 0.6 });
+
+        // Count bulls vs bears
+        const bullishCount = signalsList.filter(s => s.direction === 'buy').length;
+        const bearishCount = signalsList.filter(s => s.direction === 'sell').length;
+
+        this.dashboardWs.send(JSON.stringify({
+          type: 'signal_analysis',
+          timestamp: Date.now(),
+          signal: {
+            direction: tradingDirection,
+            confidence: rawConfidence,
+            reasons: brainDecision.reasons || [],
+            meta: {
+              signalsFired: signalsList.length,
+              bullishCount,
+              bearishCount,
+            },
+            signals: signalsList,
+          },
+          modules: {
+            emaCrossover: this.emaCrossoverSignal ? {
+              active: this.emaCrossoverSignal.direction !== 'neutral',
+              direction: this.emaCrossoverSignal.direction,
+              confidence: this.emaCrossoverSignal.confidence || 0,
+            } : { active: false },
+            liquiditySweep: this.liquiditySweepSignal ? {
+              active: this.liquiditySweepSignal.hasSignal || false,
+              direction: this.liquiditySweepSignal.direction,
+              confidence: this.liquiditySweepSignal.confidence || 0,
+            } : { active: false },
+            maDynamicSR: this.maDynamicSRSignal ? {
+              active: this.maDynamicSRSignal.direction !== 'neutral',
+              direction: this.maDynamicSRSignal.direction,
+              confidence: this.maDynamicSRSignal.confidence || 0,
+            } : { active: false },
+            tpo: this.ogzTpo ? { active: true } : { active: false },
+            regime: {
+              regime: regime?.currentRegime || regime?.regime || 'unknown',
+              confidence: regime?.confidence || 0,
+            },
+            patterns: patterns.slice(0, 5).map(p => ({
+              name: p.name || p.type,
+              direction: p.direction,
+              confidence: p.confidence,
+            })),
+          },
+        }));
+      } catch (e) {
+        // Fail silently — never let dashboard issues affect trading
+      }
+    }
+
+    // 🤖 STEP 5: TRAI DECISION PROCESSING (IN THE HOT PATH - Change 574)
     let finalConfidence = confidenceData.totalConfidence;
     let traiDecision = null;
 

@@ -2666,6 +2666,15 @@
                             <p class="pattern-info">Pattern detection active. When a pattern is identified, its visual representation and explanation will appear here.</p>
                         </div>
                     </div>
+
+                    <!-- Signal Pipeline Panel (restored 2026-02-18) -->
+                    <div id="signalPipelineInline" style="background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:10px; margin-top:12px; font-family:monospace;">
+                        <h4 style="margin:0 0 6px 0; font-size:12px; color:#888;">📡 SIGNAL PIPELINE</h4>
+                        <div id="signalDirectionInline" style="font-size:15px; font-weight:bold; color:#888;">WAITING...</div>
+                        <div id="signalConfidenceInline" style="font-size:11px; color:#aaa; margin-bottom:6px;"></div>
+                        <div id="signalListInline" style="font-size:10px; max-height:120px; overflow-y:auto;"></div>
+                        <div id="moduleStatusInline" style="font-size:9px; color:#666; margin-top:6px; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;"></div>
+                    </div>
                 </div>
             </div>
             
@@ -4055,7 +4064,8 @@
 
                 // Module status strip
                 const modEl = document.getElementById('moduleStatus');
-                if (modEl && mods) {
+                const moduleHtml = (() => {
+                    if (!mods) return '';
                     const m = [];
                     m.push(mods.emaCrossover?.active ? '<span style="color:#00bcd4">EMA✓</span>' : '<span style="color:#333">EMA✗</span>');
                     m.push(mods.liquiditySweep?.active ? '<span style="color:#ff9800">SWEEP✓</span>' : '<span style="color:#333">SWEEP✗</span>');
@@ -4063,8 +4073,32 @@
                     m.push(mods.tpo?.active ? '<span style="color:#ffeb3b">TPO✓</span>' : '<span style="color:#333">TPO✗</span>');
                     if (mods.regime?.regime && mods.regime.regime !== 'unknown') m.push(`<span style="color:#4caf50">${mods.regime.regime}</span>`);
                     if (mods.patterns?.length > 0) m.push(`<span style="color:#e91e63">${mods.patterns.length}pat</span>`);
-                    modEl.innerHTML = m.join(' │ ');
+                    return m.join(' │ ');
+                })();
+                if (modEl) modEl.innerHTML = moduleHtml;
+
+                // Build signals HTML once for reuse
+                const signalsHtml = sig.signals ? sig.signals.map(s => {
+                    const color = s.direction === 'buy' ? '#00e676' : s.direction === 'sell' ? '#ff5252' : '#666';
+                    const icon = s.direction === 'buy' ? '▲' : s.direction === 'sell' ? '▼' : '─';
+                    const bar = '█'.repeat(Math.round((s.strength || 0.5) * 8));
+                    return `<div style="color:${color}; margin:1px 0;">${icon} ${s.name} <span style="opacity:0.4">${bar}</span></div>`;
+                }).join('') : '';
+
+                // Also update INLINE panel in pattern section (restored 2026-02-18)
+                const dirInline = document.getElementById('signalDirectionInline');
+                if (dirInline) {
+                    const colors = { buy: '#00e676', sell: '#ff5252', hold: '#888' };
+                    const icons = { buy: '📈', sell: '📉', hold: '⏸️' };
+                    dirInline.style.color = colors[sig.direction] || '#888';
+                    dirInline.textContent = `${icons[sig.direction] || ''} ${sig.direction.toUpperCase()} @ ${(sig.confidence * 100).toFixed(0)}%`;
                 }
+                const confInline = document.getElementById('signalConfidenceInline');
+                if (confInline) confInline.textContent = `${sig.meta?.signalsFired || 0} signals | Bull: ${sig.meta?.bullishCount || 0} Bear: ${sig.meta?.bearishCount || 0}`;
+                const listInline = document.getElementById('signalListInline');
+                if (listInline) listInline.innerHTML = signalsHtml;
+                const modInline = document.getElementById('moduleStatusInline');
+                if (modInline) modInline.innerHTML = moduleHtml;
 
                 // Also update the Confidence indicator in ML panel
                 const confML = document.getElementById('confidenceML');
