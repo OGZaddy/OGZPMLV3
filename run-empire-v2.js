@@ -1633,13 +1633,16 @@ class OGZPrimeV14Bot {
           ];
         }
 
-        // DISABLED 2026-02-01: Entry recording creates patterns with pnl=0, polluting learning data
-        // Pattern outcomes are recorded at trade EXIT (line ~2743) with actual P&L
-        // This was causing 8000+ patterns all with wins=0, losses=0, totalPnL=0
-        // if (this.config.tradingMode !== 'TEST') {
-        //   this.patternChecker.recordPatternResult(featuresForRecording, {...});
-        // }
-        // Pattern detection is still tracked via telemetry below
+        // FIX 2026-02-19: Re-enable entry recording with pnl: null (observation-only mode)
+        // Observations increment timesSeen but don't affect wins/losses/totalPnL
+        // Outcomes (at trade EXIT) record actual P&L and update wins/losses
+        if (this.config.tradingMode !== 'TEST' && process.env.TEST_MODE !== 'true') {
+          this.patternChecker.recordPatternResult(featuresForRecording, {
+            pnl: null,  // null = observation only, number = outcome with P&L
+            timestamp: Date.now(),
+            type: 'observation'
+          });
+        }
 
         // TELEMETRY: Log pattern detection event
         telemetry.event('pattern_detected', {

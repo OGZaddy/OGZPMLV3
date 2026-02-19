@@ -55,8 +55,12 @@ class FeatureExtractor {
     lastTrade = null,
     useOptimizedIndicators = true
   }) {
-    if (!candles || candles.length < 30) {
-      return [];
+    // FIX 2026-02-19: Never return empty array - always generate features
+    // Empty features breaks pattern learning pipeline (outcomes never recorded)
+    if (!candles || candles.length === 0) {
+      // No candles at all - return default feature vector
+      // [rsi, macdDelta, trend, bbWidth, vol, wickRatio, priceChange, volumeChange, lastDirection]
+      return [0.5, 0, 0, 0.02, 0.01, 0.5, 0, 0, 0];
     }
 
     const latestCandle = candles[candles.length - 1];
@@ -452,23 +456,27 @@ class PatternMemorySystem {
 
     // Update statistics
     entry.timesSeen += 1;
-    entry.totalPnL += result.pnl || 0;
 
-    if (result.pnl > 0) {
-      entry.wins += 1;
-    } else if (result.pnl < 0) {
-      entry.losses += 1;
-    }
+    // FIX 2026-02-19: Only update wins/losses/pnl for OUTCOMES (number), not OBSERVATIONS (null)
+    // Observations (entry) use pnl: null, Outcomes (exit) use pnl: actualNumber
+    if (typeof result.pnl === 'number') {
+      entry.totalPnL += result.pnl;
+      if (result.pnl > 0) {
+        entry.wins += 1;
+      } else if (result.pnl < 0) {
+        entry.losses += 1;
+      }
 
-    // Add result to history (keep only last 10)
-    entry.results.push({
-      timestamp: result.timestamp || Date.now(),
-      pnl: result.pnl || 0,
-      success: result.pnl > 0
-    });
+      // Add result to history only for outcomes (keep only last 10)
+      entry.results.push({
+        timestamp: result.timestamp || Date.now(),
+        pnl: result.pnl,
+        success: result.pnl > 0
+      });
 
-    if (entry.results.length > 10) {
-      entry.results = entry.results.slice(-10);
+      if (entry.results.length > 10) {
+        entry.results = entry.results.slice(-10);
+      }
     }
 
     // Store pattern
