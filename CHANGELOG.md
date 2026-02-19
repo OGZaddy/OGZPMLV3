@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (CRITICAL - Pattern Persistence Async Cleanup - 2026-02-19)
+- **Patterns not saving to disk on process exit** - Multiple files
+  - **Problem**: 187 patterns loaded and updated during backtest, but never persisted. File showed `{}` or stale data.
+  - **Root Cause**: `cleanup()` called `saveToDisk()` without `await`. Process exited before async save completed.
+  - **Fix 1:** `core/EnhancedPatternRecognition.js` line ~205 (PatternMemorySystem.cleanup)
+    - **Before:**
+      ```javascript
+      cleanup() {
+        if (this.saveInterval) clearInterval(this.saveInterval);
+        this.saveToDisk();  // ← Fire-and-forget!
+      }
+      ```
+    - **After:**
+      ```javascript
+      async cleanup() {
+        if (this.saveInterval) clearInterval(this.saveInterval);
+        await this.saveToDisk();  // ← Wait for completion
+      }
+      ```
+  - **Fix 2:** `core/EnhancedPatternRecognition.js` line ~746 (EnhancedPatternChecker.cleanup)
+    - **Before:** `cleanup() { this.memory.cleanup(); }`
+    - **After:** `async cleanup() { await this.memory.cleanup(); }`
+  - **Fix 3:** `run-empire-v2.js` lines ~2882, ~2937 (cleanup calls)
+    - **Before:** `if (this.patternChecker?.cleanup) this.patternChecker.cleanup();`
+    - **After:** `if (this.patternChecker?.cleanup) await this.patternChecker.cleanup();`
+  - **Verification:**
+    ```
+    Before: File shows {} after backtest
+    After: 187 patterns saved to data/pattern-memory.backtest.json
+    Next run: Loaded 187 patterns from memory file ✅
+    ```
+  - **Related:** Commit `8c0dc92` on `fix/candle-helper-wip`
+
+### Fixed (Candle Format Conversion - 2026-02-19)
+- **Backtest 0 trades with Desktop Claude baseline**
+  - **Problem**: Test candles in shorthand format `{t,o,h,l,c,v}` not recognized.
+  - **Root Cause**: Code expected Polygon format `{timestamp,open,high,low,close,volume}`.
+  - **Fix:** `run-empire-v2.js` candle conversion now handles both formats:
+    ```javascript
+    const ohlcvCandle = {
+      o: polygonCandle.open || polygonCandle.o,
+      h: polygonCandle.high || polygonCandle.h,
+      l: polygonCandle.low || polygonCandle.l,
+      c: polygonCandle.close || polygonCandle.c,
+      v: polygonCandle.volume || polygonCandle.v,
+      t: polygonCandle.timestamp || polygonCandle.t
+    };
+    ```
+  - **Result:** 1 trade fired successfully (BUY @ $40,637 → SELL @ $41,460, +2.02% P&L)
+
+### Fixed (TRAI Startup Dependency - 2026-02-19)
+- **TRAI inference server not starting**
+  - **Problem**: `sentence_transformers` Python module missing.
+  - **Fix:** Added dependency check to `start-ogzprime.sh`:
+    ```bash
+    if ! python3 -c "import sentence_transformers" 2>/dev/null; then
+        pip3 install sentence-transformers --quiet
+    fi
+    ```
+
+### Discovered (Similar Pattern Matching Zero Confidence - 2026-02-19)
+- **PENDING FIX**: Similar patterns return 0 confidence even with positive win rates
+  - **Symptom**: Exact match returns 65% confidence (correct), similar match (±0.01) returns 0% despite 36% win rate
+  - **Root Cause (suspected)**: `evaluatePattern()` does exact string matching on feature key instead of similarity/distance matching
+  - **Evidence:**
+    ```
+    EXACT:   confidence: 0.65, winRate: 50%, timesSeen: 6 ✅
+    SIMILAR: confidence: 0,    winRate: 36%, patterns: 2 ❌
+    ```
+  - **Impact**: Patterns must match EXACTLY to provide confidence boost. Any drift = no learning.
+  - **Status**: Identified, awaiting fix
+
 ### Fixed (CRITICAL - Pattern Learning Pipeline Repaired - 2026-02-19)
 - **Pattern memory stuck at 8182 patterns with wins:0, losses:0, totalPnL:0** - Multiple files
   - **Problem**: Pattern learning hadn't updated since Dec 31 (7+ weeks stale). Confidence stuck at 0.1%. All 8182 patterns had `pnl:0`.
@@ -3387,3 +3459,63 @@ Bot will:
 
 ### Added
 - Initial commit: OGZPrime ML V2 - Empire Architecture
+## 2026-02-19 23:17 - BASELINE ESTABLISHED (Desktop Claude Refactor)
+
+### Summary
+Applied Desktop Claude's surgical fixes and established working baseline. **Pipeline confirmed functional.**
+
+### Files Applied (from ogz-meta/ledger)
+- `OptimizedTradingBrain_5.js` → `core/OptimizedTradingBrain.js`
+- `EnhancedPatternRecognition_5.js` → `core/EnhancedPatternRecognition.js`
+- `run-empire-v2_10.js` → `run-empire-v2.js`
+
+### Desktop Claude Fixes Applied
+**OptimizedTradingBrain.js (8 fixes):**
+- CUT 1: Removed 0.40 directional gate → 5% edge minimum
+- CUT 2: Removed regime filter double-punishment
+- CUT 3: Removed 0.15 confidence floor (redundant with .env)
+- CUT 4: Simplified determineTradingDirection to passthrough
+- CUT 5: RSI safety 80/20 → 88/12 (extreme only)
+- CUT 6: Pattern gate veto DISABLED (learns but doesn't block)
+- FIX 7: RSI dead zone fill (55-70 = +10% bullish, 30-45 = +10% bearish)
+- FIX 8: MACD dead zone fill (positive + histogram positive)
+
+**EnhancedPatternRecognition.js (5 fixes):**
+- minimumMatches: 3 → 1
+- confidenceThreshold: 0.6 → 0.2
+- FeatureExtractor returns defaults instead of []
+- Entry recording re-enabled (observation mode with pnl:null)
+- recordPattern guard: only real P&L updates wins/losses
+
+**run-empire-v2.js (3 fixes):**
+- EMFILE fix: saveCandleHistory() returns immediately in backtest
+- Report write fallback with console dump
+- Candle format conversion handles both Polygon and shorthand formats
+
+### .env Settings for Baseline
+```
+EXIT_SYSTEM=legacy
+PATTERN_DOMINANCE=false
+MIN_TRADE_CONFIDENCE=0.08
+BACKTEST_MODE=true
+BACKTEST_FAST=true
+ENABLE_TRAI=false
+```
+
+### Baseline Test Results (200 candles with known signals)
+- **Trades:** 1
+- **Win Rate:** 100%
+- **P&L:** +$7.50 (+0.07%)
+- **Entry:** BUY @ $40,637 (70.25% conf) via MADynamicSR
+- **Exit:** SELL @ $41,460 (90.25% conf) on signal
+- **Trade P&L:** +2.02%
+
+### Verification
+✅ Entry pipeline fires on bullish signal
+✅ Exit contract created automatically
+✅ Exit pipeline fires on reversal signal
+✅ Profit captured
+
+### Commits
+- `ff04647` - Startup script TRAI dependency check
+- This commit - Baseline files + candle format fix

@@ -1,6 +1,6 @@
 # Lessons Digest
 
-*Generated: 2025-12-25T16:21:27.357Z*
+*Generated: 2026-02-19T23:43:55.643Z*
 
 ## Key Lessons
 
@@ -30,6 +30,7 @@
 ### pattern-memory
 - Fixed feature data conversion in pattern pipeline
 - Fixed feature data conversion in pattern pipeline
+- Fix 1: FeatureExtractor returns default features [0.5,0,0,0.02,0.01,0.5,0,0,0] instead of [] when candles empty. Fix 2: recordPattern() only updates wins/losses/totalPnL when typeof result.pnl === 'number', observations (pnl:null) only increment timesSeen. Fix 3: Re-enabled entry recording with pnl:null for observation-only mode.
 
 ### recording
 - Fixed feature data conversion in pattern pipeline
@@ -37,14 +38,35 @@
 
 ### state
 - - **File**: `run-empire-v2.js` (multiple locations)
+- - **File**: `run-empire-v2.js` (multiple locations)
 
 ### trai
 - - **File**: `run-empire-v2.js` lines 931-954
 - - **File**: `core/StateManager.js` lines 326-385
+- - **File**: `run-empire-v2.js` lines 931-954
 
 ### performance
+- - **File**: `run-empire-v2.js` lines 931-954
 - - **File**: `run-empire-v2.js` lines 931-954
 
 ### rate-limit
 - - **File**: `kraken_adapter_simple.js` lines 109-204
+- - **File**: `kraken_adapter_simple.js` lines 109-204
+
+### signals
+- Added `&& brainDirection === 'buy'` to BUY condition at run-empire-v2.js:1908
+- (1) Replaced 0.40 gate with 5% edge minimum (2) Removed regime filter double-punishment (3) Narrowed RSI safety from 80/20 to 88/12 (4) Simplified determineTradingDirection to passthrough (5) Changed minimumMatches to 1 (6) Changed confidenceThreshold to 0.2
+
+### execution
+- Added `&& brainDirection === 'buy'` to BUY condition at run-empire-v2.js:1908
+
+### profitability
+- Added `&& brainDirection === 'buy'` to BUY condition at run-empire-v2.js:1908
+- Added `|| profitResult.action === 'exit_partial'` to the exit check at run-empire-v2.js:2082. Also passes exitSize in return for partial position closing.
+- Added 0.26% fee deduction on both entry (openPosition line 316) and exit (closePosition line 400) in StateManager.js
+
+### exits
+- Added `|| profitResult.action === 'exit_partial'` to the exit check at run-empire-v2.js:2082. Also passes exitSize in return for partial position closing.
+- Replaced Date.now() with `this.marketData?.timestamp || Date.now()` at lines 2090, 2134, 2320, 2432, 2522, 2528. Passed candle timestamp via context to StateManager.openPosition().
+- Changed feeBuffer from 0.001 to 0.0035 at MaxProfitManager.js:730
 
