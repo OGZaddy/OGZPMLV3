@@ -30,6 +30,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Priority Chain Confirmed:**
   - LiquiditySweep (conf > 0.5) > EMASMACrossover (conf > 0.03) > MADynamicSR (conf > 0.05) > CandlePattern > Brain
 
+### Verified (Exit Pipeline - 2026-02-20)
+- **ExitContractManager:** All paths working
+  - Stop Loss: ✅ triggers at threshold
+  - Take Profit: ✅ triggers at threshold
+  - Trailing Stop: ✅ activates and triggers
+  - Max Hold Time: ✅ expires positions
+  - Universal Hard Stop: ✅ -3% circuit breaker
+- **MaxProfitManager:** All paths working
+  - Tiered exits (0.5%, 1%, 1.5%, 2.5%): ✅ partial exits execute
+  - Trailing activation: ✅ at 0.3% profit
+  - Breakeven stop: ✅ at 0.2% profit
+  - Short positions: ✅ stop above entry
+
+### Verified (Pattern System - 2026-02-20)
+- **Pattern Recording:** ✅ Working - outcomes saved at trade close
+  - Test run: 1 pattern with wins=1, pnl=2.03%
+  - Observation patterns (no trade): correctly have pnl=0
+- **Pattern Persistence:** ✅ Async cleanup fix verified (commit 1b5cc19)
+- **Similar Pattern Matching:** ✅ findSimilarPatterns() returns matches with similarity scores
+
+### Investigation (Confidence Stacking - 2026-02-20)
+- **Issue Found:** Over-stacking on mild signals
+  - Bull score: 80.3%, Bear score: 52.3% (28% edge)
+  - Final confidence: 90.3% (too aggressive for 28% edge)
+  - ATR always 0 in backtest → free +10% "low volatility" boost
+- **Status:** Needs review - may cause over-buying on weak signals
+
 ### Fixed (CRITICAL - Pattern Persistence Async Cleanup - 2026-02-19)
 - **Patterns not saving to disk on process exit** - Multiple files
   - **Problem**: 187 patterns loaded and updated during backtest, but never persisted. File showed `{}` or stale data.
