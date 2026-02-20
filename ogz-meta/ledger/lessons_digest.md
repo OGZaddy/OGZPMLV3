@@ -1,6 +1,6 @@
 # Lessons Digest
 
-*Generated: 2026-02-19T23:43:55.643Z*
+*Generated: 2026-02-20T02:17:48.442Z*
 
 ## Key Lessons
 
@@ -39,6 +39,7 @@
 ### state
 - - **File**: `run-empire-v2.js` (multiple locations)
 - - **File**: `run-empire-v2.js` (multiple locations)
+- - **File**: `run-empire-v2.js` (multiple locations)
 
 ### trai
 - - **File**: `run-empire-v2.js` lines 931-954
@@ -48,8 +49,10 @@
 ### performance
 - - **File**: `run-empire-v2.js` lines 931-954
 - - **File**: `run-empire-v2.js` lines 931-954
+- - **File**: `run-empire-v2.js` lines 931-954
 
 ### rate-limit
+- - **File**: `kraken_adapter_simple.js` lines 109-204
 - - **File**: `kraken_adapter_simple.js` lines 109-204
 - - **File**: `kraken_adapter_simple.js` lines 109-204
 

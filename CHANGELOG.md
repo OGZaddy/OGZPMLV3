@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Verified (Entry Module Testing - 2026-02-20)
+- **All 4 entry modules verified working via pipeline**
+  | Module | Status | Max Confidence | Notes |
+  |--------|--------|----------------|-------|
+  | EMASMACrossover | ✅ WORKING | 30% | 17 buy signals on golden cross test data |
+  | MADynamicSR | ✅ WORKING | 35% | Fires first in priority chain (candle 54) |
+  | LiquiditySweep | ✅ WORKING | 75% | Requires dailyATR + 5m hammer pattern |
+  | Standard Brain | ✅ WORKING | 54% | brainDirection='hold' on test data |
+
+- **Test Data Created:** `ogz-meta/ledger/generate-entry-module-tests.js`
+  - test-ema-crossover.json: 200 candles with EMA9/EMA20 golden cross at candle 50
+  - test-liquidity-sweep.json: Box building + manipulation exit + hammer recovery
+  - test-ma-bounce.json: MA bounce setup at 40,000 zone
+  - test-brain-confidence.json: Mixed indicators for brain analysis
+
+- **LiquiditySweep Key Finding:**
+  - Requires `dailyATR` to be populated (14 daily candles) or exits early
+  - Hammer detection needs 5m candle with: bodyRatio ≤ 0.35, wickRatio ≥ 2.0
+  - 1m candles aggregate to 5m, so 5 consecutive hammer-like candles needed
+
+- **Priority Chain Confirmed:**
+  - LiquiditySweep (conf > 0.5) > EMASMACrossover (conf > 0.03) > MADynamicSR (conf > 0.05) > CandlePattern > Brain
+
 ### Fixed (CRITICAL - Pattern Persistence Async Cleanup - 2026-02-19)
 - **Patterns not saving to disk on process exit** - Multiple files
   - **Problem**: 187 patterns loaded and updated during backtest, but never persisted. File showed `{}` or stale data.
