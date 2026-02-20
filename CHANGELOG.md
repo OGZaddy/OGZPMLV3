@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Confidence Over-Stacking - 2026-02-20)
+- **CRITICAL BUG:** Confidence formula ignored bearish score
+  - **Before:** `finalConfidence = base + bullishConfidence` (bear ignored)
+  - **After:** `finalConfidence = base + (bullishConfidence - bearishConfidence)`
+- **Impact:** 28% edge (Bull 80%, Bear 52%) was producing 90% confidence, now correctly produces 38%
+- **File:** `core/OptimizedTradingBrain.js` lines 3014, 3018
+- **Verified:** 200 candle backtest: 7 wins, 100% win rate, +$5.89 P&L
+
 ### Verified (Entry Module Testing - 2026-02-20)
 - **All 4 entry modules verified working via pipeline**
   | Module | Status | Max Confidence | Notes |

@@ -2638,6 +2638,16 @@ console.log(`   📊 EMA9=${ema9?.toFixed(2) || 'null'}, EMA20=${ema20?.toFixed(
             bearishConfidence += 0.20; // Overbought - bearish signal
             signalBreakdown.signals.push({ source: 'RSI', direction: 'bearish', contribution: 0.20, detail: `RSI ${rsi.toFixed(1)} overbought` });
             console.log(`   ✅ RSI ${rsi.toFixed(1)} > 70: Added 20% bearish (overbought)`);
+          } else if (rsi > 55 && rsi <= 70) {
+            // FIX 2026-02-19: Mild bullish momentum zone - 1m candles live here most of the time
+            bullishConfidence += 0.10;
+            signalBreakdown.signals.push({ source: 'RSI', direction: 'bullish', contribution: 0.10, detail: `RSI ${rsi.toFixed(1)} mild bullish momentum` });
+            console.log(`   ✅ RSI ${rsi.toFixed(1)} in 55-70: Added 10% bullish (mild momentum)`);
+          } else if (rsi >= 30 && rsi < 45) {
+            // FIX 2026-02-19: Mild bearish momentum zone
+            bearishConfidence += 0.10;
+            signalBreakdown.signals.push({ source: 'RSI', direction: 'bearish', contribution: 0.10, detail: `RSI ${rsi.toFixed(1)} mild bearish momentum` });
+            console.log(`   ✅ RSI ${rsi.toFixed(1)} in 30-45: Added 10% bearish (mild momentum)`);
           } else if (rsi >= 45 && rsi <= 55) {
             signalBreakdown.signals.push({ source: 'RSI', direction: 'neutral', contribution: 0, detail: `RSI ${rsi.toFixed(1)} neutral zone` });
             console.log(`   ⚪ RSI ${rsi.toFixed(1)} in neutral zone (45-55): No confidence added`);
@@ -2667,6 +2677,14 @@ console.log(`   📊 EMA9=${ema9?.toFixed(2) || 'null'}, EMA20=${ema20?.toFixed(
           } else if (macd.macd < 0 && macd.signal < 0) {
             bearishConfidence += 0.15; // Bearish momentum
             signalBreakdown.signals.push({ source: 'MACD', direction: 'bearish', contribution: 0.15, detail: `MACD+Signal negative` });
+          } else if (macd.macd > 0 && histogram > 0) {
+            // FIX 2026-02-19: MACD positive with positive histogram = mild bullish (signal may be negative during crossover)
+            bullishConfidence += 0.10;
+            signalBreakdown.signals.push({ source: 'MACD', direction: 'bullish', contribution: 0.10, detail: `MACD positive, histogram positive (crossover)` });
+          } else if (macd.macd < 0 && histogram < 0) {
+            // FIX 2026-02-19: MACD negative with negative histogram = mild bearish
+            bearishConfidence += 0.10;
+            signalBreakdown.signals.push({ source: 'MACD', direction: 'bearish', contribution: 0.10, detail: `MACD negative, histogram negative (crossover)` });
           }
           // Persist on marketData with consistent naming
           marketData.macd = macd.macd;
@@ -2993,12 +3011,12 @@ console.log(`   📊 EMA9=${ema9?.toFixed(2) || 'null'}, EMA20=${ema20?.toFixed(
 
     if (bullishConfidence > bearishConfidence && directionalSpread >= minDirectionalEdge) {
       direction = 'buy';
-      finalConfidence = confidence + bullishConfidence;
-      console.log(`   ✅ Direction: BUY (base ${(confidence * 100).toFixed(1)}% + bullish ${(bullishConfidence * 100).toFixed(1)}% = ${(finalConfidence * 100).toFixed(1)}%) [edge: ${(directionalSpread * 100).toFixed(1)}%]`);
+      finalConfidence = confidence + (bullishConfidence - bearishConfidence);
+      console.log(`   ✅ Direction: BUY (base ${(confidence * 100).toFixed(1)}% + edge ${((bullishConfidence - bearishConfidence) * 100).toFixed(1)}% = ${(finalConfidence * 100).toFixed(1)}%) [bull: ${(bullishConfidence * 100).toFixed(1)}% - bear: ${(bearishConfidence * 100).toFixed(1)}%]`);
     } else if (bearishConfidence > bullishConfidence && directionalSpread >= minDirectionalEdge) {
       direction = 'sell';
-      finalConfidence = confidence + bearishConfidence;
-      console.log(`   ✅ Direction: SELL (base ${(confidence * 100).toFixed(1)}% + bearish ${(bearishConfidence * 100).toFixed(1)}% = ${(finalConfidence * 100).toFixed(1)}%) [edge: ${(directionalSpread * 100).toFixed(1)}%]`);
+      finalConfidence = confidence + (bearishConfidence - bullishConfidence);
+      console.log(`   ✅ Direction: SELL (base ${(confidence * 100).toFixed(1)}% + edge ${((bearishConfidence - bullishConfidence) * 100).toFixed(1)}% = ${(finalConfidence * 100).toFixed(1)}%) [bear: ${(bearishConfidence * 100).toFixed(1)}% - bull: ${(bullishConfidence * 100).toFixed(1)}%]`);
     } else {
       console.log(`   ⚠️ Direction: NEUTRAL (spread ${(directionalSpread * 100).toFixed(1)}% < 5% edge required)`);
     }
@@ -3343,17 +3361,19 @@ console.log(`   📊 EMA9=${ema9?.toFixed(2) || 'null'}, EMA20=${ema20?.toFixed(
     console.log(`   ✅ Gate: ${patternGateApproved ? 'APPROVED' : 'BLOCKED'}`);
   }
 
-  // If pattern gate blocks, return hold
-  if (PATTERN_DOMINANCE_ENABLED && !patternGateApproved) {
-    return {
-      direction: 'hold',
-      confidence: confidence,
-      size: 0.1,
-      reasoning: gatingReason,
-      patternTier,
-      blocked: 'PATTERN_GATE'
-    };
-  }
+  // FIX 2026-02-19: Pattern gate DISABLED. Patterns still LEARN and RECORD outcomes,
+  // but cannot VETO trades until they accumulate enough samples for statistical significance.
+  // Re-enable PATTERN_DOMINANCE once patterns have 20+ samples with 75%+ win rate.
+  // if (PATTERN_DOMINANCE_ENABLED && !patternGateApproved) {
+  //   return {
+  //     direction: 'hold',
+  //     confidence: confidence,
+  //     size: 0.1,
+  //     reasoning: gatingReason,
+  //     patternTier,
+  //     blocked: 'PATTERN_GATE'
+  //   };
+  // }
 
   // === PHASE 3: DIRECTION DETERMINATION ===
   let direction;
