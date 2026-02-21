@@ -208,6 +208,9 @@ const { TradeJournalBridge } = require('./core/TradeJournalBridge');
 // CHANGE 2026-02-16: Pipeline Snapshot for 30-min state capture
 const PipelineSnapshot = require('./core/PipelineSnapshot');
 
+// CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
+const { StrategyOrchestrator } = require('./core/StrategyOrchestrator');
+
 // CRITICAL: SingletonLock to prevent multiple instances
 console.log('[CHECKPOINT-005] Getting SingletonLock...');
 const SingletonLock = loader.get('core', 'SingletonLock') || require('./core/SingletonLock');
@@ -398,6 +401,23 @@ class OGZPrimeV14Bot {
       parseFloat(process.env.INITIAL_BALANCE) || 10000,
       tradingBrainConfig
     );
+
+    // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
+    // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
+    // Confluence only affects POSITION SIZING, not the entry decision.
+    this.strategyOrchestrator = new StrategyOrchestrator({
+      minStrategyConfidence: 0.25,   // Single strategy must be 25%+ to fire
+      minConfluenceCount: 1,         // 1 = winner alone can trade
+    });
+
+    // Fibonacci level detection for strategy context (supports EMA bounce + fib confluence)
+    const FibonacciDetector = require('./core/FibonacciDetector');
+    this.fibonacciDetector = new FibonacciDetector({
+      lookbackCandles: 100,
+      strengthRequired: 3,
+      proximityThreshold: 0.5,
+    });
+
     this.riskManager = new RiskManager({
       maxDailyLoss: parseFloat(process.env.MAX_DAILY_LOSS) || 0.05,
       maxDrawdown: parseFloat(process.env.MAX_DRAWDOWN) || 0.15
@@ -1129,7 +1149,7 @@ class OGZPrimeV14Bot {
     if (this.kraken) {
       // Start market data subscription immediately
       const symbol = process.env.TRADING_PAIR || 'BTC/USD';
-      const timeframe = process.env.CANDLE_TIMEFRAME || '1m';
+      const timeframe = process.env.CANDLE_TIMEFRAME || '15m';
 
       // Subscribe to candles if method exists
       if (this.kraken.subscribeToCandles) {
@@ -1147,9 +1167,10 @@ class OGZPrimeV14Bot {
           // Store in timeframe-specific history for dashboard
           this.storeTimeframeCandle(timeframe, ohlcData);
 
-          // Only process 1m candles through trading logic
-          if (timeframe === '1m') {
-            console.log('ðŸ“Š V2: Received 1m OHLC from broker');
+          // CHANGE 2026-02-21: Process 15m candles through trading logic (not 1m)
+          // 15m candles give meaningful price moves that exceed Kraken's 0.52% round-trip fees
+          if (timeframe === '15m') {
+            console.log('📊 V2: Received 15m OHLC from broker');
             this.handleMarketData(ohlcData);
           }
         });
@@ -1391,9 +1412,9 @@ class OGZPrimeV14Bot {
       }
     }
 
-    // Sync 1m with priceHistory (trading logic uses this)
-    if (timeframe === '1m') {
-      this.timeframeHistories['1m'] = this.priceHistory;
+    // CHANGE 2026-02-21: Sync 15m with priceHistory (trading logic uses 15m candles now)
+    if (timeframe === '15m') {
+      this.timeframeHistories['15m'] = this.priceHistory;
     }
   }
 
@@ -1475,7 +1496,7 @@ class OGZPrimeV14Bot {
     this.tradingInterval = setInterval(async () => {
       // Reduced to 3 candles - fuck the over-engineering
       if (!this.marketData || this.priceHistory.length < 3) {
-        console.log(`â³ Warming up... ${this.priceHistory.length}/3 candles`);
+        console.log(`â³ Warming up... ${this.priceHistory.length}/3 candles (15m timeframe)`);
         return;
       }
 
@@ -1702,44 +1723,62 @@ class OGZPrimeV14Bot {
     };
     this.marketRegime = regime;  // Store for downstream reads (line 1928+)
 
-    // Change 596: Use TradingBrain.getDecision() instead of calculateRealConfidence()
-    // This properly integrates direction + confidence from TradingBrain's analysis
-    const marketDataForConfidence = {
-      trend: indicators.trend,
-      macd: indicators.macd?.macd || indicators.macd?.macdLine || 0,
-      macdSignal: indicators.macd?.signal || indicators.macd?.signalLine || 0,
-      rsi: indicators.rsi,
-      volume: this.marketData.volume || 0,
-      // CHANGE 2026-02-10: Modular entry system signals
-      emaCrossoverSignal: this.emaCrossoverSignal,
-      maDynamicSRSignal: this.maDynamicSRSignal,
-      liquiditySweepSignal: this.liquiditySweepSignal,
-      mtfAdapter: this.mtfAdapter
-    };
+    // ════════════════════════════════════════════════════════════════
+    // CHANGE 2026-02-21: STRATEGY ORCHESTRATOR — Isolated per-strategy entry pipeline
+    // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
+    // Confluence only affects POSITION SIZING, not the entry decision.
+    // This REPLACES the soupy pooled confidence from TradingBrain.getDecision()
+    // ════════════════════════════════════════════════════════════════
 
-    // ðŸ”§ FIX: Pass priceData to TradingBrain for MarketRegimeDetector
-    this.tradingBrain.priceData = this.priceHistory;
+    // Update Fibonacci levels with current price history (for strategy context)
+    let fibLevels = null;
+    let nearestFibLevel = null;
+    if (this.fibonacciDetector && this.priceHistory.length >= 30) {
+      fibLevels = this.fibonacciDetector.update(this.priceHistory);
+      if (fibLevels) {
+        nearestFibLevel = this.fibonacciDetector.getNearestLevel(price);
+      }
+    }
 
-    // FIX BRAIN_001: Apply AGGRESSIVE_LEARNING_MODE threshold BEFORE TradingBrain decides
-    // Previously this adjustment happened AFTER TradingBrain already rejected - useless!
-    // Now we update TradingBrain's config before it makes the decision
+    // AGGRESSIVE_LEARNING_MODE: Lower the orchestrator threshold if enabled
     if (flagManager.isEnabled('AGGRESSIVE_LEARNING_MODE')) {
       const aggressiveThreshold = flagManager.getSetting('AGGRESSIVE_LEARNING_MODE', 'minConfidenceThreshold', 55) / 100;
-      if (!this.tradingBrain.config) this.tradingBrain.config = {};
-      this.tradingBrain.config.minConfidenceThreshold = aggressiveThreshold;
-      // Log once per minute to avoid spam
+      this.strategyOrchestrator.minStrategyConfidence = aggressiveThreshold;
       if (!this._lastAggLog || Date.now() - this._lastAggLog > 60000) {
-        console.log(`ðŸ”¥ AGGRESSIVE LEARNING: TradingBrain threshold set to ${(aggressiveThreshold * 100).toFixed(0)}%`);
+        console.log(`🔥 AGGRESSIVE LEARNING: Orchestrator threshold set to ${(aggressiveThreshold * 100).toFixed(0)}%`);
         this._lastAggLog = Date.now();
       }
     }
 
-    // Get full decision from TradingBrain (direction + confidence + reasoning)
-    const brainDecision = await this.tradingBrain.getDecision(
-      marketDataForConfidence,
+    // Run orchestrator: each strategy evaluates independently, highest confidence wins
+    const orchResult = this.strategyOrchestrator.evaluate(
+      indicators,
       patterns,
-      this.priceHistory
+      regime,
+      this.priceHistory,
+      {
+        emaCrossoverSignal: this.emaCrossoverSignal,
+        maDynamicSRSignal: this.maDynamicSRSignal,
+        liquiditySweepSignal: this.liquiditySweepSignal,
+        mtfAdapter: this.mtfAdapter,
+        tpoResult: tpoResult,
+        price: price,
+        fibLevels: fibLevels,
+        nearestFibLevel: nearestFibLevel,
+      }
     );
+
+    // Map orchestrator output to existing variable names so downstream code doesn't break
+    const brainDecision = {
+      direction: orchResult.direction,
+      confidence: orchResult.confidence / 100,  // Downstream expects 0-1 decimal
+      reasons: orchResult.reasons,
+      signalBreakdown: orchResult.signalBreakdown,
+      action: orchResult.action,
+      exitContract: orchResult.exitContract,
+      sizingMultiplier: orchResult.sizingMultiplier,
+      winnerStrategy: orchResult.winnerStrategy,
+    };
 
     // CHANGE 625: Fix directional confusion - TradingBrain doesn't know about positions
     // CHANGE 2026-01-29: Updated comment - "shorts forbidden" was misleading
@@ -2630,84 +2669,25 @@ class OGZPrimeV14Bot {
           // FIX 2026-02-02: Attach patterns + indicators for learning feedback at exit
           // CHANGE 2026-02-13: Attach signalBreakdown for comprehensive trade logging
 
-          // FIX 2026-02-17: Determine triggering strategy and create exitContract
-          // Each trade now owns its exit conditions - no more aggregate confidence exits
-          let entryStrategy = 'default';
-          let exitContractSignal = {};
+          // CHANGE 2026-02-21: Use orchestrator's winning strategy and exit contract
+          // The StrategyOrchestrator already determined the winner and created the exit contract
+          const entryStrategy = brainDecision.winnerStrategy || 'default';
+          const sizingMultiplier = brainDecision.sizingMultiplier || 1.0;
 
-          // Check which signal module contributed most to this entry
-          // FIX 2026-02-17: Fixed detection - modules use 'buy'/'sell' not 'bullish'/'bearish'
-          // and confidence is 0-1.0 (decimal) not 50+ (percentage)
+          // Use orchestrator's exit contract if provided, otherwise create fallback
+          const exitContract = brainDecision.exitContract
+            || exitContractManager.createExitContract(
+                entryStrategy,
+                { confidence: brainDecision.confidence },
+                { volatility: indicators.volatility || 0 }
+              );
 
-          // DEEP DIAGNOSTIC: Show all module signals at entry time
-          if (process.env.BACKTEST_VERBOSE) {
-            console.log(`[DEEP-ENTRY] ═══════════════════════════════════════`);
-            console.log(`[DEEP-ENTRY] TRADE ENTRY POINT - checking all modules:`);
-            console.log(`[DEEP-ENTRY] LiquiditySweep: hasSignal=${this.liquiditySweepSignal?.hasSignal||false} conf=${(this.liquiditySweepSignal?.confidence||0).toFixed(3)} threshold=0.5`);
-            console.log(`[DEEP-ENTRY] EMASMACrossover: dir=${this.emaCrossoverSignal?.direction||'?'} conf=${(this.emaCrossoverSignal?.confidence||0).toFixed(3)} threshold=0.03`);
-            console.log(`[DEEP-ENTRY] MADynamicSR: dir=${this.maDynamicSRSignal?.direction||'?'} conf=${(this.maDynamicSRSignal?.confidence||0).toFixed(3)} threshold=0.03`);
-            console.log(`[DEEP-ENTRY] patterns[0]: name=${patterns?.[0]?.name||'none'} conf=${(patterns?.[0]?.confidence||0).toFixed(3)} threshold=0.6`);
-            console.log(`[DEEP-ENTRY] brainDecision: dir=${brainDecision?.direction||'?'} conf=${(brainDecision?.confidence||0).toFixed(3)}`);
-          }
+          // Apply confluence-based position sizing
+          const adjustedPositionSize = positionSize * sizingMultiplier;
 
-          // Priority 1: LiquiditySweep (hasSignal + confidence > 0.5)
-          if (this.liquiditySweepSignal?.hasSignal && this.liquiditySweepSignal?.confidence > 0.5) {
-            entryStrategy = 'LiquiditySweep';
-            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
-            // Old values (-1.5%/2.5%) were unreachable on 1-minute candles
-            exitContractSignal = {
-              invalidationConditions: ['sweep_invalidated']
-            };
-            console.log(`[STRATEGY] LiquiditySweep triggered: conf=${(this.liquiditySweepSignal.confidence * 100).toFixed(0)}%`);
+          console.log(`[ORCHESTRATOR-ENTRY] Winner: ${entryStrategy} | Sizing: ${sizingMultiplier}x | SL=${exitContract.stopLossPercent}%, TP=${exitContract.takeProfitPercent}%`);
 
-          // Priority 2: EMASMACrossover (direction='buy' and confidence > 0.03)
-          // ROLLBACK 2026-02-18: Was 71% win rate at 0.03 - don't fix what's winning
-          } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.03) {
-            entryStrategy = 'EMASMACrossover';
-            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
-            // Old values (-2.0%/4.0%) were unreachable on 1-minute candles
-            exitContractSignal = {
-              invalidationConditions: ['ema_cross_reversal']
-            };
-            console.log(`[STRATEGY] EMASMACrossover triggered: dir=${this.emaCrossoverSignal.direction}, conf=${(this.emaCrossoverSignal.confidence * 100).toFixed(0)}%`);
-
-          // Priority 3: MADynamicSR - THE MA RETEST BOUNCE (direction='buy' and confidence > 0.05)
-          // FIX 2026-02-18: Loosened to 0.05 - need more trades to evaluate performance
-          } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.05) {
-            entryStrategy = 'MADynamicSR';
-            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
-            // Old values (-1.8%/3.0%) were unreachable on 1-minute candles
-            exitContractSignal = {
-              invalidationConditions: ['sr_level_broken']
-            };
-            console.log(`[STRATEGY] MADynamicSR triggered: dir=${this.maDynamicSRSignal.direction}, conf=${(this.maDynamicSRSignal.confidence * 100).toFixed(0)}%`);
-
-          // Priority 4: CandlePattern (confidence > 0.6)
-          } else if (patterns && patterns.length > 0 && patterns[0]?.confidence > 0.6) {
-            entryStrategy = 'CandlePattern';
-            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
-            // Old values (-1.5%/2.0%) were unreachable on 1-minute candles
-            exitContractSignal = {
-              invalidationConditions: ['pattern_negated']
-            };
-          } else if (brainDecision?.signalBreakdown?.signals?.length > 0) {
-            // Use the strongest signal from breakdown
-            const strongest = brainDecision.signalBreakdown.signals.reduce((a, b) =>
-              (b.contribution > a.contribution) ? b : a
-            );
-            entryStrategy = strongest.source || 'Brain';
-          }
-
-          // Create frozen exit contract for this trade
-          const exitContract = exitContractManager.createExitContract(
-            entryStrategy,
-            exitContractSignal,
-            { volatility: indicators.volatility || 0 }
-          );
-
-          console.log(`[EXIT-CONTRACT] Entry via ${entryStrategy}: SL=${exitContract.stopLossPercent}%, TP=${exitContract.takeProfitPercent}%`);
-
-          const positionResult = await stateManager.openPosition(positionSize, price, {
+          const positionResult = await stateManager.openPosition(adjustedPositionSize, price, {
             orderId: unifiedResult.orderId,
             confidence: decision.confidence,
             patterns: patterns || [],  // Attach detected patterns for outcome learning
