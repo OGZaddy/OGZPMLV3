@@ -210,6 +210,7 @@ const PipelineSnapshot = require('./core/PipelineSnapshot');
 
 // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
 const { StrategyOrchestrator } = require('./core/StrategyOrchestrator');
+const { AdaptiveTimeframeSelector } = require('./core/AdaptiveTimeframeSelector');
 
 // CRITICAL: SingletonLock to prevent multiple instances
 console.log('[CHECKPOINT-005] Getting SingletonLock...');
@@ -465,6 +466,16 @@ class OGZPrimeV14Bot {
     this.mtfAdapter = new MultiTimeframeAdapter({
       activeTimeframes: ['1m', '5m', '15m', '1h', '4h', '1d'],
     });
+
+    // CHANGE 2026-02-21: Adaptive timeframe selection based on market conditions
+    this.timeframeSelector = new AdaptiveTimeframeSelector({
+      mtfAdapter: this.mtfAdapter,
+      feePercent: 0.26,                            // Kraken maker/taker fee per side
+      allowedTimeframes: ['5m', '15m', '30m', '1h'], // Don't scalp 1m, don't swing 4h+
+      defaultTimeframe: '15m',
+      minSwitchIntervalMs: 5 * 60 * 1000,          // 5 min minimum between switches
+    });
+
     this.emaCrossover = new EMASMACrossoverSignal();
     this.maDynamicSR = new MADynamicSR();
     this.liquiditySweep = new LiquiditySweepDetector({
@@ -1167,11 +1178,24 @@ class OGZPrimeV14Bot {
           // Store in timeframe-specific history for dashboard
           this.storeTimeframeCandle(timeframe, ohlcData);
 
-          // CHANGE 2026-02-21: Process 15m candles through trading logic (not 1m)
-          // 15m candles give meaningful price moves that exceed Kraken's 0.52% round-trip fees
-          if (timeframe === '15m') {
-            console.log('📊 V2: Received 15m OHLC from broker');
+          // CHANGE 2026-02-21: Feed 1m candles to indicators + MTF adapter (granular data)
+          if (timeframe === '1m') {
             this.handleMarketData(ohlcData);
+          }
+
+          // CHANGE 2026-02-21: Re-evaluate best timeframe on 5m candle close
+          if (timeframe === '5m' && this.timeframeSelector) {
+            const tfResult = this.timeframeSelector.evaluate();
+            if (tfResult.switched) {
+              console.log(`🔄 Active trading timeframe: ${tfResult.timeframe} (score: ${tfResult.score.toFixed(2)})`);
+            }
+          }
+
+          // CHANGE 2026-02-21: Trigger trading analysis on ACTIVE timeframe candle close
+          const activeTf = this.timeframeSelector?.currentTimeframe || '15m';
+          if (timeframe === activeTf) {
+            console.log(`📊 V2: ${activeTf} candle closed — running trading analysis`);
+            this.run15mTradingCycle();
           }
         });
 
@@ -1907,6 +1931,23 @@ class OGZPrimeV14Bot {
               direction: p.direction,
               confidence: p.confidence,
             })),
+            // CHANGE 2026-02-21: Orchestrator chain-of-thought for dashboard
+            orchestrator: orchResult ? {
+              winner: orchResult.winnerStrategy,
+              direction: orchResult.direction,
+              confidence: orchResult.confidence,
+              confluence: orchResult.confluence,
+              sizingMultiplier: orchResult.sizingMultiplier,
+              exitContract: orchResult.exitContract,
+              strategies: (orchResult.strategyResults || []).map(s => ({
+                name: s.name,
+                direction: s.direction,
+                confidence: s.confidence,
+                passed: s.passed,
+              })),
+            } : null,
+            // CHANGE 2026-02-21: Adaptive timeframe selector state
+            timeframeSelector: this.timeframeSelector?.getState(),
           },
         }));
       } catch (e) {

@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Adaptive Timeframe & Dashboard Integration - 2026-02-21)
+- **AdaptiveTimeframeSelector**: Dynamic timeframe selection based on market conditions
+  - Scores timeframes on: fee viability, trend clarity, signal strength, noise level
+  - Hysteresis: Won't switch unless new TF scores 15%+ better than current
+  - 5-minute minimum between switches (no ping-ponging)
+  - Provides adaptive exit params per timeframe (5m gets tighter stops than 1h)
+
+- **Dashboard Orchestrator Integration**: Chain-of-thought data piped to dashboard
+  - Winner strategy with direction and confidence
+  - Confluence count and sizing multiplier
+  - Exit contract (SL/TP/trailing) for winning strategy
+  - All strategy results for visibility
+  - Timeframe selector state (current TF, eval count, switch count)
+
+- **Files Changed:**
+  - `core/AdaptiveTimeframeSelector.js` - NEW (300 lines)
+  - `run-empire-v2.js` - Import, instantiate, wire ohlc handler, dashboard broadcast
+
+### Fixed (Exit Contract Prison - 2026-02-21)
+- **CRITICAL BUG:** Four hardcoded exit contracts were creating unreachable SL/TP on 1-minute candles
+  | Strategy | Old SL | Old TP | New SL | New TP |
+  |----------|--------|--------|--------|--------|
+  | LiquiditySweep | -1.5% | 2.5% | ~-0.35% | ~0.6% |
+  | EMASMACrossover | -2.0% | 4.0% | ~-0.46% | ~0.96% |
+  | MADynamicSR | -1.8% | 3.0% | ~-0.40% | ~0.72% |
+  | CandlePattern | -1.5% | 2.0% | ~-0.35% | ~0.6% |
+
+- **Root Cause:**
+  - `run-empire-v2.js:2644-2687` hardcoded swing-trade SL/TP values in exitContractSignal blocks
+  - These overrode ExitContractManager.getDefaultContract() which had correct 1-minute values
+  - Result: Every trade exited via max hold timeout, never hitting TP/SL
+
+- **Additional Fix:** ExitContractManager volatility threshold
+  - Raised from 2.0 to 5.0 (1m candle volatility of 2.0 is normal, not extreme)
+  - Reduced inflation multipliers from 1.2/1.3 to 1.15/1.2
+
+- **Files Changed:**
+  - `run-empire-v2.js` - Removed hardcoded SL/TP from 4 exitContractSignal blocks
+  - `core/ExitContractManager.js` - Volatility threshold and multiplier fix
+  - `core/EnhancedPatternRecognition.js` - BACKTEST_MODE guard on saveToDisk
+  - `core/tradeLogger.js` - BACKTEST_MODE guard on saveTrades
+  - `core/AdvancedExecutionLayer-439-MERGED.js` - All BACKTEST_MODE guards
+
+- **Validation:**
+  - quick-val.js shows RSI: SL=-0.40%, TP=0.72%
+  - First trade exited via **trailing stop** (not max hold)
+
+### Fixed (Pipeline Unblock - 2026-02-20)
+- **CRITICAL BUG:** Three execution gates were blocking 97-99% of trades in backtest
+  | Gate | Location | Block Rate | Root Cause |
+  |------|----------|------------|------------|
+  | ExecutionRateLimiter | core/ExecutionRateLimiter.js | ~95% | 5s cooldown, Date.now() doesn't advance in backtest |
+  | Duplicate Intent Check | AdvancedExecutionLayer:167 | ~80% | SHA256(Date.now()) = identical hashes |
+  | RiskManager.assessTradeRisk | AdvancedExecutionLayer:199 | 97.8% | Daily loss limit breached by first fee |
+
+- **Fixes Applied:**
+  - ExecutionRateLimiter: **REMOVED ENTIRELY** - replaced with pass-through, then deleted
+  - Duplicate Intent Check: Wrapped in `BACKTEST_MODE !== 'true'` guard
+  - Risk Manager Gate: Wrapped in `BACKTEST_MODE !== 'true'` guard
+
+- **Files Changed:**
+  - `core/ExecutionRateLimiter.js` - **DELETED**
+  - `core/AdvancedExecutionLayer-439-MERGED.js` - BACKTEST_MODE guards added
+  - `run-empire-v2.js` - ExecutionRateLimiter references removed
+
+- **Results:**
+  - Before: 187 executeTrade → 183 blocked → 4 passed → 2 opened (1.1%)
+  - After: 11 executeTrade → 0 blocked → 11 passed → 6 opened (100%)
+
 ### Fixed (Confidence Over-Stacking - 2026-02-20)
 - **CRITICAL BUG:** Confidence formula ignored bearish score
   - **Before:** `finalConfidence = base + bullishConfidence` (bear ignored)
