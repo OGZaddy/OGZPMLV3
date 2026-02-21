@@ -138,7 +138,7 @@
       }
     },
     "AGGRESSIVE_LEARNING_MODE": {
-      "enabled": true,
+      "enabled": false,
       "description": "Boost trading activity while pattern bank builds. More trades = faster learning.",
       "version": "1.0.0",
       "settings": {

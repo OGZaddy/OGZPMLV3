@@ -248,8 +248,8 @@ const { OptimizedTradingBrain } = OptimizedTradingBrainModule || {};
 
 const RiskManager = loader.get('core', 'RiskManager');
 console.log('  RiskManager:', !!RiskManager);
-const ExecutionRateLimiter = loader.get('core', 'ExecutionRateLimiter');
-console.log('  ExecutionRateLimiter:', !!ExecutionRateLimiter);
+// REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
+// const ExecutionRateLimiter = loader.get('core', 'ExecutionRateLimiter');
 const AdvancedExecutionLayer = loader.get('core', 'AdvancedExecutionLayer-439-MERGED');
 console.log('  AdvancedExecutionLayer:', !!AdvancedExecutionLayer);
 const PerformanceAnalyzer = loader.get('core', 'PerformanceAnalyzer');
@@ -471,13 +471,9 @@ class OGZPrimeV14Bot {
       console.log('ðŸŽ¯ Grid Trading Mode ENABLED');
     }
 
-    // CHANGE 657: Aggressive trading rate limiter (fixed for 8% confidence)
-    this.rateLimiter = new ExecutionRateLimiter({
-      entryCooldownMs: 5000,        // 5 seconds between entries (was 60 seconds)
-      maxEntriesPerWindow: 100,     // 100 entries per window (was 5)
-      windowMs: 300000,             // 5 minute window (was 10 minutes)
-      burstAllowed: 10              // allow 10 rapid trades (was 2)
-    });
+    // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
+    // Rate limiting now handled by MIN_TRADE_CONFIDENCE threshold + position sizing
+    this.rateLimiter = null;
 
     // ðŸ¤– TRAI DECISION MODULE (Change 574 - Opus Architecture + Codex Fix)
     // OPTIMIZECEPTION FIX: Skip TRAI initialization when ENABLE_TRAI=false (4x faster backtests)
@@ -2095,6 +2091,15 @@ class OGZPrimeV14Bot {
     // CHANGE 2025-12-13: Step 5 - MaxProfitManager gets priority on exits
     // Math (stops/targets) ALWAYS wins over Brain (emotional) signals
 
+    // FIX 2026-02-21: Block new entries when account in significant drawdown
+    const currentBalance = stateManager.get('balance') || 10000;
+    const initialBalance = stateManager.get('initialBalance') || 10000;
+    const accountDrawdown = ((currentBalance - initialBalance) / initialBalance) * 100;
+    if (accountDrawdown <= -10) {
+      console.log(`🛑 DRAWDOWN BLOCK: Account ${accountDrawdown.toFixed(1)}% down - blocking new entries until recovery`);
+      return { action: 'HOLD', confidence: 0, reason: 'account_drawdown_block' };
+    }
+
     // Check if we should BUY (when flat) - Brain direction MUST agree
     // FIX 2026-02-05: Was buying on bearish/hold signals (~50% of positions opened wrong direction)
     if (pos === 0 && totalConfidence >= minConfidence && brainDirection === 'buy') {
@@ -2438,21 +2443,8 @@ class OGZPrimeV14Bot {
    */
   // FIX 2026-02-17: Added brainDecision parameter (was out of scope causing ReferenceError)
   async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, brainDecision = null) {
-    // CHANGE 657: Codex-recommended rate limiter - NEVER blocks exits!
-    // CHANGE 658: Make symbol-specific instead of hardcoded
-    const gate = this.rateLimiter.allow({
-      symbol: this.tradingPair || process.env.TRADING_PAIR || 'XBT/USD',
-      action: decision.action,
-      currentPosition: stateManager.get('position')
-    });
-
-    if (!gate.ok) {
-      console.log(`ðŸ›‘ RATE LIMIT: ${gate.reason} - ${gate.message}`);
-      if (gate.retryInMs) {
-        console.log(`â±ï¸ Retry in ${(gate.retryInMs/1000).toFixed(1)}s`);
-      }
-      return; // Block only entries, exits always allowed
-    }
+    // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
+    // Rate limiting now handled by MIN_TRADE_CONFIDENCE threshold + position sizing
 
     // FIX 2026-02-17: Dont exit on "no signal" (low confidence)
     // SELL requires: (1) high confidence SELL signal, (2) stop loss, or (3) profit target
@@ -2661,10 +2653,9 @@ class OGZPrimeV14Bot {
           // Priority 1: LiquiditySweep (hasSignal + confidence > 0.5)
           if (this.liquiditySweepSignal?.hasSignal && this.liquiditySweepSignal?.confidence > 0.5) {
             entryStrategy = 'LiquiditySweep';
+            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
+            // Old values (-1.5%/2.5%) were unreachable on 1-minute candles
             exitContractSignal = {
-              stopLossPercent: -1.5,
-              takeProfitPercent: 2.5,
-              trailingStopPercent: 1.0,
               invalidationConditions: ['sweep_invalidated']
             };
             console.log(`[STRATEGY] LiquiditySweep triggered: conf=${(this.liquiditySweepSignal.confidence * 100).toFixed(0)}%`);
@@ -2673,10 +2664,9 @@ class OGZPrimeV14Bot {
           // ROLLBACK 2026-02-18: Was 71% win rate at 0.03 - don't fix what's winning
           } else if (this.emaCrossoverSignal?.direction === 'buy' && this.emaCrossoverSignal?.confidence > 0.03) {
             entryStrategy = 'EMASMACrossover';
+            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
+            // Old values (-2.0%/4.0%) were unreachable on 1-minute candles
             exitContractSignal = {
-              stopLossPercent: -2.0,
-              takeProfitPercent: 4.0,
-              trailingStopPercent: 1.5,
               invalidationConditions: ['ema_cross_reversal']
             };
             console.log(`[STRATEGY] EMASMACrossover triggered: dir=${this.emaCrossoverSignal.direction}, conf=${(this.emaCrossoverSignal.confidence * 100).toFixed(0)}%`);
@@ -2685,10 +2675,9 @@ class OGZPrimeV14Bot {
           // FIX 2026-02-18: Loosened to 0.05 - need more trades to evaluate performance
           } else if (this.maDynamicSRSignal?.direction === 'buy' && this.maDynamicSRSignal?.confidence > 0.05) {
             entryStrategy = 'MADynamicSR';
+            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
+            // Old values (-1.8%/3.0%) were unreachable on 1-minute candles
             exitContractSignal = {
-              stopLossPercent: -1.8,
-              takeProfitPercent: 3.0,
-              trailingStopPercent: 1.2,
               invalidationConditions: ['sr_level_broken']
             };
             console.log(`[STRATEGY] MADynamicSR triggered: dir=${this.maDynamicSRSignal.direction}, conf=${(this.maDynamicSRSignal.confidence * 100).toFixed(0)}%`);
@@ -2696,10 +2685,9 @@ class OGZPrimeV14Bot {
           // Priority 4: CandlePattern (confidence > 0.6)
           } else if (patterns && patterns.length > 0 && patterns[0]?.confidence > 0.6) {
             entryStrategy = 'CandlePattern';
+            // FIX 2026-02-21: Removed hardcoded SL/TP - let ExitContractManager defaults handle it
+            // Old values (-1.5%/2.0%) were unreachable on 1-minute candles
             exitContractSignal = {
-              stopLossPercent: -1.5,
-              takeProfitPercent: 2.0,
-              trailingStopPercent: 0.8,
               invalidationConditions: ['pattern_negated']
             };
           } else if (brainDecision?.signalBreakdown?.signals?.length > 0) {
