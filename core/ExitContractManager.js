@@ -20,78 +20,95 @@
  * Default exit contracts by strategy type
  * These are used when a strategy doesn't provide its own generateExitContract()
  */
+// FIX 2026-02-21: Scaled for 1-minute candle reality
+// OLD values (2-5% TP) were UNREACHABLE on 1m candles where BTC moves 0.05-0.5% per bar
+// This caused trades to be trapped until max hold timeout, bleeding fees
+// NEW values: Realistic R:R ratios that actually trigger on 1-minute price action
+// FIX 2026-02-21: Scaled for 1-minute candle reality (REVERTED to v1)
+// FIX 2026-02-21: Realistic TP targets for 15m BTC
+// 15m candles typically move 0.3-0.8%, need achievable targets that clear 0.52% fees
 const DEFAULT_CONTRACTS = {
-  // EMA/SMA Crossover - trend following, wider stops
+  // EMA/SMA Crossover - trend following
   EMASMACrossover: {
-    stopLossPercent: -2.0,
-    takeProfitPercent: 4.0,
-    trailingStopPercent: 1.5,
+    stopLossPercent: -0.5,
+    takeProfitPercent: 0.8,
+    trailingStopPercent: 0.25,
     invalidationConditions: ['ema_cross_reversal'],
-    maxHoldTimeMinutes: 240
+    maxHoldTimeMinutes: 120
   },
 
-  // Liquidity Sweep - mean reversion, tighter targets
+  // Liquidity Sweep - mean reversion
   LiquiditySweep: {
-    stopLossPercent: -1.5,
-    takeProfitPercent: 2.5,
-    trailingStopPercent: 1.0,
+    stopLossPercent: -0.4,
+    takeProfitPercent: 0.7,
+    trailingStopPercent: 0.2,
     invalidationConditions: ['sweep_invalidated', 'box_broken'],
+    maxHoldTimeMinutes: 90
+  },
+
+  // RSI - momentum trades
+  RSI: {
+    stopLossPercent: -0.45,
+    takeProfitPercent: 0.75,
+    trailingStopPercent: 0.25,
+    invalidationConditions: [],
     maxHoldTimeMinutes: 90
   },
 
   // MA Dynamic S/R - support/resistance bounces
   MADynamicSR: {
-    stopLossPercent: -1.8,
-    takeProfitPercent: 3.0,
-    trailingStopPercent: 1.2,
+    stopLossPercent: -0.45,
+    takeProfitPercent: 0.75,
+    trailingStopPercent: 0.25,
     invalidationConditions: ['sr_level_broken'],
-    maxHoldTimeMinutes: 180
+    maxHoldTimeMinutes: 100
   },
 
   // Candle Pattern - quick setups
   CandlePattern: {
-    stopLossPercent: -1.5,
-    takeProfitPercent: 2.0,
-    trailingStopPercent: 0.8,
+    stopLossPercent: -0.4,
+    takeProfitPercent: 0.7,
+    trailingStopPercent: 0.2,
     invalidationConditions: ['pattern_negated'],
-    maxHoldTimeMinutes: 60
+    maxHoldTimeMinutes: 75
   },
 
   // Market Regime - longer holds in strong trends
   MarketRegime: {
-    stopLossPercent: -2.5,
-    takeProfitPercent: 5.0,
-    trailingStopPercent: 2.0,
+    stopLossPercent: -0.6,
+    takeProfitPercent: 1.0,
+    trailingStopPercent: 0.35,
     invalidationConditions: ['regime_change'],
-    maxHoldTimeMinutes: 360
+    maxHoldTimeMinutes: 150
   },
 
-  // Multi-Timeframe - confluence trades, moderate stops
+  // Multi-Timeframe - confluence trades
   MultiTimeframe: {
-    stopLossPercent: -2.0,
-    takeProfitPercent: 3.5,
-    trailingStopPercent: 1.5,
+    stopLossPercent: -0.5,
+    takeProfitPercent: 0.85,
+    trailingStopPercent: 0.3,
     invalidationConditions: ['mtf_divergence'],
-    maxHoldTimeMinutes: 180
+    maxHoldTimeMinutes: 120
   },
 
   // Default fallback for unknown strategies
   default: {
-    stopLossPercent: -1.8,
-    takeProfitPercent: 3.0,
-    trailingStopPercent: 1.0,
+    stopLossPercent: -0.45,
+    takeProfitPercent: 0.75,
+    trailingStopPercent: 0.25,
     invalidationConditions: [],
-    maxHoldTimeMinutes: 120
+    maxHoldTimeMinutes: 100
   }
 };
 
 /**
  * Universal circuit breakers - always enforced regardless of strategy
  */
+// FIX 2026-02-21: Universal limits for 15m trading
 const UNIVERSAL_LIMITS = {
-  hardStopLossPercent: -3.0,      // Per-trade absolute max loss
+  hardStopLossPercent: -2.0,      // Per-trade absolute max loss (wider for 15m)
   accountDrawdownPercent: -10.0,  // Force close all if account down 10%
-  maxHoldTimeMinutes: 480         // 8 hour absolute max hold
+  maxHoldTimeMinutes: 150         // 150 min absolute max hold (allows 120 min strategies)
 };
 
 class ExitContractManager {
@@ -376,10 +393,12 @@ class ExitContractManager {
     }
 
     // Adjust for volatility if provided
-    if (context.volatility && context.volatility > 2.0) {
-      // High volatility - widen stops
-      contract.stopLossPercent *= 1.2;
-      contract.takeProfitPercent *= 1.3;
+    // FIX 2026-02-21: Raised threshold from 2.0 to 5.0 for 1-minute data
+    // On 1m candles, volatility 2.0 is normal - only widen on extreme vol
+    if (context.volatility && context.volatility > 5.0) {
+      // High volatility - widen stops (reduced multipliers)
+      contract.stopLossPercent *= 1.15;
+      contract.takeProfitPercent *= 1.2;
     }
 
     // Freeze contract metadata
