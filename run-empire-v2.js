@@ -1313,8 +1313,9 @@ class OGZPrimeV14Bot {
         console.log(`âœ… Candle #${this.priceHistory.length}/15 [${candleTime}]`);
       }
 
-      if (this.priceHistory.length > 200) {
-        this.priceHistory = this.priceHistory.slice(-200);
+      // Keep enough history for 200 EMA + swing detection (220 bars minimum)
+      if (this.priceHistory.length > 250) {
+        this.priceHistory = this.priceHistory.slice(-250);
       }
 
       // CHANGE 2026-01-28: Save candles to disk every 5 new candles

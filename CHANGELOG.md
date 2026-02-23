@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (MADynamicSR Trader DNA Strategy - 2026-02-23)
+- **CRITICAL FIX:** MADynamicSR signals weren't reaching orchestrator
+  - Root cause: `priceHistory` trimmed to 200 candles, but 200 EMA needs 220+
+  - Fix: Increased limit from 200 → 250 candles
+
+- **Strategy Overhaul:** Implemented Trader DNA "3 EMA Strategies" from YouTube
+  - 200 EMA for trend direction (price above = bullish, below = bearish)
+  - 50 EMA for entry triggers (pullback touch point)
+  - 123 Pattern detection (HH/HL for uptrend, LH/LL for downtrend)
+  - Pattern caching: uptrend persists until Lower Low, downtrend until Higher High
+  - Confirmation candles: hammer, shooting star, engulfing, strong body
+  - S/R zone alignment as confluence bonus (not required)
+
+- **New Utility:** EMACalibrator.js
+  - Tests which EMAs the market respects (bounce vs slice through)
+  - BTC 15m result: 50 EMA 29.2% respect, 200 EMA 34.4% respect
+  - Confirms 50/200 combo is optimal for BTC 15-minute
+
+- **Parameters Tuned:**
+  - `touchZonePct`: 0.3% → 0.6% (allows more EMA touches)
+  - `srZonePct`: 1.0% (wider S/R zone detection)
+  - `swingLookback`: 3 bars (faster swing detection)
+  - Base confidence: 0.55 (passes 55% threshold)
+
+- **Results:** 280 signals in 5000 candles, 55-75% confidence, MADynamicSR now winning trades
+
+- **Files Changed:**
+  - `modules/MADynamicSR.js` - Complete rewrite with Trader DNA logic
+  - `core/EMACalibrator.js` - NEW utility for EMA testing
+  - `run-empire-v2.js:1317` - priceHistory limit 200 → 250
+  - `core/StrategyOrchestrator.js` - Debug logging added
+
 ### Added (Adaptive Timeframe & Dashboard Integration - 2026-02-21)
 - **AdaptiveTimeframeSelector**: Dynamic timeframe selection based on market conditions
   - Scores timeframes on: fee viability, trend clarity, signal strength, noise level

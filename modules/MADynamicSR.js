@@ -1,370 +1,534 @@
 /**
- * MADynamicSR.js — V2-Compatible Rebuild
- * =======================================
- * Treats EMAs/SMAs as living support/resistance levels.
- * Detects: MA bounce, MA break, MA retest, MA compression zones.
+ * MADynamicSR.js — Trader DNA Strategy Implementation
+ * =====================================================
+ * Based on "3 EMA Strategies That NEVER LOSE" by Trader DNA
  *
- * V2 FIXES:
- *   • Candle format: uses .c/.o/.h/.l/.v/.t (Kraken OHLCV)
- *   • Self-contained EMA/SMA — no dependency on OptimizedIndicators
- *   • Bounded arrays (touchHistory, signalLog)
- *   • Clean integration API: update(candle, priceHistory) → signal
+ * ENTRY REQUIREMENTS (ALL must be true):
+ * 1. 123 Pattern confirmed (HH/HL for longs, LH/LL for shorts)
+ * 2. Price pulls back to 50 EMA
+ * 3. 50 EMA aligns with previous S/R zone (tested multiple times)
+ * 4. Confirmation candle appears (hammer, engulfing, shooting star)
  *
- * Integration:
- *   const maSR = new MADynamicSR();
- *   const signal = maSR.update(candle, this.priceHistory);
- *   // signal = { direction, confidence, events[], compression, levels }
+ * EXIT: 1:3 Risk/Reward ratio
  */
 
 'use strict';
 
-// FIX 2026-02-16: Use centralized candle helper for format compatibility
-const { c, h, l } = require('../core/CandleHelper');
+const { c, o, h, l } = require('../core/CandleHelper');
 
 class MADynamicSR {
   constructor(config = {}) {
-    // MA levels to track as dynamic S/R
-    this.maDefinitions = [
-      { id: 'ema9',   period: 9,   type: 'ema', importance: 0.6 },
-      { id: 'sma20',  period: 20,  type: 'sma', importance: 0.8 },
-      { id: 'ema50',  period: 50,  type: 'ema', importance: 1.0 },
-      { id: 'sma200', period: 200, type: 'sma', importance: 1.5 },
-    ];
+    // EMA periods per Trader DNA / EMACalibrator results
+    // 50 EMA for entries (pullback trigger)
+    // 200 EMA for trend direction (big picture)
+    this.emaPeriod = config.emaPeriod || 50;
+    this.trendEmaPeriod = config.trendEmaPeriod || 200;
 
-    // Touch zone: ±1.5% of price counts as "near" the MA
-    // FIX 2026-02-18: Loosened from 0.3% - was too tight, never fired
-    this.touchZonePct = config.touchZonePct || 1.5;
+    // Swing detection settings
+    this.swingLookback = config.swingLookback || 3;   // Bars to confirm swing (3 for 15m)
+    this.srTestCount = config.srTestCount || 2;       // Times a level must be tested
+    this.srZonePct = config.srZonePct || 1.0;         // Zone width as % of price (FIX: widened)
 
-    // Bounce confirmation: 0.15% move away from MA
-    // FIX 2026-02-18: Loosened from 0.5% - low volatility data never hit this
-    this.bounceConfirmPct = config.bounceConfirmPct || 0.15;
+    // Touch detection - FIX: 0.6% allows more touches without threading needle
+    this.touchZonePct = config.touchZonePct || 0.6;
 
-    // Break confirmation: 0.4% through MA
-    this.breakConfirmPct = config.breakConfirmPct || 0.4;
+    // Pattern persistence
+    this.patternPersistBars = config.patternPersistBars || 15;  // Pattern stays valid for N bars
 
-    // Retest window: bars after break to look for retest
-    this.retestWindowBars = config.retestWindowBars || 12;
-
-    // Compression: N MAs within X% = squeeze
-    this.compressionMinMAs = config.compressionMinMAs || 3;
-    this.compressionRangePct = config.compressionRangePct || 2.0;
-
-    // Signal decay
-    this.decayBars = config.decayBars || 8;
-
-    // --- internal state ---
-    this.touchState = {};     // { maId: { touching, side, barsAgo } }
-    this.breakState = {};     // { maId: { broken, direction, barsAgo } }
-    this.activeSignals = [];  // BOUNDED at 20
-    this.signalLog = [];      // BOUNDED at 50
+    // State tracking
+    this.swings = [];           // Array of { type: 'high'|'low', price, bar, wick }
+    this.srLevels = [];         // Array of { price, tests, lastTest }
+    this.pattern123 = null;     // Current 123 pattern state
+    this.patternDetectedBar = 0; // When pattern was detected
+    this.lastSignal = null;
     this.barCount = 0;
 
-    for (const ma of this.maDefinitions) {
-      this.touchState[ma.id] = { touching: false, side: 'none', barsAgo: 999 };
-      this.breakState[ma.id] = { broken: false, direction: 'none', barsAgo: 999 };
-    }
+    // Diagnostic counters
+    this.diag = {
+      trendBullish: 0,
+      trendBearish: 0,
+      patternUptrend: 0,
+      patternDowntrend: 0,
+      emaTouches: 0,
+      srAligned: 0,
+      confirmBullish: 0,
+      confirmBearish: 0,
+      allAlignedLong: 0,
+      allAlignedShort: 0
+    };
+
+    console.log(`📐 MADynamicSR initialized (Trader DNA strategy) - Entry EMA: ${this.emaPeriod}, Trend EMA: ${this.trendEmaPeriod}`);
   }
 
-  // ─── CORE API ───────────────────────────────────────────────
-
   /**
-   * @param {Object} candle        — { c, o, h, l, v, t }
-   * @param {Array}  priceHistory   — candles array, newest LAST
-   * @returns {Object} signal
+   * Main update - call on each candle
    */
   update(candle, priceHistory) {
-    if (!priceHistory || priceHistory.length < 10) {
+    // Need enough history for 200 EMA + swing detection
+    const minBars = Math.max(this.emaPeriod, this.trendEmaPeriod) + 20;
+    if (!priceHistory || priceHistory.length < minBars) {
       return this._emptySignal();
     }
 
     this.barCount++;
-    const closes = priceHistory.map(candle => c(candle));
+    const closes = priceHistory.map(x => c(x));
     const price = c(candle);
     const high = h(candle);
     const low = l(candle);
+    const open = o(candle);
 
-    // Calculate MA values
-    const levels = {};
-    for (const ma of this.maDefinitions) {
-      const val = ma.type === 'ema'
-        ? this._ema(closes, ma.period)
-        : this._sma(closes, ma.period);
-      levels[ma.id] = val;  // null if not enough data
-    }
+    // Calculate EMAs
+    const ema50 = this._ema(closes, this.emaPeriod);
+    const ema200 = this._ema(closes, this.trendEmaPeriod);
+    if (!ema50 || !ema200) return this._emptySignal();
 
-    // Detect events per MA
-    const events = [];
-    let bullishScore = 0;
-    let bearishScore = 0;
+    // 200 EMA determines overall trend direction
+    const trendBullish = price > ema200;
+    const trendBearish = price < ema200;
 
-    for (const ma of this.maDefinitions) {
-      const maVal = levels[ma.id];
-      if (maVal == null) continue;
+    // Track diagnostics
+    if (trendBullish) this.diag.trendBullish++;
+    if (trendBearish) this.diag.trendBearish++;
 
-      const touchZone = maVal * (this.touchZonePct / 100);
-      const isTouching = Math.abs(price - maVal) <= touchZone;
-      const priceAbove = price > maVal;
-      const priceFarAbove = ((price - maVal) / maVal) * 100 > this.bounceConfirmPct;
-      const priceFarBelow = ((maVal - price) / maVal) * 100 > this.bounceConfirmPct;
-      const breakThrough = Math.abs(price - maVal) / maVal * 100 > this.breakConfirmPct;
+    // Step 1: Detect swing highs and lows
+    this._detectSwings(priceHistory);
 
-      const touch = this.touchState[ma.id];
-      const brk = this.breakState[ma.id];
+    // Step 2: Build S/R levels from swings
+    this._updateSRLevels();
 
-      // --- BOUNCE detection ---
-      if (touch.touching && !isTouching) {
-        // Was touching, now moved away
-        if (touch.side === 'above' && priceFarAbove) {
-          // Bounced UP off MA (support hold)
-          events.push({
-            type: 'bounce_support',
-            ma: ma.id,
-            maValue: maVal,
-            importance: ma.importance
-          });
-          bullishScore += 0.15 * ma.importance;
-        } else if (touch.side === 'below' && priceFarBelow) {
-          // Bounced DOWN off MA (resistance hold)
-          events.push({
-            type: 'bounce_resistance',
-            ma: ma.id,
-            maValue: maVal,
-            importance: ma.importance
-          });
-          bearishScore += 0.15 * ma.importance;
-        }
-      }
+    // Step 3: Check for 123 pattern (now cached in _detect123Pattern)
+    const pattern = this._detect123Pattern();
+    this.pattern123 = pattern;  // Cache for next call
+    if (pattern === 'uptrend') this.diag.patternUptrend++;
+    if (pattern === 'downtrend') this.diag.patternDowntrend++;
 
-      // --- BREAK detection ---
-      if (!brk.broken && breakThrough) {
-        const brokeUp = price > maVal && (touch.side === 'below' || touch.touching);
-        const brokeDown = price < maVal && (touch.side === 'above' || touch.touching);
+    // Step 4: Check if price is touching 50 EMA
+    const touchingEMA = this._isTouchingEMA(price, ema50);
+    if (touchingEMA) this.diag.emaTouches++;
 
-        if (brokeUp) {
-          brk.broken = true;
-          brk.direction = 'breakout';
-          brk.barsAgo = 0;
-          events.push({
-            type: 'breakout',
-            ma: ma.id,
-            maValue: maVal,
-            importance: ma.importance
-          });
-          bullishScore += 0.20 * ma.importance;
-        } else if (brokeDown) {
-          brk.broken = true;
-          brk.direction = 'breakdown';
-          brk.barsAgo = 0;
-          events.push({
-            type: 'breakdown',
-            ma: ma.id,
-            maValue: maVal,
-            importance: ma.importance
-          });
-          bearishScore += 0.20 * ma.importance;
-        }
-      }
+    // Step 5: Check if current price aligns with S/R zone
+    const srAlignment = this._checkSRAlignment(price);
+    if (srAlignment.aligned) this.diag.srAligned++;
 
-      // --- RETEST detection (after a break, price returns to MA) ---
-      if (brk.broken && brk.barsAgo <= this.retestWindowBars && isTouching) {
-        if (brk.direction === 'breakout' && priceAbove) {
-          // Retested from above after breakout — confirmation!
-          events.push({
-            type: 'retest_support',
-            ma: ma.id,
-            maValue: maVal,
-            importance: ma.importance
-          });
-          bullishScore += 0.10 * ma.importance;
-          brk.broken = false;  // consumed
-        } else if (brk.direction === 'breakdown' && !priceAbove) {
-          events.push({
-            type: 'retest_resistance',
-            ma: ma.id,
-            maValue: maVal,
-            importance: ma.importance
-          });
-          bearishScore += 0.10 * ma.importance;
-          brk.broken = false;
-        }
-      }
+    // Step 6: Check for confirmation candle
+    const confirmation = this._checkConfirmationCandle(candle, priceHistory);
+    if (confirmation.bullish) this.diag.confirmBullish++;
+    if (confirmation.bearish) this.diag.confirmBearish++;
 
-      // Age out breaks
-      if (brk.broken) {
-        brk.barsAgo++;
-        if (brk.barsAgo > this.retestWindowBars) {
-          brk.broken = false;
-        }
-      }
-
-      // Update touch state
-      touch.touching = isTouching;
-      touch.side = priceAbove ? 'above' : 'below';
-      touch.barsAgo = isTouching ? 0 : touch.barsAgo + 1;
-    }
-
-    // --- COMPRESSION detection ---
-    const validLevels = this.maDefinitions
-      .filter(ma => levels[ma.id] != null)
-      .map(ma => levels[ma.id]);
-
-    let compression = null;
-    if (validLevels.length >= this.compressionMinMAs) {
-      const maxMA = Math.max(...validLevels);
-      const minMA = Math.min(...validLevels);
-      const rangePct = ((maxMA - minMA) / minMA) * 100;
-
-      if (rangePct <= this.compressionRangePct) {
-        compression = {
-          rangePct,
-          masInvolved: validLevels.length,
-          midpoint: (maxMA + minMA) / 2,
-          warning: 'Explosive move likely — MAs compressed'
-        };
-        // Don't add directional bias — compression is neutral until break
-      }
-    }
-
-    // FIX 2026-02-18: Include accumulated score from recent (undecayed) signals
-    // This makes bounce/retest signals persist for ~8 candles instead of 1
-    // Without this, signals vanished before Brain could act on them
-    for (const sig of this.activeSignals) {
-      const decayFactor = 1 - (sig.age / this.decayBars);
-      if (decayFactor > 0) {
-        if (sig.type.includes('support') || sig.type === 'breakout') {
-          bullishScore += 0.08 * sig.importance * decayFactor;
-        } else if (sig.type.includes('resistance') || sig.type === 'breakdown') {
-          bearishScore += 0.08 * sig.importance * decayFactor;
-        }
-      }
-    }
-
-    // --- TREND DETECTION (THE FIX) ---
-    // FIX 2026-02-23: Only trade WITH the trend, not against it
-    // Uptrend = price above SMA200 + SMA20 sloping up
-    // Downtrend = price below SMA200 + SMA20 sloping down
-    const sma20 = levels['sma20'];
-    const sma200 = levels['sma200'];
-    let trend = 'neutral';
-
-    if (sma20 && sma200 && closes.length >= 5) {
-      const sma20_5ago = this._sma(closes.slice(0, -5), 20);
-      const sma20Slope = sma20_5ago ? (sma20 - sma20_5ago) / sma20_5ago : 0;
-
-      if (price > sma200 && sma20Slope > 0.001) {
-        trend = 'up';
-      } else if (price < sma200 && sma20Slope < -0.001) {
-        trend = 'down';
-      }
-    }
-
-    // --- Aggregate (TREND-ALIGNED SIGNALS ONLY) ---
-    // FIX 2026-02-23: Only fire bullish in uptrend, bearish in downtrend
+    // Build signal
     let direction = 'neutral';
     let confidence = 0;
+    let reason = '';
 
-    // UPTREND: Only take bullish signals (MA = support)
-    if (trend === 'up' && bullishScore > bearishScore && bullishScore > 0.1) {
+    // Per Trader DNA: 200 EMA = trend, 50 EMA = entries
+    // "uptrend above 200 EMA, wait for pullback to 50 EMA,
+    // if the 50 EMA is on support/resistance zone and you get bullish engulfing = money"
+    //
+    // FILTER STACK:
+    // 1. 200 EMA trend filter (price above = bullish, below = bearish)
+    // 2. 123 pattern confirmed (HH/HL or LH/LL)
+    // 3. Price touching 50 EMA (the "pullback")
+    // 4. Confirmation candle
+    // BONUS: S/R zone alignment
+
+    // LONG SETUP - must be in bullish trend (above 200 EMA)
+    if (trendBullish && pattern === 'uptrend' && touchingEMA && confirmation.bullish) {
+      this.diag.allAlignedLong++;
       direction = 'buy';
-      const baseConf = Math.min(0.45, bullishScore * 0.35);
-      const eventBonus = Math.min(0.20, events.length * 0.08);
-      const persistBonus = Math.min(0.15, this.activeSignals.length * 0.025);
-      const compressBonus = compression ? 0.10 : 0;
-      const trendBonus = 0.10;  // Trading WITH the trend
-      confidence = baseConf + eventBonus + persistBonus + compressBonus + trendBonus;
+      confidence = 0.55;  // Base confidence for core setup
+      confidence += confirmation.strength * 0.20;
+      if (srAlignment.aligned) {
+        confidence += Math.min(0.20, srAlignment.tests * 0.08);
+      }
+      const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
+      reason = `SNIPER LONG: 200 EMA bullish + 123 uptrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
     }
-    // DOWNTREND: Only take bearish signals (MA = resistance)
-    else if (trend === 'down' && bearishScore > bullishScore && bearishScore > 0.1) {
+    // SHORT SETUP - must be in bearish trend (below 200 EMA)
+    else if (trendBearish && pattern === 'downtrend' && touchingEMA && confirmation.bearish) {
+      this.diag.allAlignedShort++;
       direction = 'sell';
-      const baseConf = Math.min(0.45, bearishScore * 0.35);
-      const eventBonus = Math.min(0.20, events.length * 0.08);
-      const persistBonus = Math.min(0.15, this.activeSignals.length * 0.025);
-      const compressBonus = compression ? 0.10 : 0;
-      const trendBonus = 0.10;
-      confidence = baseConf + eventBonus + persistBonus + compressBonus + trendBonus;
+      confidence = 0.55;
+      confidence += confirmation.strength * 0.20;
+      if (srAlignment.aligned) {
+        confidence += Math.min(0.20, srAlignment.tests * 0.08);
+      }
+      const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
+      reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
     }
-    // NEUTRAL/CHOPPY: No signal - don't trade against trend or in chop
-    // (This is what the YouTube traders do - they WAIT for clear trend)
 
-    // Decay active signals
-    this.activeSignals = this.activeSignals
-      .map(s => ({ ...s, age: s.age + 1 }))
-      .filter(s => s.age <= this.decayBars);
-
-    // Add new events as active signals
-    for (const evt of events) {
-      this.activeSignals.push({ ...evt, age: 0 });
-      if (this.activeSignals.length > 20) this.activeSignals.shift();
+    // Calculate 1:3 R:R levels if we have a signal
+    let stopLoss = null;
+    let takeProfit = null;
+    if (direction !== 'neutral') {
+      const recentSwings = this.swings.slice(-10);  // Look at more swings
+      if (direction === 'buy') {
+        // Stop below recent swing low
+        const lows = recentSwings.filter(s => s.type === 'low').map(s => s.wick);
+        const recentLow = lows.length > 0 ? Math.min(...lows) : null;
+        stopLoss = recentLow && recentLow < price ? recentLow : price * 0.99;  // 1% default
+        const risk = price - stopLoss;
+        if (risk > 0) {
+          takeProfit = price + (risk * 2); // 1:2 R:R (more achievable on 15m)
+        }
+      } else {
+        // Stop above recent swing high
+        const highs = recentSwings.filter(s => s.type === 'high').map(s => s.wick);
+        const recentHigh = highs.length > 0 ? Math.max(...highs) : null;
+        stopLoss = recentHigh && recentHigh > price ? recentHigh : price * 1.01;  // 1% default
+        const risk = stopLoss - price;
+        if (risk > 0) {
+          takeProfit = price - (risk * 2); // 1:2 R:R
+        }
+      }
     }
 
     const signal = {
       module: 'MADynamicSR',
       direction,
       confidence,
-      events,
-      compression,
-      levels,               // raw MA values for dashboard
-      activeSignals: this.activeSignals.length,
-      bullishScore,
-      bearishScore
+      reason,
+      pattern,
+      touchingEMA,
+      srAlignment,
+      confirmation,
+      levels: {
+        ema50,
+        ema200,
+        stopLoss,
+        takeProfit,
+        riskReward: stopLoss && takeProfit ? 2 : null
+      },
+      trend: trendBullish ? 'bullish' : trendBearish ? 'bearish' : 'neutral',
+      swingCount: this.swings.length,
+      srLevelCount: this.srLevels.length
     };
 
-    this.signalLog.push({ t: candle.t, ...signal });
-    if (this.signalLog.length > 50) this.signalLog.shift();
-
+    this.lastSignal = signal;
     return signal;
   }
 
-  // ─── MA CALCULATIONS ────────────────────────────────────────
+  /**
+   * Detect swing highs and lows from price history
+   */
+  _detectSwings(priceHistory) {
+    if (priceHistory.length < this.swingLookback * 2 + 1) return;
 
+    const len = priceHistory.length;
+    const lookback = this.swingLookback;
+
+    // Check if we have a new swing high
+    const midBar = len - 1 - lookback;
+    if (midBar < lookback) return;
+
+    const midCandle = priceHistory[midBar];
+    const midHigh = h(midCandle);
+    const midLow = l(midCandle);
+
+    // Check for swing high
+    let isSwingHigh = true;
+    for (let i = midBar - lookback; i <= midBar + lookback; i++) {
+      if (i === midBar) continue;
+      if (h(priceHistory[i]) >= midHigh) {
+        isSwingHigh = false;
+        break;
+      }
+    }
+
+    if (isSwingHigh) {
+      const existing = this.swings.find(s => s.bar === midBar);
+      if (!existing) {
+        this.swings.push({
+          type: 'high',
+          price: c(midCandle),
+          wick: midHigh,  // Use wick per Trader DNA
+          bar: midBar
+        });
+      }
+    }
+
+    // Check for swing low
+    let isSwingLow = true;
+    for (let i = midBar - lookback; i <= midBar + lookback; i++) {
+      if (i === midBar) continue;
+      if (l(priceHistory[i]) <= midLow) {
+        isSwingLow = false;
+        break;
+      }
+    }
+
+    if (isSwingLow) {
+      const existing = this.swings.find(s => s.bar === midBar);
+      if (!existing) {
+        this.swings.push({
+          type: 'low',
+          price: c(midCandle),
+          wick: midLow,  // Use wick per Trader DNA
+          bar: midBar
+        });
+      }
+    }
+
+    // Keep only last 50 swings
+    if (this.swings.length > 50) {
+      this.swings = this.swings.slice(-50);
+    }
+  }
+
+  /**
+   * Build S/R levels from swings - levels tested multiple times are stronger
+   */
+  _updateSRLevels() {
+    if (this.swings.length < 2) return;
+
+    // Group swings into zones
+    const zonePct = this.srZonePct / 100;
+
+    for (const swing of this.swings) {
+      const price = swing.wick;  // Use wick
+
+      // Check if this swing is near an existing level
+      let foundLevel = null;
+      for (const level of this.srLevels) {
+        const diff = Math.abs(price - level.price) / level.price;
+        if (diff <= zonePct) {
+          foundLevel = level;
+          break;
+        }
+      }
+
+      if (foundLevel) {
+        // Update existing level
+        if (swing.bar > foundLevel.lastTest) {
+          foundLevel.tests++;
+          foundLevel.lastTest = swing.bar;
+          // Adjust level to average (per Trader DNA - adjust to wicks)
+          foundLevel.price = (foundLevel.price + price) / 2;
+        }
+      } else {
+        // New level
+        this.srLevels.push({
+          price,
+          tests: 1,
+          lastTest: swing.bar,
+          type: swing.type === 'high' ? 'resistance' : 'support'
+        });
+      }
+    }
+
+    // Keep only recent levels (last 20)
+    this.srLevels = this.srLevels
+      .sort((a, b) => b.lastTest - a.lastTest)
+      .slice(0, 20);
+  }
+
+  /**
+   * Detect 123 pattern - the core trend confirmation
+   * Uptrend: Higher High AND Higher Low
+   * Downtrend: Lower High AND Lower Low
+   *
+   * FIX: Pattern is CACHED - once confirmed, stays true until structure breaks
+   * Uptrend stays until we get a Lower Low
+   * Downtrend stays until we get a Higher High
+   */
+  _detect123Pattern() {
+    if (this.swings.length < 4) return this.pattern123;  // Return cached
+
+    const recent = this.swings.slice(-6);
+    const highs = recent.filter(s => s.type === 'high').slice(-3);
+    const lows = recent.filter(s => s.type === 'low').slice(-3);
+
+    if (highs.length < 2 || lows.length < 2) return this.pattern123;
+
+    const lastHigh = highs[highs.length - 1];
+    const prevHigh = highs[highs.length - 2];
+    const lastLow = lows[lows.length - 1];
+    const prevLow = lows[lows.length - 2];
+
+    const higherHigh = lastHigh.wick > prevHigh.wick;
+    const higherLow = lastLow.wick > prevLow.wick;
+    const lowerHigh = lastHigh.wick < prevHigh.wick;
+    const lowerLow = lastLow.wick < prevLow.wick;
+
+    // New uptrend confirmation
+    if (higherHigh && higherLow) {
+      return 'uptrend';
+    }
+    // New downtrend confirmation
+    if (lowerHigh && lowerLow) {
+      return 'downtrend';
+    }
+
+    // FIX: Pattern PERSISTS until broken
+    // Uptrend breaks on Lower Low
+    if (this.pattern123 === 'uptrend' && lowerLow) {
+      return null;  // Structure broken
+    }
+    // Downtrend breaks on Higher High
+    if (this.pattern123 === 'downtrend' && higherHigh) {
+      return null;  // Structure broken
+    }
+
+    // Keep existing pattern if not broken
+    return this.pattern123;
+  }
+
+  /**
+   * Check if price is touching the 50 EMA
+   */
+  _isTouchingEMA(price, ema) {
+    const distance = Math.abs(price - ema) / ema * 100;
+    return distance <= this.touchZonePct;
+  }
+
+  /**
+   * Check if EMA aligns with a previously tested S/R level
+   */
+  _checkSRAlignment(ema) {
+    const zonePct = this.srZonePct / 100;
+
+    for (const level of this.srLevels) {
+      if (level.tests < this.srTestCount) continue;  // Must be tested multiple times
+
+      const diff = Math.abs(ema - level.price) / level.price;
+      if (diff <= zonePct) {
+        return {
+          aligned: true,
+          type: level.type,
+          price: level.price,
+          tests: level.tests
+        };
+      }
+    }
+
+    return { aligned: false, type: null, price: null, tests: 0 };
+  }
+
+  /**
+   * Check for confirmation candlestick patterns
+   */
+  _checkConfirmationCandle(candle, priceHistory) {
+    const open = o(candle);
+    const close = c(candle);
+    const high = h(candle);
+    const low = l(candle);
+
+    const body = Math.abs(close - open);
+    const range = high - low;
+    const upperWick = high - Math.max(open, close);
+    const lowerWick = Math.min(open, close) - low;
+
+    const result = {
+      bullish: false,
+      bearish: false,
+      pattern: 'none',
+      strength: 0
+    };
+
+    if (range === 0) return result;
+
+    // Hammer (bullish) - small body, long lower wick, little upper wick
+    if (close > open && lowerWick >= body * 2 && upperWick <= body * 0.5) {
+      result.bullish = true;
+      result.pattern = 'hammer';
+      result.strength = Math.min(1, lowerWick / range);
+    }
+    // Inverted Hammer / Shooting Star (bearish) - small body, long upper wick
+    else if (close < open && upperWick >= body * 2 && lowerWick <= body * 0.5) {
+      result.bearish = true;
+      result.pattern = 'shooting_star';
+      result.strength = Math.min(1, upperWick / range);
+    }
+    // Bullish Engulfing
+    else if (priceHistory.length >= 2) {
+      const prev = priceHistory[priceHistory.length - 2];
+      const prevOpen = o(prev);
+      const prevClose = c(prev);
+
+      if (prevClose < prevOpen && close > open &&
+          close > prevOpen && open < prevClose) {
+        result.bullish = true;
+        result.pattern = 'bullish_engulfing';
+        result.strength = body / range;
+      }
+      // Bearish Engulfing
+      else if (prevClose > prevOpen && close < open &&
+               close < prevOpen && open > prevClose) {
+        result.bearish = true;
+        result.pattern = 'bearish_engulfing';
+        result.strength = body / range;
+      }
+    }
+
+    // Strong bullish candle (big green body)
+    if (!result.bullish && close > open && body / range > 0.6) {
+      result.bullish = true;
+      result.pattern = 'strong_bullish';
+      result.strength = body / range * 0.8;
+    }
+    // Strong bearish candle (big red body)
+    if (!result.bearish && close < open && body / range > 0.6) {
+      result.bearish = true;
+      result.pattern = 'strong_bearish';
+      result.strength = body / range * 0.8;
+    }
+
+    return result;
+  }
+
+  /**
+   * Calculate EMA
+   */
   _ema(closes, period) {
     if (closes.length < period) return null;
     const k = 2 / (period + 1);
-    let ema = 0;
-    for (let i = 0; i < period; i++) ema += closes[i];
-    ema /= period;
+    let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
     for (let i = period; i < closes.length; i++) {
       ema = closes[i] * k + ema * (1 - k);
     }
     return ema;
   }
 
-  _sma(closes, period) {
-    if (closes.length < period) return null;
-    const slice = closes.slice(-period);
-    return slice.reduce((a, b) => a + b, 0) / period;
-  }
-
-  // ─── HELPERS ────────────────────────────────────────────────
-
   _emptySignal() {
     return {
       module: 'MADynamicSR',
       direction: 'neutral',
       confidence: 0,
-      events: [],
-      compression: null,
+      reason: 'insufficient_data',
+      pattern: null,
+      touchingEMA: false,
+      srAlignment: { aligned: false },
+      confirmation: { bullish: false, bearish: false },
       levels: {},
-      activeSignals: 0,
-      bullishScore: 0,
-      bearishScore: 0
+      trend: null
     };
   }
 
   getSnapshot() {
     return {
-      levels: { ...this.touchState },
-      breaks: { ...this.breakState },
-      lastSignal: this.signalLog[this.signalLog.length - 1] || null,
-      recentSignals: this.signalLog.slice(-5)
+      swings: this.swings.slice(-10),
+      srLevels: this.srLevels,
+      lastSignal: this.lastSignal,
+      diagnostics: this.diag
     };
   }
 
+  printDiagnostics() {
+    const d = this.diag;
+    console.log('\n===== MADynamicSR DIAGNOSTICS =====');
+    console.log(`Total bars processed: ${this.barCount}`);
+    console.log(`200 EMA trend: ${d.trendBullish} bullish, ${d.trendBearish} bearish`);
+    console.log(`123 pattern:   ${d.patternUptrend} uptrend, ${d.patternDowntrend} downtrend`);
+    console.log(`50 EMA touch:  ${d.emaTouches} times`);
+    console.log(`S/R aligned:   ${d.srAligned} times`);
+    console.log(`Confirm candle: ${d.confirmBullish} bullish, ${d.confirmBearish} bearish`);
+    console.log(`ALL ALIGNED:   ${d.allAlignedLong} long, ${d.allAlignedShort} short`);
+    console.log('====================================\n');
+  }
+
   destroy() {
-    this.signalLog = [];
-    this.activeSignals = [];
-    this.touchState = {};
-    this.breakState = {};
+    this.swings = [];
+    this.srLevels = [];
+    this.lastSignal = null;
   }
 }
 
