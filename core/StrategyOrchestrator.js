@@ -29,6 +29,7 @@
 'use strict';
 
 const { getInstance: getExitContractManager } = require('./ExitContractManager');
+const MAExtensionFilter = require('./MAExtensionFilter');
 
 class StrategyOrchestrator {
   constructor(config = {}) {
@@ -57,6 +58,9 @@ class StrategyOrchestrator {
     // Stats tracking
     this.lastEvaluation = null;
     this.evalCount = 0;
+
+    // MA Extension Filter for trend confirmation + first-touch skip
+    this.maExtensionFilter = new MAExtensionFilter();
   }
 
   /**
@@ -96,6 +100,8 @@ class StrategyOrchestrator {
     });
 
     // ─── 2. MA Dynamic S/R Strategy ───
+    // NOTE: 'this' context is bound via arrow function in evaluate wrapper below
+    const orchestrator = this;
     this.strategies.push({
       name: 'MADynamicSR',
       evaluate: (ctx) => {
@@ -103,6 +109,29 @@ class StrategyOrchestrator {
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
         if (conf < 0.05) return null;
+
+        // ─── MAExtensionFilter Gate ───
+        // Get price data for filter update
+        const price = ctx.extras?.price || (ctx.priceHistory?.length > 0 ? ctx.priceHistory[ctx.priceHistory.length - 1]?.c : null);
+        const lastCandle = ctx.priceHistory?.length > 0 ? ctx.priceHistory[ctx.priceHistory.length - 1] : null;
+        const sma20 = sig.levels?.sma20 || ctx.indicators?.ema20;
+        const sma200 = sig.levels?.sma200 || ctx.indicators?.sma200;
+        const atr = ctx.indicators?.atr || 0;
+
+        if (lastCandle && sma20 && sma200) {
+          // Update filter with full candle (for consolidation zone tracking)
+          orchestrator.maExtensionFilter.updateWithCandle(lastCandle, sma20, sma200, atr);
+
+          // Check if filter allows this signal
+          const filterCheck = sig.direction === 'buy'
+            ? orchestrator.maExtensionFilter.shouldTakeLong(price, sma20, atr)
+            : orchestrator.maExtensionFilter.shouldTakeShort(price, sma20, atr);
+
+          if (!filterCheck.take) {
+            console.log(`📐 MAExtensionFilter: Skipping ${sig.direction} (${filterCheck.reason})`);
+            return null;  // Filter says NO
+          }
+        }
 
         // Fib level boost: bounce at MA + fib level = very strong S/R
         const fib = ctx.extras?.nearestFibLevel;
@@ -398,10 +427,12 @@ class StrategyOrchestrator {
         }
       }
 
+      // FIX 2026-02-23: Convert ATR to percentage (was passing raw $ causing inflation)
+      const volPct = indicators?.atr && price ? (indicators.atr / price * 100) : (indicators?.volatility || 0);
       exitContract = ecm.createExitContract(
         winner.strategyName,
         { ...signalOverrides, confidence: winner.confidence },
-        { volatility: indicators?.volatility || indicators?.atr || 0 }
+        { volatility: volPct }
       );
     } catch (err) {
       console.warn(`⚠️ [StrategyOrchestrator] Failed to create exit contract: ${err.message}`);

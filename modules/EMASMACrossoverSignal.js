@@ -170,26 +170,34 @@ class EMASMACrossoverSignal {
       ? Math.max(bullishCount, bearishCount) / totalWeight
       : 0;
 
-    // --- Direction ---
+    // --- Direction (EVIDENCE-BASED CONFIDENCE) ---
+    // FIX 2026-02-23: Dynamic confidence from stacked evidence, not static caps
     let direction = 'neutral';
     let confidence = 0;
 
     if (bullishCount > bearishCount && bullishCount > 0.3) {
       direction = 'buy';
-      confidence = Math.min(0.35, confluenceRatio * 0.4);
+      // Stack evidence: confluence + fresh crosses + heavyweight pairs
+      const baseConf = confluenceRatio * 0.45;             // Alignment across pairs (0-45%)
+      const freshBonus = Math.min(0.25, crossovers.filter(c => c.type === 'golden').length * 0.12);
+      const heavyBonus = crossovers.some(c => c.weight >= 1.4 && c.type === 'golden') ? 0.10 : 0;
+      confidence = baseConf + freshBonus + heavyBonus;
     } else if (bearishCount > bullishCount && bearishCount > 0.3) {
       direction = 'sell';
-      confidence = Math.min(0.35, confluenceRatio * 0.4);
+      const baseConf = confluenceRatio * 0.45;
+      const freshBonus = Math.min(0.25, crossovers.filter(c => c.type === 'death').length * 0.12);
+      const heavyBonus = crossovers.some(c => c.weight >= 1.4 && c.type === 'death') ? 0.10 : 0;
+      confidence = baseConf + freshBonus + heavyBonus;
     }
 
-    // Snapback overrides blowoff
+    // Snapback overrides (scaled better)
     if (snapbackSignal) {
       if (snapbackSignal.direction === 'bullish_snapback') {
         direction = 'buy';
-        confidence = Math.max(confidence, snapbackSignal.confidence * 0.3);
+        confidence = Math.max(confidence, snapbackSignal.confidence * 0.5);
       } else {
         direction = 'sell';
-        confidence = Math.max(confidence, snapbackSignal.confidence * 0.3);
+        confidence = Math.max(confidence, snapbackSignal.confidence * 0.5);
       }
     }
 

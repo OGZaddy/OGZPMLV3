@@ -38,10 +38,21 @@ class MAExtensionFilter {
             skipActive: false
         };
 
+        // Consolidation zone tracking (for trend confirmation)
+        this.consolidation = {
+            active: false,               // Zone is being tracked
+            high: null,                  // Previous high (wick)
+            low: null,                   // Previous low (wick)
+            crossBar: 0,                 // When MA was crossed
+            confirmed: null,             // 'bullish' | 'bearish' | null
+            lastCrossDirection: null     // 'above' | 'below'
+        };
+
         // History for slope calculation
         this.sma20History = [];
         this.sma200History = [];
         this.extensionHistory = [];
+        this.priceHistory = [];          // For consolidation zone calc
 
         console.log('📐 MAExtensionFilter initialized');
     }
@@ -230,7 +241,7 @@ class MAExtensionFilter {
 
     /**
      * Check if a mean-reversion LONG signal should be taken
-     * (price touching MA from below after downward acceleration)
+     * Checks: 1) First-touch skip  2) Trend confirmation (HH breakout)
      */
     shouldTakeLong(close, sma20, atr) {
         const result = this.getFilterResult(close, sma20, this.isTouchingMA(close, sma20, atr));
@@ -240,12 +251,18 @@ class MAExtensionFilter {
             return { take: false, reason: 'first_touch_skip' };
         }
 
-        return { take: true, reason: 'allowed' };
+        // Check trend confirmation (HH breakout)
+        const trendCheck = this.isTrendConfirmedLong();
+        if (!trendCheck.confirmed) {
+            return { take: false, reason: trendCheck.reason };
+        }
+
+        return { take: true, reason: trendCheck.reason };
     }
 
     /**
      * Check if a mean-reversion SHORT signal should be taken
-     * (price touching MA from above after upward acceleration)
+     * Checks: 1) First-touch skip  2) Trend confirmation (LL breakout)
      */
     shouldTakeShort(close, sma20, atr) {
         const result = this.getFilterResult(close, sma20, this.isTouchingMA(close, sma20, atr));
@@ -255,14 +272,119 @@ class MAExtensionFilter {
             return { take: false, reason: 'first_touch_skip' };
         }
 
-        return { take: true, reason: 'allowed' };
+        // Check trend confirmation (LL breakout)
+        const trendCheck = this.isTrendConfirmedShort();
+        if (!trendCheck.confirmed) {
+            return { take: false, reason: trendCheck.reason };
+        }
+
+        return { take: true, reason: trendCheck.reason };
+    }
+
+    /**
+     * Capture consolidation zone when MA is crossed
+     * Uses WICKS (h/l) not bodies (c) per user spec
+     */
+    captureConsolidationZone(lookback = 10) {
+        if (this.priceHistory.length < lookback) return;
+
+        const recent = this.priceHistory.slice(-lookback);
+        // Use highest wick and lowest wick
+        this.consolidation.high = Math.max(...recent.map(c => c.h));
+        this.consolidation.low = Math.min(...recent.map(c => c.l));
+        this.consolidation.active = true;
+        this.consolidation.confirmed = null;
+        this.consolidation.crossBar = 0;
+
+        console.log(`📊 Consolidation zone set: ${this.consolidation.low.toFixed(0)} - ${this.consolidation.high.toFixed(0)}`);
+    }
+
+    /**
+     * Check for breakout from consolidation zone
+     * Break above high → bullish confirmed (HH)
+     * Break below low → bearish confirmed (LL)
+     */
+    checkZoneBreakout(candle) {
+        if (!this.consolidation.active) return null;
+
+        // Use wicks for breakout confirmation
+        if (candle.h > this.consolidation.high) {
+            this.consolidation.confirmed = 'bullish';
+            // Adjust high to new wick (per user spec)
+            this.consolidation.high = candle.h;
+            console.log(`🔺 BULLISH CONFIRMED: Break above ${this.consolidation.high.toFixed(0)}`);
+            return 'bullish';
+        }
+
+        if (candle.l < this.consolidation.low) {
+            this.consolidation.confirmed = 'bearish';
+            // Adjust low to new wick
+            this.consolidation.low = candle.l;
+            console.log(`🔻 BEARISH CONFIRMED: Break below ${this.consolidation.low.toFixed(0)}`);
+            return 'bearish';
+        }
+
+        this.consolidation.crossBar++;
+        return null;
+    }
+
+    /**
+     * Update with full candle (for consolidation zone tracking)
+     */
+    updateWithCandle(candle, sma20, sma200, atr) {
+        // Track price history for consolidation
+        this.priceHistory.push(candle);
+        if (this.priceHistory.length > 50) this.priceHistory.shift();
+
+        const close = candle.c;
+        const prevCandle = this.priceHistory.length > 1 ? this.priceHistory[this.priceHistory.length - 2] : null;
+
+        // Detect MA cross
+        if (prevCandle && sma20) {
+            const wasAbove = prevCandle.c > sma20;
+            const nowAbove = close > sma20;
+
+            if (wasAbove !== nowAbove) {
+                // MA crossed - capture consolidation zone
+                this.consolidation.lastCrossDirection = nowAbove ? 'above' : 'below';
+                this.captureConsolidationZone(10);
+            }
+        }
+
+        // Check for breakout if zone is active
+        if (this.consolidation.active) {
+            this.checkZoneBreakout(candle);
+        }
+
+        // Run base update
+        return this.update(close, sma20, sma200, atr);
+    }
+
+    /**
+     * Check if trend is confirmed for LONG entry
+     * Needs: bullish breakout (HH) OR no active zone
+     */
+    isTrendConfirmedLong() {
+        if (!this.consolidation.active) return { confirmed: true, reason: 'no_zone' };
+        if (this.consolidation.confirmed === 'bullish') return { confirmed: true, reason: 'bullish_breakout' };
+        return { confirmed: false, reason: 'awaiting_breakout' };
+    }
+
+    /**
+     * Check if trend is confirmed for SHORT entry
+     * Needs: bearish breakout (LL) OR no active zone
+     */
+    isTrendConfirmedShort() {
+        if (!this.consolidation.active) return { confirmed: true, reason: 'no_zone' };
+        if (this.consolidation.confirmed === 'bearish') return { confirmed: true, reason: 'bearish_breakout' };
+        return { confirmed: false, reason: 'awaiting_breakout' };
     }
 
     /**
      * Get current state for debugging/telemetry
      */
     getState() {
-        return { ...this.state };
+        return { ...this.state, consolidation: { ...this.consolidation } };
     }
 
     /**
@@ -280,9 +402,18 @@ class MAExtensionFilter {
             barsSinceAccelerate: 0,
             skipActive: false
         };
+        this.consolidation = {
+            active: false,
+            high: null,
+            low: null,
+            crossBar: 0,
+            confirmed: null,
+            lastCrossDirection: null
+        };
         this.sma20History = [];
         this.sma200History = [];
         this.extensionHistory = [];
+        this.priceHistory = [];
         console.log('📐 MAExtensionFilter reset');
     }
 }

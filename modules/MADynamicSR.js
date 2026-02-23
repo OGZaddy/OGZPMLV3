@@ -239,17 +239,52 @@ class MADynamicSR {
       }
     }
 
-    // --- Aggregate ---
+    // --- TREND DETECTION (THE FIX) ---
+    // FIX 2026-02-23: Only trade WITH the trend, not against it
+    // Uptrend = price above SMA200 + SMA20 sloping up
+    // Downtrend = price below SMA200 + SMA20 sloping down
+    const sma20 = levels['sma20'];
+    const sma200 = levels['sma200'];
+    let trend = 'neutral';
+
+    if (sma20 && sma200 && closes.length >= 5) {
+      const sma20_5ago = this._sma(closes.slice(0, -5), 20);
+      const sma20Slope = sma20_5ago ? (sma20 - sma20_5ago) / sma20_5ago : 0;
+
+      if (price > sma200 && sma20Slope > 0.001) {
+        trend = 'up';
+      } else if (price < sma200 && sma20Slope < -0.001) {
+        trend = 'down';
+      }
+    }
+
+    // --- Aggregate (TREND-ALIGNED SIGNALS ONLY) ---
+    // FIX 2026-02-23: Only fire bullish in uptrend, bearish in downtrend
     let direction = 'neutral';
     let confidence = 0;
 
-    if (bullishScore > bearishScore && bullishScore > 0.1) {
+    // UPTREND: Only take bullish signals (MA = support)
+    if (trend === 'up' && bullishScore > bearishScore && bullishScore > 0.1) {
       direction = 'buy';
-      confidence = Math.min(0.35, bullishScore * 0.25);
-    } else if (bearishScore > bullishScore && bearishScore > 0.1) {
-      direction = 'sell';
-      confidence = Math.min(0.35, bearishScore * 0.25);
+      const baseConf = Math.min(0.45, bullishScore * 0.35);
+      const eventBonus = Math.min(0.20, events.length * 0.08);
+      const persistBonus = Math.min(0.15, this.activeSignals.length * 0.025);
+      const compressBonus = compression ? 0.10 : 0;
+      const trendBonus = 0.10;  // Trading WITH the trend
+      confidence = baseConf + eventBonus + persistBonus + compressBonus + trendBonus;
     }
+    // DOWNTREND: Only take bearish signals (MA = resistance)
+    else if (trend === 'down' && bearishScore > bullishScore && bearishScore > 0.1) {
+      direction = 'sell';
+      const baseConf = Math.min(0.45, bearishScore * 0.35);
+      const eventBonus = Math.min(0.20, events.length * 0.08);
+      const persistBonus = Math.min(0.15, this.activeSignals.length * 0.025);
+      const compressBonus = compression ? 0.10 : 0;
+      const trendBonus = 0.10;
+      confidence = baseConf + eventBonus + persistBonus + compressBonus + trendBonus;
+    }
+    // NEUTRAL/CHOPPY: No signal - don't trade against trend or in chop
+    // (This is what the YouTube traders do - they WAIT for clear trend)
 
     // Decay active signals
     this.activeSignals = this.activeSignals
