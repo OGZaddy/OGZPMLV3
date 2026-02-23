@@ -197,6 +197,7 @@ const TradeIntelligenceEngine = require('./core/TradeIntelligenceEngine');
 const MultiTimeframeAdapter = require('./modules/MultiTimeframeAdapter');
 const EMASMACrossoverSignal = require('./modules/EMASMACrossoverSignal');
 const MADynamicSR = require('./modules/MADynamicSR');
+const BreakAndRetest = require('./modules/BreakAndRetest');
 const LiquiditySweepDetector = require('./modules/LiquiditySweepDetector');
 
 // CHANGE 2026-02-10: Multi-Asset Manager for asset switching
@@ -211,6 +212,9 @@ const PipelineSnapshot = require('./core/PipelineSnapshot');
 // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
 const { StrategyOrchestrator } = require('./core/StrategyOrchestrator');
 const { AdaptiveTimeframeSelector } = require('./core/AdaptiveTimeframeSelector');
+
+// CHANGE 2026-02-23: BacktestRecorder for proper trade tracking with fees
+const BacktestRecorder = require('./core/BacktestRecorder');
 
 // CRITICAL: SingletonLock to prevent multiple instances
 console.log('[CHECKPOINT-005] Getting SingletonLock...');
@@ -478,6 +482,13 @@ class OGZPrimeV14Bot {
 
     this.emaCrossover = new EMASMACrossoverSignal();
     this.maDynamicSR = new MADynamicSR();
+    this.breakAndRetest = new BreakAndRetest();
+
+    // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking with $25k starting balance
+    if (process.env.BACKTEST_MODE === 'true') {
+      this.backtestRecorder = new BacktestRecorder({ startingBalance: 25000 });
+    }
+
     this.liquiditySweep = new LiquiditySweepDetector({
       // FIX 2026-02-18: Disable session check for 24/7 crypto - scan for sweeps anytime
       disableSessionCheck: true,
@@ -1304,6 +1315,7 @@ class OGZPrimeV14Bot {
       if (this.mtfAdapter) this.mtfAdapter.ingestCandle(candle);
       if (this.emaCrossover) this.emaCrossoverSignal = this.emaCrossover.update(candle, this.priceHistory);
       if (this.maDynamicSR) this.maDynamicSRSignal = this.maDynamicSR.update(candle, this.priceHistory);
+      if (this.breakAndRetest) this.breakRetestSignal = this.breakAndRetest.update(candle, this.priceHistory);
       if (this.liquiditySweep) this.liquiditySweepSignal = this.liquiditySweep.feedCandle(candle);
 
 
@@ -1784,6 +1796,7 @@ class OGZPrimeV14Bot {
       {
         emaCrossoverSignal: this.emaCrossoverSignal,
         maDynamicSRSignal: this.maDynamicSRSignal,
+        breakRetestSignal: this.breakRetestSignal,
         liquiditySweepSignal: this.liquiditySweepSignal,
         mtfAdapter: this.mtfAdapter,
         tpoResult: tpoResult,
@@ -2896,6 +2909,26 @@ class OGZPrimeV14Bot {
               exitReason: 'signal'
             };
 
+            // CHANGE 2026-02-23: Record trade in BacktestRecorder (with fees, running balance)
+            if (this.backtestRecorder) {
+              this.backtestRecorder.recordTrade({
+                entryTime: buyTrade.entryTime ? new Date(buyTrade.entryTime).toISOString() : '',
+                exitTime: exitTimestamp ? new Date(exitTimestamp).toISOString() : '',
+                direction: 'long',
+                entryPrice: buyTrade.entryPrice,
+                exitPrice: price,
+                stopLoss: buyTrade.exitContract?.stopLossPercent || 0,
+                takeProfit: buyTrade.exitContract?.takeProfitPercent || 0,
+                size: buyTrade.size || 1,
+                strategyName: buyTrade.entryStrategy || 'unknown',
+                confidence: buyTrade.confidence || 0,
+                exitReason: completeTradeResult.exitReason || 'signal',
+                reason: buyTrade.reason || '',
+                holdTimeMinutes: holdDuration / 60000,
+                exitContract: buyTrade.exitContract
+              });
+            }
+
             console.log(`ðŸ“Š Trade closed: ${pnl >= 0 ? 'âœ…' : 'âŒ'} ${pnl.toFixed(2)}% | Hold: ${(holdDuration/60000).toFixed(1)}min`);
 
             // CHANGE 2025-12-11: Use StateManager for atomic position close
@@ -3496,6 +3529,12 @@ class OGZPrimeV14Bot {
         } catch (error) {
           console.error('âš ï¸ TRAI analysis failed:', error.message);
         }
+      }
+
+      // CHANGE 2026-02-23: Print BacktestRecorder summary with fees and export CSV
+      if (this.backtestRecorder) {
+        this.backtestRecorder.printSummary();
+        this.backtestRecorder.exportCSV('./backtest-trades.csv');
       }
 
       // Exit after backtest

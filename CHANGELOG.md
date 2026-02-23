@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (BacktestRecorder - 2026-02-23)
+- **BacktestRecorder**: Proper trade tracking with fees, running balance, CSV export
+  - Starting balance: $25,000 (Apex eval size)
+  - Fees: 0.52% round-trip (0.26% each way - Kraken taker)
+  - Running balance after each trade
+  - Max drawdown tracking (% and $)
+  - Strategy breakdown (trades, win rate, P&L per strategy)
+  - Exit reason breakdown
+  - CSV export with all columns: entry/exit time, prices, SL/TP, fees, net P&L, strategy, confidence
+  - Trade deep-dive: query any trade # for full details
+
+- **Files Added:**
+  - `core/BacktestRecorder.js` - NEW class for backtest trade recording
+
+- **Files Changed:**
+  - `run-empire-v2.js` - Wire BacktestRecorder (require, instantiate, recordTrade, printSummary, exportCSV)
+
+### Added (BreakAndRetest Strategy - 2026-02-23)
+- **BreakAndRetest**: Desi Trades "$400K+ year using Break & Retest" strategy
+  - Key level detection (session high/low, tested S/R zones)
+  - No Trade Zone suppression (skip when price stuck between tight levels)
+  - Break detection (decisive candle through level)
+  - Battle Zone reading (3-15 candles, defending wicks, engulfing)
+  - Entry on confirmation + flag break
+  - Base confidence 0.35, boosted by wicks, engulfing, battle time → max 0.90
+
+- **Files Added:**
+  - `modules/BreakAndRetest.js` - NEW strategy module
+
+- **Files Changed:**
+  - `run-empire-v2.js` - Wire BreakAndRetest (require, instantiate, update, pass to orchestrator)
+  - `core/StrategyOrchestrator.js` - Add strategy #4 for BreakRetest
+
 ### Fixed (MADynamicSR Trader DNA Strategy - 2026-02-23)
 - **CRITICAL FIX:** MADynamicSR signals weren't reaching orchestrator
   - Root cause: `priceHistory` trimmed to 200 candles, but 200 EMA needs 220+
