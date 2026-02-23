@@ -132,6 +132,12 @@ class MADynamicSR {
     if (confirmation.bullish) this.diag.confirmBullish++;
     if (confirmation.bearish) this.diag.confirmBearish++;
 
+    // Step 7: Acceleration filter - confirmation candle must show real momentum
+    // Small candles = weak bounce = fees eat the profit
+    const candleRange = high - low;
+    const accelerating = atr ? (candleRange > atr * 1.2) : true;  // Require 1.2x ATR range
+    const strongAcceleration = atr ? (candleRange > atr * 1.5) : false;
+
     // Build signal
     let direction = 'neutral';
     let confidence = 0;
@@ -146,10 +152,11 @@ class MADynamicSR {
     // 2. 123 pattern confirmed (HH/HL or LH/LL)
     // 3. Price touching 50 EMA (the "pullback")
     // 4. Confirmation candle
+    // 5. Acceleration (candle range > 1.2x ATR) ← NEW: rubber band snapping
     // BONUS: S/R zone alignment
 
-    // LONG SETUP - must be in bullish trend (above 200 EMA)
-    if (trendBullish && pattern === 'uptrend' && touchingEMA && confirmation.bullish) {
+    // LONG SETUP - must be in bullish trend (above 200 EMA) + ACCELERATING
+    if (trendBullish && pattern === 'uptrend' && touchingEMA && confirmation.bullish && accelerating) {
       this.diag.allAlignedLong++;
       direction = 'buy';
       confidence = 0.55;  // Base confidence for core setup
@@ -157,11 +164,15 @@ class MADynamicSR {
       if (srAlignment.aligned) {
         confidence += Math.min(0.20, srAlignment.tests * 0.08);
       }
+      if (strongAcceleration) {
+        confidence += 0.05;  // Extra strong candle = extra confidence
+      }
       const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
-      reason = `SNIPER LONG: 200 EMA bullish + 123 uptrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
+      const accNote = strongAcceleration ? ' + STRONG ACCEL' : '';
+      reason = `SNIPER LONG: 200 EMA bullish + 123 uptrend + 50 EMA pullback + ${confirmation.pattern}${srNote}${accNote}`;
     }
-    // SHORT SETUP - must be in bearish trend (below 200 EMA)
-    else if (trendBearish && pattern === 'downtrend' && touchingEMA && confirmation.bearish) {
+    // SHORT SETUP - must be in bearish trend (below 200 EMA) + ACCELERATING
+    else if (trendBearish && pattern === 'downtrend' && touchingEMA && confirmation.bearish && accelerating) {
       this.diag.allAlignedShort++;
       direction = 'sell';
       confidence = 0.55;
@@ -169,8 +180,12 @@ class MADynamicSR {
       if (srAlignment.aligned) {
         confidence += Math.min(0.20, srAlignment.tests * 0.08);
       }
+      if (strongAcceleration) {
+        confidence += 0.05;
+      }
       const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
-      reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
+      const accNote = strongAcceleration ? ' + STRONG ACCEL' : '';
+      reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}${accNote}`;
     }
 
     // Calculate STRUCTURAL levels - Trader DNA 1:3 R:R
