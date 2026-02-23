@@ -142,11 +142,20 @@ class StrategyOrchestrator {
           fibBoost = ` + Fib ${(fib.level * 100).toFixed(1)}%${fib.isGoldenZone ? ' GOLDEN' : ''}`;
         }
 
+        // FIX 2026-02-23: Extract stops from sig.levels (nested) OR sig directly
+        const sl = sig.levels?.stopLoss || sig.stopLoss;
+        const tp = sig.levels?.takeProfit || sig.takeProfit;
+
         return {
           direction: sig.direction,
           confidence: conf,
           reason: `MA Dynamic S/R ${sig.direction} (${(sig.events || []).map(e => e.event || e).join(', ') || 'level touch'})${fibBoost}`,
-          signalData: sig
+          signalData: sig,
+          // FIX 2026-02-23: Pass structural stops to exit contract (check sig.levels too)
+          overrideLevels: sl && tp ? {
+            stopLoss: sl,
+            takeProfit: tp
+          } : null
         };
       }
     });
@@ -174,7 +183,12 @@ class StrategyOrchestrator {
           direction: sig.direction,
           confidence: conf,
           reason: `Liquidity Sweep ${sig.direction} (${sig.sweepType || 'institutional'})${fibBoost}`,
-          signalData: sig
+          signalData: sig,
+          // FIX 2026-02-23: Pass structural stops from sweep analysis
+          overrideLevels: sig.stopLoss && sig.takeProfit ? {
+            stopLoss: sig.stopLoss,
+            takeProfit: sig.takeProfit
+          } : null
         };
       }
     });
@@ -202,11 +216,11 @@ class StrategyOrchestrator {
           confidence: conf,
           reason: sig.reason || `Break & Retest ${sig.direction}${fibBoost}`,
           signalData: sig,
-          exitContract: {
+          // FIX 2026-02-23: Use overrideLevels (orchestrator checks this field for structural stops)
+          overrideLevels: sig.stopLoss && sig.takeProfit ? {
             stopLoss: sig.stopLoss,
-            takeProfit: sig.takeProfit,
-            pt2: sig.pt2,
-          }
+            takeProfit: sig.takeProfit
+          } : null
         };
       }
     });

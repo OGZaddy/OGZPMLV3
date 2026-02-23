@@ -156,25 +156,52 @@ class MADynamicSR {
       reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
     }
 
-    // Calculate 1:3 R:R levels if we have a signal
+    // Calculate 1:2 R:R levels if we have a signal
+    // FIX 2026-02-23: Cap structural stops to reasonable range (max 1.5% from entry)
+    // Old code used Math.min/max which picked extreme swings from weeks ago
     let stopLoss = null;
     let takeProfit = null;
+    const MAX_STOP_PCT = 0.015; // 1.5% max stop distance
+
     if (direction !== 'neutral') {
-      const recentSwings = this.swings.slice(-10);  // Look at more swings
+      const recentSwings = this.swings.slice(-5);  // Only very recent swings
       if (direction === 'buy') {
-        // Stop below recent swing low
-        const lows = recentSwings.filter(s => s.type === 'low').map(s => s.wick);
-        const recentLow = lows.length > 0 ? Math.min(...lows) : null;
-        stopLoss = recentLow && recentLow < price ? recentLow : price * 0.99;  // 1% default
+        // Find nearest swing low BELOW current price (not the absolute minimum)
+        const lows = recentSwings
+          .filter(s => s.type === 'low' && s.wick < price)
+          .map(s => s.wick)
+          .sort((a, b) => b - a);  // Sort descending (nearest to price first)
+
+        const nearestLow = lows.length > 0 ? lows[0] : null;
+        const defaultStop = price * (1 - MAX_STOP_PCT);
+
+        // Use nearest swing low if within reasonable range, else use default
+        if (nearestLow && (price - nearestLow) / price <= MAX_STOP_PCT) {
+          stopLoss = nearestLow * 0.998;  // Tiny buffer below swing low
+        } else {
+          stopLoss = defaultStop;
+        }
+
         const risk = price - stopLoss;
         if (risk > 0) {
-          takeProfit = price + (risk * 2); // 1:2 R:R (more achievable on 15m)
+          takeProfit = price + (risk * 2); // 1:2 R:R
         }
       } else {
-        // Stop above recent swing high
-        const highs = recentSwings.filter(s => s.type === 'high').map(s => s.wick);
-        const recentHigh = highs.length > 0 ? Math.max(...highs) : null;
-        stopLoss = recentHigh && recentHigh > price ? recentHigh : price * 1.01;  // 1% default
+        // Find nearest swing high ABOVE current price
+        const highs = recentSwings
+          .filter(s => s.type === 'high' && s.wick > price)
+          .map(s => s.wick)
+          .sort((a, b) => a - b);  // Sort ascending (nearest to price first)
+
+        const nearestHigh = highs.length > 0 ? highs[0] : null;
+        const defaultStop = price * (1 + MAX_STOP_PCT);
+
+        if (nearestHigh && (nearestHigh - price) / price <= MAX_STOP_PCT) {
+          stopLoss = nearestHigh * 1.002;  // Tiny buffer above swing high
+        } else {
+          stopLoss = defaultStop;
+        }
+
         const risk = stopLoss - price;
         if (risk > 0) {
           takeProfit = price - (risk * 2); // 1:2 R:R

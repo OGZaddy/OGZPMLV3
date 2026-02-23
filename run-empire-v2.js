@@ -2899,6 +2899,7 @@ class OGZPrimeV14Bot {
             const holdDuration = exitTimestamp - buyTrade.entryTime;
 
             // Create complete trade result
+            // FIX 2026-02-23: Use actual exitReason from decision (was hardcoded to 'signal')
             const completeTradeResult = {
               ...buyTrade,
               exitPrice: price,
@@ -2906,7 +2907,7 @@ class OGZPrimeV14Bot {
               pnl: pnl,
               pnlDollars: buyTrade.size * (price - buyTrade.entryPrice),  // BUGFIX 2026-02-01: BTC Ã— price_diff = USD profit
               holdDuration: holdDuration,
-              exitReason: 'signal'
+              exitReason: decision.exitReason || 'signal'
             };
 
             // CHANGE 2026-02-23: Record trade in BacktestRecorder (with fees, running balance)
