@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Orchestrator Confidence Threshold - 2026-02-23)
+- **CRITICAL FIX:** Orchestrator was hardcoded to 25% confidence threshold
+  - Root cause: `minStrategyConfidence: 0.25` ignored `MIN_TRADE_CONFIDENCE` env var
+  - Effect: ALL trades above 25% passed through, regardless of env setting
+  - Fix: Wired orchestrator to respect `MIN_TRADE_CONFIDENCE` (default now 65%)
+
+- **Files Changed:**
+  - `run-empire-v2.js:414` - Orchestrator initialization now reads env var
+
+### Fixed (MADynamicSR Structural Stops - 2026-02-23)
+- **Structural TP/SL:** Replaced fixed R:R with MA-based levels
+  - TP now targets 20 SMA (next MA level above entry)
+  - SL now below 50 EMA + 1.0 ATR buffer (adapts to volatility)
+  - Added `_sma()` and `_atr()` calculation functions
+  - Fallback to 1:2 R:R only when MA hierarchy doesn't provide target
+
+- **Files Changed:**
+  - `modules/MADynamicSR.js` - Added sma20, atr, structural stop logic
+
+### Backtest Results (2026-02-23)
+- **0.70 threshold:** 80 trades, 6.3% WR, -$124 P&L
+- **Exit breakdown:** 32 max_hold, 28 stop_loss, 10 take_profit, 10 trailing_stop
+- **Strategy breakdown:** MADynamicSR 70 trades (5.7% WR), BreakRetest 9 trades
+- **Note:** MADynamicSR still firing too many signals - needs tighter touch zone
+
 ### Added (BacktestRecorder - 2026-02-23)
 - **BacktestRecorder**: Proper trade tracking with fees, running balance, CSV export
   - Starting balance: $25,000 (Apex eval size)
