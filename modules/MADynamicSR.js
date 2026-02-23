@@ -45,6 +45,9 @@ class MADynamicSR {
     this.lastSignal = null;
     this.barCount = 0;
 
+    // Structure-based cooldown: one trade per pullback
+    this.inPullbackTaken = false;  // True if we've fired a signal during current touch zone
+
     // Diagnostic counters
     this.diag = {
       trendBullish: 0,
@@ -110,6 +113,16 @@ class MADynamicSR {
     const touchingEMA = this._isTouchingEMA(price, ema50);
     if (touchingEMA) this.diag.emaTouches++;
 
+    // Structure-based cooldown: one trade per pullback
+    // Reset when price LEAVES the touch zone (new pullback = fresh eligibility)
+    if (!touchingEMA && this.inPullbackTaken) {
+      this.inPullbackTaken = false;  // Price left zone, next pullback is fresh
+    }
+    // Skip signal generation if we already took this pullback
+    if (touchingEMA && this.inPullbackTaken) {
+      return this._emptySignal();
+    }
+
     // Step 5: Check if current price aligns with S/R zone
     const srAlignment = this._checkSRAlignment(price);
     if (srAlignment.aligned) this.diag.srAligned++;
@@ -167,6 +180,9 @@ class MADynamicSR {
     const atrBuffer = atr ? atr * 1.0 : price * 0.01; // Full ATR buffer, fallback 1%
 
     if (direction !== 'neutral') {
+      // Mark pullback as taken - no more signals until price leaves touch zone
+      this.inPullbackTaken = true;
+
       if (direction === 'buy') {
         // LONG: SL below 50 EMA (the triggering MA), TP at 20 SMA above
         stopLoss = ema50 - atrBuffer;
