@@ -173,39 +173,67 @@ class MADynamicSR {
       reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
     }
 
-    // Calculate STRUCTURAL levels based on MA hierarchy
-    // FIX 2026-02-23: TP targets next MA level, SL below triggering MA + ATR
+    // Calculate STRUCTURAL levels - Trader DNA 1:3 R:R
+    // FIX 2026-02-23: Fixed R:R from structural stop, NOT next MA level
     let stopLoss = null;
     let takeProfit = null;
     const atrBuffer = atr ? atr * 1.0 : price * 0.01; // Full ATR buffer, fallback 1%
+    const MIN_TP_PCT = 0.007;  // 0.7% minimum TP distance (fees eat anything smaller)
+    const MIN_RR = 1.5;        // Minimum risk:reward ratio
 
     if (direction !== 'neutral') {
-      // Mark pullback as taken - no more signals until price leaves touch zone
-      this.inPullbackTaken = true;
-
       if (direction === 'buy') {
-        // LONG: SL below 50 EMA (the triggering MA), TP at 20 SMA above
+        // LONG: SL below 50 EMA, TP at 1:3 R:R
         stopLoss = ema50 - atrBuffer;
+        const risk = price - stopLoss;
+        takeProfit = price + (risk * 3);  // 1:3 R:R per Trader DNA
 
-        // TP: Target next MA level above entry (20 SMA)
-        if (sma20 && sma20 > price) {
-          takeProfit = sma20;  // 20 SMA is above - use it as target
-        } else {
-          // 20 SMA below price, use R:R from stop
-          const risk = price - stopLoss;
-          takeProfit = price + (risk * 2);  // 1:2 R:R fallback
+        // Sanity checks - reject bad setups
+        const tpDistance = (takeProfit - price) / price;
+        const actualRR = risk > 0 ? (takeProfit - price) / risk : 0;
+
+        if (stopLoss >= price) {
+          // SL must be BELOW entry for longs
+          return this._emptySignal();
+        }
+        if (takeProfit <= price) {
+          // TP must be ABOVE entry for longs
+          return this._emptySignal();
+        }
+        if (actualRR < MIN_RR) {
+          // R:R too small
+          return this._emptySignal();
+        }
+        if (tpDistance < MIN_TP_PCT) {
+          // TP too close - fees will eat the win
+          return this._emptySignal();
         }
       } else {
-        // SHORT: SL above 50 EMA, TP at 20 SMA below
+        // SHORT: SL above 50 EMA, TP at 1:3 R:R
         stopLoss = ema50 + atrBuffer;
+        const risk = stopLoss - price;
+        takeProfit = price - (risk * 3);  // 1:3 R:R per Trader DNA
 
-        if (sma20 && sma20 < price) {
-          takeProfit = sma20;  // 20 SMA is below - use it as target
-        } else {
-          const risk = stopLoss - price;
-          takeProfit = price - (risk * 2);  // 1:2 R:R fallback
+        // Sanity checks for shorts
+        const tpDistance = (price - takeProfit) / price;
+        const actualRR = risk > 0 ? (price - takeProfit) / risk : 0;
+
+        if (stopLoss <= price) {
+          return this._emptySignal();
+        }
+        if (takeProfit >= price) {
+          return this._emptySignal();
+        }
+        if (actualRR < MIN_RR) {
+          return this._emptySignal();
+        }
+        if (tpDistance < MIN_TP_PCT) {
+          return this._emptySignal();
         }
       }
+
+      // Mark pullback as taken - no more signals until price leaves touch zone
+      this.inPullbackTaken = true;
     }
 
     const signal = {
