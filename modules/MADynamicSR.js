@@ -23,6 +23,8 @@ class MADynamicSR {
     // 200 EMA for trend direction (big picture)
     this.emaPeriod = config.emaPeriod || 50;
     this.trendEmaPeriod = config.trendEmaPeriod || 200;
+    this.fastMaPeriod = config.fastMaPeriod || 20;  // For structural TP target
+    this.atrPeriod = config.atrPeriod || 14;        // For SL buffer
 
     // Swing detection settings
     this.swingLookback = config.swingLookback || 3;   // Bars to confirm swing (3 for 15m)
@@ -80,6 +82,8 @@ class MADynamicSR {
     // Calculate EMAs
     const ema50 = this._ema(closes, this.emaPeriod);
     const ema200 = this._ema(closes, this.trendEmaPeriod);
+    const sma20 = this._sma(closes, this.fastMaPeriod);
+    const atr = this._atr(priceHistory, this.atrPeriod);
     if (!ema50 || !ema200) return this._emptySignal();
 
     // 200 EMA determines overall trend direction
@@ -156,55 +160,34 @@ class MADynamicSR {
       reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}`;
     }
 
-    // Calculate 1:2 R:R levels if we have a signal
-    // FIX 2026-02-23: Cap structural stops to reasonable range (max 1.5% from entry)
-    // Old code used Math.min/max which picked extreme swings from weeks ago
+    // Calculate STRUCTURAL levels based on MA hierarchy
+    // FIX 2026-02-23: TP targets next MA level, SL below triggering MA + ATR
     let stopLoss = null;
     let takeProfit = null;
-    const MAX_STOP_PCT = 0.015; // 1.5% max stop distance
+    const atrBuffer = atr ? atr * 1.0 : price * 0.01; // Full ATR buffer, fallback 1%
 
     if (direction !== 'neutral') {
-      const recentSwings = this.swings.slice(-5);  // Only very recent swings
       if (direction === 'buy') {
-        // Find nearest swing low BELOW current price (not the absolute minimum)
-        const lows = recentSwings
-          .filter(s => s.type === 'low' && s.wick < price)
-          .map(s => s.wick)
-          .sort((a, b) => b - a);  // Sort descending (nearest to price first)
+        // LONG: SL below 50 EMA (the triggering MA), TP at 20 SMA above
+        stopLoss = ema50 - atrBuffer;
 
-        const nearestLow = lows.length > 0 ? lows[0] : null;
-        const defaultStop = price * (1 - MAX_STOP_PCT);
-
-        // Use nearest swing low if within reasonable range, else use default
-        if (nearestLow && (price - nearestLow) / price <= MAX_STOP_PCT) {
-          stopLoss = nearestLow * 0.998;  // Tiny buffer below swing low
+        // TP: Target next MA level above entry (20 SMA)
+        if (sma20 && sma20 > price) {
+          takeProfit = sma20;  // 20 SMA is above - use it as target
         } else {
-          stopLoss = defaultStop;
-        }
-
-        const risk = price - stopLoss;
-        if (risk > 0) {
-          takeProfit = price + (risk * 2); // 1:2 R:R
+          // 20 SMA below price, use R:R from stop
+          const risk = price - stopLoss;
+          takeProfit = price + (risk * 2);  // 1:2 R:R fallback
         }
       } else {
-        // Find nearest swing high ABOVE current price
-        const highs = recentSwings
-          .filter(s => s.type === 'high' && s.wick > price)
-          .map(s => s.wick)
-          .sort((a, b) => a - b);  // Sort ascending (nearest to price first)
+        // SHORT: SL above 50 EMA, TP at 20 SMA below
+        stopLoss = ema50 + atrBuffer;
 
-        const nearestHigh = highs.length > 0 ? highs[0] : null;
-        const defaultStop = price * (1 + MAX_STOP_PCT);
-
-        if (nearestHigh && (nearestHigh - price) / price <= MAX_STOP_PCT) {
-          stopLoss = nearestHigh * 1.002;  // Tiny buffer above swing high
+        if (sma20 && sma20 < price) {
+          takeProfit = sma20;  // 20 SMA is below - use it as target
         } else {
-          stopLoss = defaultStop;
-        }
-
-        const risk = stopLoss - price;
-        if (risk > 0) {
-          takeProfit = price - (risk * 2); // 1:2 R:R
+          const risk = stopLoss - price;
+          takeProfit = price - (risk * 2);  // 1:2 R:R fallback
         }
       }
     }
@@ -221,9 +204,11 @@ class MADynamicSR {
       levels: {
         ema50,
         ema200,
+        sma20,
+        atr,
         stopLoss,
         takeProfit,
-        riskReward: stopLoss && takeProfit ? 2 : null
+        riskReward: stopLoss && takeProfit ? Math.abs(takeProfit - price) / Math.abs(price - stopLoss) : null
       },
       trend: trendBullish ? 'bullish' : trendBearish ? 'bearish' : 'neutral',
       swingCount: this.swings.length,
@@ -513,6 +498,34 @@ class MADynamicSR {
       ema = closes[i] * k + ema * (1 - k);
     }
     return ema;
+  }
+
+  /**
+   * Calculate SMA
+   */
+  _sma(closes, period) {
+    if (closes.length < period) return null;
+    const slice = closes.slice(-period);
+    return slice.reduce((a, b) => a + b, 0) / period;
+  }
+
+  /**
+   * Calculate ATR (Average True Range)
+   */
+  _atr(priceHistory, period) {
+    if (priceHistory.length < period + 1) return null;
+    let trSum = 0;
+    for (let i = priceHistory.length - period; i < priceHistory.length; i++) {
+      const curr = priceHistory[i];
+      const prev = priceHistory[i - 1];
+      const tr = Math.max(
+        h(curr) - l(curr),
+        Math.abs(h(curr) - c(prev)),
+        Math.abs(l(curr) - c(prev))
+      );
+      trSum += tr;
+    }
+    return trSum / period;
   }
 
   _emptySignal() {

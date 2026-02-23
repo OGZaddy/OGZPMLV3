@@ -411,7 +411,12 @@ class OGZPrimeV14Bot {
     // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
     // Confluence only affects POSITION SIZING, not the entry decision.
     this.strategyOrchestrator = new StrategyOrchestrator({
-      minStrategyConfidence: 0.25,   // Single strategy must be 25%+ to fire
+      // FIX 2026-02-23: Wire orchestrator to respect MIN_TRADE_CONFIDENCE env var
+      minStrategyConfidence: process.env.MIN_TRADE_CONFIDENCE
+        ? (parseFloat(process.env.MIN_TRADE_CONFIDENCE) > 1
+          ? parseFloat(process.env.MIN_TRADE_CONFIDENCE) / 100
+          : parseFloat(process.env.MIN_TRADE_CONFIDENCE))
+        : 0.65,  // Default to 65% - quality over quantity
       minConfluenceCount: 1,         // 1 = winner alone can trade
     });
 
