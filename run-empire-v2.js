@@ -2433,7 +2433,8 @@ class OGZPrimeV14Bot {
         // FIX 2026-02-05: Added exit_partial - tiered profit exits were silently dropped
         if (profitResult && (profitResult.action === 'exit' || profitResult.action === 'exit_full' || profitResult.action === 'exit_partial') && (this.activeExitSystem === 'maxprofit' || this.activeExitSystem === 'legacy')) {
           console.log(`ðŸ“‰ SELL Signal: ${profitResult.reason || 'MaxProfitManager exit'} (${profitResult.action})`);
-          return { action: 'SELL', direction: 'close', confidence: totalConfidence, exitSize: profitResult.exitSize };
+          // FIX 2026-02-24: Add exitReason so isProfitExit check at line 2572 passes (Bug #11)
+          return { action: 'SELL', direction: 'close', confidence: totalConfidence, exitSize: profitResult.exitSize, exitReason: profitResult.reason };
         }
 
         // CRITICAL FIX: Calculate P&L for exit decisions
