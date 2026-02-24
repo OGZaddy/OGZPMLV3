@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### AUDIT: Wired-But-Not-Plumbed Bugs (2026-02-23)
+
+**CRITICAL FINDING:** Tiered profit exit system has been completely broken since inception.
+101/168 trades (60%) hit max_hold timeout because profit-taking never fired.
+
+#### CRITICAL BUGS (3)
+
+1. **Tier targets 4x too high** (TIER1=2% instead of 0.5%)
+   - Location: `.env:TIER*_TARGET` + `core/OptimizedTradingBrain.js:206-209`
+   - Impact: Tier 1 at 2% is unreachable in 105 min max_hold on 15m candles
+   - Fix: TIER1=0.005, TIER2=0.01, TIER3=0.015, FINAL=0.025
+
+2. **Partial close ignored** - exitSize passed but never used
+   - Location: `run-empire-v2.js:2964`
+   - Impact: `closePosition(price, false, null)` - partial=false always
+   - Fix: Pass `decision.exitSize` when present
+
+3. **Action name mismatch** - 'exit_partial' vs 'partialExit'
+   - Location: `core/MaxProfitManager.js:440` returns 'exit_partial'
+   - Location: `core/OptimizedTradingBrain.js:1357` expects 'partialExit'
+   - Impact: TradingBrain partial exit path NEVER taken
+   - Fix: Standardize to 'exit_partial'
+
+#### HIGH BUGS (4)
+
+4. **TradingBrain.executePartialExit() doesn't sync to StateManager**
+   - Location: `core/OptimizedTradingBrain.js:1372-1396`
+   - Impact: Internal state diverges from StateManager on partials
+   - Fix: Call stateManager.closePosition(price, true, partialSize)
+
+5. **Exit reason string mismatch** - === vs .startsWith()
+   - Location: `run-empire-v2.js:2571`
+   - Impact: `"profit_tier" !== "profit_tier_1"` - tiered exits blocked
+   - Fix: Use `.startsWith("profit_tier")`
+
+6. **Duplicate TRAILING_STOP_PERCENT in .env**
+   - Location: `.env` has both 3.0 and 0.035
+   - Impact: Confusion, last value wins
+   - Fix: Remove duplicate, keep 0.035
+
+7. **Trail distances inverted** - "tight" looser than "normal"
+   - Location: `.env:TRAIL_DISTANCE=0.07, TIGHT_TRAIL_DISTANCE=0.10`
+   - Impact: "Tight" trail (10%) is LOOSER than normal (7%)
+   - Fix: TRAIL_DISTANCE=0.03, TIGHT_TRAIL_DISTANCE=0.015
+
+#### MEDIUM BUGS (3)
+
+8. **MaxProfitManager uses Date.now() in backtest**
+   - Location: `core/MaxProfitManager.js:278`
+   - Impact: Time-based exits broken in backtest mode
+   - Fix: Accept timestamp in start() options
+
+9. **Config key typo** - enableTieredExits vs enableTieredExit
+   - Location: `core/OptimizedTradingBrain.js:191`
+   - Impact: Key ignored, falls back to default
+   - Fix: Change to 'enableTieredExit' (singular)
+
+10. **.env vs ExitContractManager conflict**
+    - Location: `.env` has STOP_LOSS=1.5%, ExitContractManager has -0.45%
+    - Impact: Two systems, which controls exits?
+    - Fix: Document that ECM controls actual exits, .env is legacy
+
+#### Root Cause Analysis
+The tiered exit system was built for swing trading (2-10% targets), then the bot
+moved to 15m scalping, but tier targets were never updated. Combined with 4 other
+wiring bugs (action name mismatch, partial close ignored, etc.), the profit-taking
+mechanism has been completely non-functional.
+
+#### Evidence
+- Backtest: 168 trades, 101 max_hold exits (60%), 0 profit_tier exits
+- 12 trades ended with profit >= 0.5% but NONE via MaxProfitManager tiers
+- Tier 1 should fire at 0.5% but is set to 2%
+
+#### Status: FIXES APPLIED (2026-02-23)
+
+**Files Modified:**
+- `.env` - Tier targets 0.5/1.0/1.5/2.5%, trail distances fixed, duplicate removed
+- `run-empire-v2.js:2964` - Wired partial close (isPartialClose, partialSize)
+- `run-empire-v2.js:2571` - Changed === to .startsWith() for profit_tier
+- `core/OptimizedTradingBrain.js:191` - Fixed enableTieredExit key (singular)
+- `core/OptimizedTradingBrain.js:1357` - Fixed action name to 'exit_partial'
+
+**Verification:**
+- quick-tier-test.js confirms tiers now configured at 0.5%, 1.0%, 1.5%, 2.5%
+- Full backtest pending - requires EXIT_SYSTEM=legacy (not 'contract')
+
 ### Fixed (Orchestrator Confidence Threshold - 2026-02-23)
 - **CRITICAL FIX:** Orchestrator was hardcoded to 25% confidence threshold
   - Root cause: `minStrategyConfidence: 0.25` ignored `MIN_TRADE_CONFIDENCE` env var

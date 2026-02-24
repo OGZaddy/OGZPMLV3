@@ -209,6 +209,10 @@ const { TradeJournalBridge } = require('./core/TradeJournalBridge');
 // CHANGE 2026-02-16: Pipeline Snapshot for 30-min state capture
 const PipelineSnapshot = require('./core/PipelineSnapshot');
 
+// CHANGE 2026-02-23: Volume Profile (Fabio Valentino / Auction Market Theory)
+// Only trend follow when OUT OF BALANCE (price outside value area)
+const VolumeProfile = require('./core/VolumeProfile');
+
 // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
 const { StrategyOrchestrator } = require('./core/StrategyOrchestrator');
 const { AdaptiveTimeframeSelector } = require('./core/AdaptiveTimeframeSelector');
@@ -498,7 +502,17 @@ class OGZPrimeV14Bot {
       // FIX 2026-02-18: Disable session check for 24/7 crypto - scan for sweeps anytime
       disableSessionCheck: true,
     });
-    console.log('ðŸ“Š Modular Entry System: MTF + Crossovers + S/R + Liquidity initialized');
+
+    // CHANGE 2026-02-23: Volume Profile (Fabio Valentino / Auction Market Theory)
+    // Filters out trend strategies when market is BALANCED (inside value area = chop)
+    this.volumeProfile = new VolumeProfile({
+      sessionLookback: 96,    // 96 x 15min = 24 hours
+      numBins: 50,
+      valueAreaPct: 0.70,
+      recalcInterval: 5,      // Recalculate every 5 candles
+    });
+
+    console.log('ðŸ"Š Modular Entry System: MTF + Crossovers + S/R + Liquidity initialized');
 
     // EXIT_SYSTEM feature flag: Only ONE exit system active at a time
     // Options: maxprofit, intelligence, pattern, brain, legacy (all active)
@@ -1323,6 +1337,9 @@ class OGZPrimeV14Bot {
       if (this.breakAndRetest) this.breakRetestSignal = this.breakAndRetest.update(candle, this.priceHistory);
       if (this.liquiditySweep) this.liquiditySweepSignal = this.liquiditySweep.feedCandle(candle);
 
+      // CHANGE 2026-02-23: Update Volume Profile (chop filter for trend strategies)
+      if (this.volumeProfile) this.volumeProfile.update(candle, this.priceHistory);
+
 
       // Only log during warmup phase (first 20 candles)
       if (this.priceHistory.length <= 20) {
@@ -1808,6 +1825,8 @@ class OGZPrimeV14Bot {
         price: price,
         fibLevels: fibLevels,
         nearestFibLevel: nearestFibLevel,
+        // CHANGE 2026-02-23: Volume Profile for chop filter
+        volumeProfile: this.volumeProfile,
       }
     );
 
@@ -2549,7 +2568,8 @@ class OGZPrimeV14Bot {
     // SELL requires: (1) high confidence SELL signal, (2) stop loss, or (3) profit target
     const MIN_SELL_CONFIDENCE = 30;
     const isStopLossExit = decision.exitReason === "stop_loss" || decision.exitReason === "trailing_stop";
-    const isProfitExit = decision.exitReason === "profit_tier" || decision.exitReason === "take_profit";
+    // FIX 2026-02-23: Use startsWith for profit_tier (MaxProfitManager returns "profit_tier_1", "profit_tier_2", etc.)
+    const isProfitExit = decision.exitReason?.startsWith("profit_tier") || decision.exitReason === "take_profit";
     const isEmergencyExit = decision.exitReason === "hard_stop" || decision.confidence >= 70;
     if (decision.action === "SELL" && decision.confidence < MIN_SELL_CONFIDENCE) {
       if (!isStopLossExit && !isProfitExit && !isEmergencyExit) {
@@ -2942,9 +2962,12 @@ class OGZPrimeV14Bot {
             const btcPosition = positionState.position;  // BUGFIX 2026-02-01: This is BTC amount, not USD!
             
             // Close position via StateManager (handles P&L calculation)
-            const closeResult = await stateManager.closePosition(price, false, null, {
+            // FIX 2026-02-23: Wire partial close - use exitSize when present (tiered exits)
+            const isPartialClose = decision.exitSize && decision.exitSize > 0 && decision.exitSize < 1;
+            const partialSize = isPartialClose ? btcPosition * decision.exitSize : null;
+            const closeResult = await stateManager.closePosition(price, isPartialClose, partialSize, {
               orderId: buyTrade.orderId,
-              exitReason: 'signal'
+              exitReason: decision.exitReason || 'signal'
             });
 
             // CHANGE 2025-12-12: Validate StateManager.closePosition() success

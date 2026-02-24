@@ -188,7 +188,7 @@ class OptimizedTradingBrain {
     // Change 606: Crypto-optimized stops (3-5x wider than stocks)
     // Change 607: "Break even fast then let it ride" strategy
     this.maxProfitManager = new MaxProfitManager({
-      enableTieredExits: true,         // Multi-tier profit taking
+      enableTieredExit: true,          // FIX 2026-02-23: Was 'enableTieredExits' (plural), MPM expects singular
       enableDynamicTrailing: true,     // Dynamic trailing stops
       enableVolatilityAdaptation: true, // Adapt to market volatility
 
@@ -1354,7 +1354,8 @@ class OptimizedTradingBrain {
     if (profitResult.action === 'exit') {
       // Full position exit triggered
       this.closePosition(price, profitResult.reason, currentAnalysis);
-    } else if (profitResult.action === 'partialExit') {
+    } else if (profitResult.action === 'exit_partial') {
+      // FIX 2026-02-23: Changed from 'partialExit' to 'exit_partial' to match MaxProfitManager
       // Partial exit triggered
       this.executePartialExit(price, profitResult, currentAnalysis);
     }
