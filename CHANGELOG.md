@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Data Structure Audit - 7 Critical Mismatches Fixed (2026-02-25)
+
+**Session Focus:** Full pipeline audit found 9 data structure mismatches. Fixed 7, deferred 2 architectural.
+
+#### Candle Format Fixes (3)
+1. **LiquiditySweepDetector direct access**
+   - Bug: Imported CandleHelper but used direct `.c/.o/.h/.l` access
+   - Fix: Changed to `c(candle)`, `o(candle)`, etc.
+   - Location: `modules/LiquiditySweepDetector.js:368-414`
+
+2. **SchwabAdapter wrong format**
+   - Bug: Returned `{timestamp,open,high,low,close,volume}`
+   - Fix: Return Kraken-compatible `{t,o,h,l,c,v}`
+   - Location: `brokers/SchwabAdapter.js:411-418`
+
+3. **TastyworksAdapter timestamp units**
+   - Bug: Returned timestamps in SECONDS (divided by 1000)
+   - Fix: Return milliseconds (removed division)
+   - Location: `brokers/TastyworksAdapter.js:300`
+
+#### Signal Contract Fixes (1)
+4. **EMASMACrossover missing SL/TP**
+   - Bug: No stopLoss/takeProfit fields unlike other strategies
+   - Fix: Added null fields for consistency with StrategyOrchestrator
+   - Location: `modules/EMASMACrossoverSignal.js:209-227,279-293`
+
+#### Pattern System Fixes (2)
+5. **Feature vector size mismatch**
+   - Bug: Fallback created 5-element array, EPR expects 9
+   - Fix: Create proper 9-element vector matching EnhancedPatternRecognition format
+   - Location: `run-empire-v2.js:1705-1719,3137-3150`
+
+6. **timesSeen double-count**
+   - Bug: Incremented for both observations AND outcomes → 50% win rate on 100% wins
+   - Fix: Only increment for outcomes (numeric pnl)
+   - Location: `core/EnhancedPatternRecognition.js:459-470`
+
+#### Trade Recording Fixes (1)
+7. **Fees hardcoded to 0**
+   - Bug: `fees: 0` in logTrade call
+   - Fix: Calculate actual 0.52% round-trip fees
+   - Location: `run-empire-v2.js:3178`
+
+#### Deferred (Architectural)
+- TradeJournal wiring: Bridge exists but exit detection needs work
+- Exit indicators in TradeJournal: Depends on above
+
+#### Evidence
+- Phase 7: 100% pass (43/43 checks)
+- Phase 12: 99.7% pass (378/379 tests, 0 crashes)
+- Commit: `ffbb49d`
+
 ### Pipeline Verification & Safety Hardening (2026-02-24)
 
 **Session Focus:** Phase 7/9/10/12 pipeline verification tools found and fixed critical bugs.
