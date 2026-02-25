@@ -337,6 +337,8 @@ class PatternMemorySystem {
    */
   async saveToDisk() {
     if (!this.options.persistToDisk) return;
+    // FIX 2026-02-20: Skip disk writes in backtest - causes EMFILE on Windows
+    if (process.env.BACKTEST_MODE === 'true') return;
 
     // CHANGE 2025-12-12: Prevent concurrent writes with save queue
     if (this.saving) {
@@ -561,6 +563,11 @@ class PatternMemorySystem {
    * @returns {Array} Similar patterns with similarity scores
    */
   findSimilarPatterns(features, threshold = 0.8, limit = 5) {
+    // FIX 2026-02-24: Validate features input (Phase 12 fuzzing)
+    if (!features || !Array.isArray(features) || features.length === 0) {
+      return [];
+    }
+
     const results = [];
 
     // Check for exact match first
@@ -619,6 +626,11 @@ class PatternMemorySystem {
    * @returns {Object} Evaluation result
    */
   evaluatePattern(features, options = {}) {
+    // FIX 2026-02-24: Validate features input (Phase 12 fuzzing)
+    if (!features || !Array.isArray(features) || features.length === 0) {
+      return { confidence: 0, direction: 'hold', exactMatch: false, timesSeen: 0, reason: 'Invalid features' };
+    }
+
     const opts = {
       similarityThreshold: 0.8,
       // REFACTOR 2026-02-19: Lowered from 3 to 1. With 8182 patterns all at timesSeen 1-2,
@@ -853,6 +865,11 @@ class EnhancedPatternChecker {
    * @returns {Array} Array of detected patterns
    */
   analyzePatterns(marketData) {
+    // FIX 2026-02-24: Validate marketData input (Phase 12 fuzzing)
+    if (!marketData || typeof marketData !== 'object') {
+      return [{ name: 'Invalid Input', confidence: 0, direction: 'hold' }];
+    }
+
     const patterns = [];
 
     // Extract features from market data

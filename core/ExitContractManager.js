@@ -389,6 +389,10 @@ class ExitContractManager {
    * @returns {Object} Complete exit contract
    */
   createExitContract(strategyName, signal = {}, context = {}) {
+    // FIX 2026-02-24: Null safety for signal and context (Phase 12 fuzzing)
+    if (!signal || typeof signal !== 'object') signal = {};
+    if (!context || typeof context !== 'object') context = {};
+
     // Start with default contract for this strategy
     const contract = this.getDefaultContract(strategyName);
 
@@ -420,8 +424,9 @@ class ExitContractManager {
 
     // Freeze contract metadata
     contract.createdAt = Date.now();
-    contract.strategyName = strategyName;
-    contract.signalConfidence = signal.confidence || 0;
+    // FIX 2026-02-24: Ensure strategyName is string (Phase 12 fuzzing - NaN prevention)
+    contract.strategyName = (typeof strategyName === 'string' && strategyName) ? strategyName : 'default';
+    contract.signalConfidence = (typeof signal.confidence === 'number' && !isNaN(signal.confidence)) ? signal.confidence : 0;
 
     return contract;
   }

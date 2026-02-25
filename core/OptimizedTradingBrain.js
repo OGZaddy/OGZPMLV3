@@ -103,6 +103,11 @@ class OptimizedTradingBrain {
    * });
    */
   constructor(balance = 10000, config = {}) {
+    // FIX 2026-02-24: Validate balance input (Phase 12 fuzzing)
+    if (typeof balance !== 'number' || isNaN(balance) || !isFinite(balance) || balance <= 0) {
+      balance = 10000; // Safe default
+    }
+
     // CHANGE 2025-12-11: Error handler for circuit breaker pattern
     this.errorHandler = new ErrorHandler({
       maxErrorsBeforeCircuitBreak: 5,
@@ -853,6 +858,12 @@ class OptimizedTradingBrain {
       return false;
     }
 
+    // FIX 2026-02-24: Validate confidence type (Phase 12 fuzzing)
+    if (typeof confidence !== 'number' || isNaN(confidence) || !isFinite(confidence)) {
+      console.log('❌ Invalid confidence for position entry');
+      return false;
+    }
+
     // 🛡️ ENHANCED SAFETY: Validate confidence thresholds
     if (confidence < this.config.minConfidenceThreshold) {
       console.log(`🛡️ Position blocked: Confidence ${(confidence * 100).toFixed(1)}% below minimum ${(this.config.minConfidenceThreshold * 100).toFixed(1)}%`);
@@ -891,7 +902,13 @@ class OptimizedTradingBrain {
       console.log('❌ Invalid direction. Must be "buy" or "sell"');
       return false;
     }
-    
+
+    // FIX 2026-02-24: Validate size (Phase 12 fuzzing)
+    if (typeof size !== 'number' || isNaN(size) || !isFinite(size) || size <= 0) {
+      console.log('❌ Invalid size for position entry');
+      return false;
+    }
+
     // Calculate position value and validate
     // FIX 2026-02-01: Sync balance from StateManager (single source of truth) before position sizing
     // Prevents desync between OptimizedTradingBrain.balance and actual account balance
@@ -1083,7 +1100,13 @@ class OptimizedTradingBrain {
       console.log('⚠️ No position to close');
       return false;
     }
-    
+
+    // FIX 2026-02-24: Validate price (Phase 12 fuzzing)
+    if (typeof price !== 'number' || isNaN(price) || !isFinite(price) || price <= 0) {
+      console.log('❌ Invalid price for position close');
+      return false;
+    }
+
     // Calculate comprehensive trade results
     const exitTime = new Date();
     const exitTimestamp = Date.now();
@@ -1297,11 +1320,14 @@ class OptimizedTradingBrain {
     // NOTE: Use candle count, NOT Date.now() — Date.now() breaks backtest mode (Bug #8 pattern)
     this.lastExitCandleIndex = this.ogzPrime?.priceHistory?.length || 0;
 
+    // FIX 2026-02-24: Save entry price before nullifying position (Phase 12 fuzzing)
+    const entryPriceForLog = tradeData.entryPrice;
+
     // Display comprehensive trade result with enhanced PnL tracking
     console.log(`\n${pnl >= 0 ? '✅ PROFIT' : '❌ LOSS'} TRADE COMPLETED:`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`💰 TRADE P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)`);
-    console.log(`📈 Entry: $${this.position.entryPrice.toFixed(2)} → Exit: $${price.toFixed(2)}`);
+    console.log(`📈 Entry: $${entryPriceForLog.toFixed(2)} → Exit: $${price.toFixed(2)}`);
     console.log(`⏰ Hold Time: ${this.formatHoldTime(holdTime)} | Exit Reason: ${reason}`);
     console.log(`💳 Account Balance: $${balanceBefore.toFixed(2)} → $${balanceAfter.toFixed(2)}`);
     console.log(`📊 Session P&L: $${this.sessionStats.totalPnL.toFixed(2)} | Total Trades: ${this.sessionStats.tradesCount}`);
