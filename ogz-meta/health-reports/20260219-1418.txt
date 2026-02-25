@@ -1,0 +1,36 @@
+=== OGZ Prime Health Check Thu Feb 19 02:18:07 PM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m10[39m[22m │ ogz-prime-v2       │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 2032489  │ 30m    │ 8    │ [32m[1monline[22m[39m    │ 0%       │ 464.3mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+      5 regime: 'ranging'
+
+📈 CONFIDENCE LEVELS (last 50):
+     23 confidence: 0
+      5 confidence: 47
+      5 confidence: 10
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 0
+0 occurrences
+
+❌ ERRORS (last 10):
+
+🧠 PATTERNS WITH PnL:
+âœ… Pattern RECORDED: features[9], pnl=?%, total=112
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=113
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=114
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=115
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=116
+[TRAI-CALC-5] Calling checkPatternMemory
+
+🎯 RECENT DECISIONS:
+🎯 DECISION: BUY @ 47.0% confidence, 3.45% position
+🎯 DECISION: BUY @ 47.0% confidence, 3.45% position
+
+=== END REPORT ===

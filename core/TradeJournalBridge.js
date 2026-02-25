@@ -73,9 +73,13 @@ class TradeJournalBridge {
       try {
         const [decision, confidenceData, price, indicators, patterns] = args;
         const stateManager = bot.stateManager;
-        const activeTrades = stateManager?.get('activeTrades') || {};
-        const lastTradeId = Object.keys(activeTrades).pop();
-        const lastTrade = lastTradeId ? activeTrades[lastTradeId] : null;
+        const activeTrades = stateManager?.get('activeTrades') || new Map();
+        const lastTradeId = activeTrades instanceof Map
+          ? [...activeTrades.keys()].pop()
+          : Object.keys(activeTrades).pop();
+        const lastTrade = lastTradeId
+          ? (activeTrades instanceof Map ? activeTrades.get(lastTradeId) : activeTrades[lastTradeId])
+          : null;
 
         if (lastTrade && decision.action === 'BUY') {
           const regime = bot.regimeDetector?.detectRegime?.(bot.priceHistory);

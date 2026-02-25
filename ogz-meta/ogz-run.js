@@ -193,16 +193,15 @@ function extractCode(filePath, issue, maxLines = MAX_CODE_LINES) {
     const window = lines.slice(i, i + maxLines).join('\n').toLowerCase();
     let score = 0;
     words.forEach(w => { score += (window.match(new RegExp(w, 'g')) || []).length; });
-    if (score > bestScore) { bestScore = score; bestStart = i; }
+    if (score > bestScore)                                                                                                                                                                                                                                                                                                                                                                                                                bestScore = score; bestStart = i; }
   }
   return { code: lines.slice(bestStart, bestStart + maxLines).join('\n'), startLine: bestStart + 1, full: false, lines: lines.length };
-}
+}6
 
 function findRelevantFiles(issue) {
   const files = [];
   const candidates = ['run-empire-v2.js', 'ogzprime-ssl-server.js', 'public/unified-dashboard.html'];
-
-  // Add core modules
+sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
   const coreDir = path.join(PROJECT_DIR, 'core');
   if (fs.existsSync(coreDir)) {
     fs.readdirSync(coreDir).filter(f => f.endsWith('.js')).forEach(f => candidates.push(`core/${f}`));
@@ -270,7 +269,7 @@ async function run(issue) {
     rag.matches.slice(0, 3).forEach(m => {
       log('  ', `${C.dim}[${m.severity}] ${m.id}: ${(m.symptom || '').slice(0, 80)}${C.reset}`);
     });
-  } else {
+ZC{
     log('✅', 'No similar past issues found — this appears to be new');
   }
 
@@ -281,7 +280,8 @@ async function run(issue) {
   let aiFixes = [];
   let aiReview = null;
   let aiRawAnalysis = '';
-  let aiRawFix = '';
+  
+  ...........................................let aiRawFix = '';
   let aiRawReview = '';
 
   if (!health.running) {

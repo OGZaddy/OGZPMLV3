@@ -1,0 +1,36 @@
+=== OGZ Prime Health Check Thu Feb 19 01:48:06 PM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m10[39m[22m │ ogz-prime-v2       │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 2032489  │ 49s    │ 8    │ [32m[1monline[22m[39m    │ 0%       │ 420.2mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+      2 regime: 'ranging'
+
+📈 CONFIDENCE LEVELS (last 50):
+      8 confidence: 0
+      1 confidence: 48
+      1 confidence: 26
+      1 confidence: 10
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 7 occurrences
+
+❌ ERRORS (last 10):
+🛡️ Sentry error monitoring initialized
+  ✅ ErrorHandler
+
+🧠 PATTERNS WITH PnL:
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=10
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=11
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=12
+[TRAI-CALC-5] Calling checkPatternMemory
+âœ… Pattern RECORDED: features[9], pnl=?%, total=13
+[TRAI-CALC-5] Calling checkPatternMemory
+  ✅ PatternMemoryBank
+
+🎯 RECENT DECISIONS:
+
+=== END REPORT ===

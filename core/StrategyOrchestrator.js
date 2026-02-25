@@ -194,9 +194,11 @@ class StrategyOrchestrator {
     });
 
     // ─── 4. Break & Retest Strategy (Desi Trades) ───
+    // DISABLED 2026-02-23: 0 for 9 in backtest, dragging down P&L. Isolating MADynamicSR.
     this.strategies.push({
       name: 'BreakRetest',
       evaluate: (ctx) => {
+        return null; // DISABLED - re-enable after tuning
         const sig = ctx.extras?.breakRetestSignal;
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
@@ -390,9 +392,35 @@ class StrategyOrchestrator {
 
     const ctx = { indicators, patterns, regime, priceHistory, extras };
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // CHANGE 2026-02-23: Volume Profile Chop Filter (Fabio Valentino)
+    // Only trend follow when OUT OF BALANCE (price outside value area)
+    // When BALANCED (inside VA) = choppy market, trend strategies bleed fees
+    // ═══════════════════════════════════════════════════════════════════════
+    const TREND_STRATEGIES = ['MADynamicSR', 'EMASMACrossover', 'MultiTimeframe', 'MarketRegime'];
+    let vpMarketState = null;
+    let skipTrendStrategies = false;
+
+    if (extras.volumeProfile && extras.price) {
+      vpMarketState = extras.volumeProfile.getMarketState(extras.price);
+      if (vpMarketState?.state === 'balanced') {
+        // Market is inside value area — sideways/chop
+        // Skip trend strategies, they bleed fees here
+        skipTrendStrategies = true;
+        if (this.evalCount % 100 === 0) {
+          console.log(`[VP-ORCH] 🛑 BALANCED market (inside VA) — skipping trend strategies`);
+        }
+      }
+    }
+
     // ─── Step 1: Run ALL strategies independently ───
     const results = [];
     for (const strategy of this.strategies) {
+      // CHOP FILTER: Skip trend strategies when market is balanced
+      if (skipTrendStrategies && TREND_STRATEGIES.includes(strategy.name)) {
+        continue; // Don't even evaluate — Fabio says don't trend follow in chop
+      }
+
       try {
         const result = strategy.evaluate(ctx);
         if (result && result.direction && result.confidence > 0) {

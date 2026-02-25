@@ -365,30 +365,32 @@ class LiquiditySweepDetector {
   _detectReversalPattern(candle, prev, exitSide) {
     if (!candle || !prev) return null;
 
-    const body = Math.abs(candle.c - candle.o);
-    const range = candle.h - candle.l;
-    const upperWick = candle.h - Math.max(candle.o, candle.c);
-    const lowerWick = Math.min(candle.o, candle.c) - candle.l;
-    const isBullish = candle.c > candle.o;
+    // FIX 2026-02-25: Use CandleHelper for format compatibility (was using direct .c/.o/.h/.l)
+    const body = Math.abs(c(candle) - o(candle));
+    const range = h(candle) - l(candle);
+    const upperWick = h(candle) - Math.max(o(candle), c(candle));
+    const lowerWick = Math.min(o(candle), c(candle)) - l(candle);
+    const isBullish = c(candle) > o(candle);
 
     if (range === 0 || body === 0) return null;
     const bodyRatio = body / range;
 
     // Hammer (bullish, below box)
+    // FIX 2026-02-25: Use CandleHelper for all candle property access
     if (exitSide === 'below') {
       if (bodyRatio <= this.config.hammerBodyMaxPct &&
           lowerWick / body >= this.config.hammerWickMinRatio &&
           lowerWick > upperWick * 1.5) {
         this.stats.hammersDetected++;
-        return { type: 'hammer', direction: 'bullish', wickExtreme: candle.l };
+        return { type: 'hammer', direction: 'bullish', wickExtreme: l(candle) };
       }
       // Bullish engulfing
-      if (isBullish && prev.c < prev.o) {
-        const prevBody = Math.abs(prev.c - prev.o);
+      if (isBullish && c(prev) < o(prev)) {
+        const prevBody = Math.abs(c(prev) - o(prev));
         if (prevBody > 0 && body / prevBody >= this.config.engulfMinRatio &&
-            candle.c >= prev.o && candle.o <= prev.c) {
+            c(candle) >= o(prev) && o(candle) <= c(prev)) {
           this.stats.engulfingsDetected++;
-          return { type: 'bullish_engulfing', direction: 'bullish', entryLevel: prev.h, stopLevel: candle.l };
+          return { type: 'bullish_engulfing', direction: 'bullish', entryLevel: h(prev), stopLevel: l(candle) };
         }
       }
     }
@@ -399,15 +401,15 @@ class LiquiditySweepDetector {
           upperWick / body >= this.config.hammerWickMinRatio &&
           upperWick > lowerWick * 1.5) {
         this.stats.hammersDetected++;
-        return { type: 'inverted_hammer', direction: 'bearish', wickExtreme: candle.h };
+        return { type: 'inverted_hammer', direction: 'bearish', wickExtreme: h(candle) };
       }
       // Bearish engulfing
-      if (!isBullish && prev.c > prev.o) {
-        const prevBody = Math.abs(prev.c - prev.o);
+      if (!isBullish && c(prev) > o(prev)) {
+        const prevBody = Math.abs(c(prev) - o(prev));
         if (prevBody > 0 && body / prevBody >= this.config.engulfMinRatio &&
-            candle.o >= prev.c && candle.c <= prev.o) {
+            o(candle) >= c(prev) && c(candle) <= o(prev)) {
           this.stats.engulfingsDetected++;
-          return { type: 'bearish_engulfing', direction: 'bearish', entryLevel: prev.l, stopLevel: candle.h };
+          return { type: 'bearish_engulfing', direction: 'bearish', entryLevel: l(prev), stopLevel: h(candle) };
         }
       }
     }

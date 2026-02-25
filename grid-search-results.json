@@ -1,0 +1,8 @@
+[
+  {"threshold": "5%", "trades": 10, "wins": 2, "losses": 3, "winRate": "40%", "pnl": "-0.12%"},
+  {"threshold": "10%", "trades": 6, "wins": 1, "losses": 2, "winRate": "33%", "pnl": "-0.08%"},
+  {"threshold": "15%", "trades": 4, "wins": 1, "losses": 1, "winRate": "50%", "pnl": "-0.04%"},
+  {"threshold": "20%", "trades": 6, "wins": 1, "losses": 2, "winRate": "33%", "pnl": "-0.08%"},
+  {"threshold": "25%", "trades": 6, "wins": 1, "losses": 2, "winRate": "33%", "pnl": "-0.08%"},
+  {"threshold": "30%", "trades": 6, "wins": 2, "losses": 1, "winRate": "67%", "pnl": "-0.08%"}
+]

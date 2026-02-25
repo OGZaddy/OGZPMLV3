@@ -1702,12 +1702,19 @@ class OGZPrimeV14Bot {
           ? (indicators.trend === 'bullish' || indicators.trend === 'uptrend' ? 1 :
              indicators.trend === 'bearish' || indicators.trend === 'downtrend' ? -1 : 0)
           : (indicators.trend || 0);
-        featuresForRecording = [
-            indicators.rsi || 50,
-            indicators.macd?.macd || 0,
-            indicators.macd?.signal || 0,
-            trendNumeric,
-            this.marketData.volume || 0
+        // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
+          const rsiNormalized = ((indicators.rsi || 50) - 50) / 50;
+          const macdDelta = (indicators.macd?.macd || 0) - (indicators.macd?.signal || 0);
+          featuresForRecording = [
+            rsiNormalized,                           // [0] RSI normalized -1 to 1
+            macdDelta,                               // [1] MACD delta
+            trendNumeric,                            // [2] Trend -1/0/1
+            indicators.bbWidth || 0.02,              // [3] Bollinger width
+            indicators.volatility || 0.01,           // [4] Volatility
+            0.5,                                     // [5] Wick ratio default
+            0,                                       // [6] Price change default
+            0,                                       // [7] Volume change default
+            0                                        // [8] Last direction default
           ];
         }
 
@@ -3127,12 +3134,19 @@ class OGZPrimeV14Bot {
                   ? (entryTrend === 'bullish' || entryTrend === 'uptrend' ? 1 :
                      entryTrend === 'bearish' || entryTrend === 'downtrend' ? -1 : 0)
                   : (entryTrend || 0);
+                // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
+                const rsiNormalized = ((buyTrade.entryIndicators?.rsi || 50) - 50) / 50;
+                const macdDelta = (buyTrade.entryIndicators?.macd || 0) - (buyTrade.entryIndicators?.macdSignal || 0);
                 featuresForRecording = [
-                  buyTrade.entryIndicators?.rsi || 50,
-                  buyTrade.entryIndicators?.macd || 0,
-                  buyTrade.entryIndicators?.macdSignal || 0,
-                  trendNumeric,
-                  buyTrade.entryIndicators?.volume || 0
+                  rsiNormalized,                                    // [0] RSI normalized
+                  macdDelta,                                        // [1] MACD delta
+                  trendNumeric,                                     // [2] Trend -1/0/1
+                  buyTrade.entryIndicators?.bbWidth || 0.02,        // [3] Bollinger width
+                  buyTrade.entryIndicators?.volatility || 0.01,     // [4] Volatility
+                  0.5,                                              // [5] Wick ratio default
+                  0,                                                // [6] Price change default
+                  0,                                                // [7] Volume change default
+                  0                                                 // [8] Last direction default
                 ];
               }
 
@@ -3175,7 +3189,7 @@ class OGZPrimeV14Bot {
                 // Financial results
                 pnl: completeTradeResult.pnlDollars || 0,
                 pnlPercent: pnl || 0,
-                fees: 0,
+                fees: (buyTrade.size * price) * 0.0052,  // FIX 2026-02-25: Actual round-trip fees (0.26% * 2)
 
                 // Timing
                 entryTime: new Date(buyTrade.entryTime).toISOString(),

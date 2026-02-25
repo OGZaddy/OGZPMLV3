@@ -1,0 +1,46 @@
+======================================================================
+  FULL YEAR BACKTEST - Per-Strategy Breakdown
+======================================================================
+  Candles: 45812 (2024-01-01 to 2025-04-22)
+  Price range: $42487 → $90745
+  Confidence threshold: 55%
+======================================================================
+
+  🎯 Signal: SELL CandlePattern @ 60%
+  🎯 Signal: SELL CandlePattern @ 56%
+  🎯 Signal: SELL CandlePattern @ 64%
+  🎯 Signal: BUY CandlePattern @ 74%
+  📈 ENTRY [CandlePattern] SL=-0.46% TP=0.84%
+  📉 EXIT [CandlePattern] +1.11% via take_profit
+  🎯 Signal: SELL EMASMACrossover @ 55%
+  🎯 Signal: SELL CandlePattern @ 66%
+  🎯 Signal: SELL CandlePattern @ 67%
+  🎯 Signal: SELL CandlePattern @ 70%
+  🎯 Signal: SELL EMASMACrossover @ 60%
+  🎯 Signal: BUY CandlePattern @ 63%
+  📈 ENTRY [CandlePattern] SL=-0.46% TP=0.84%
+  🎯 Signal: BUY CandlePattern @ 59%
+  🎯 Signal: BUY CandlePattern @ 59%
+  🎯 Signal: BUY CandlePattern @ 62%
+  📉 EXIT [CandlePattern] +0.41% via max_hold
+  🎯 Signal: BUY MADynamicSR @ 80%
+  📈 ENTRY [MADynamicSR] SL=-0.95% TP=2.98%
+  📉 EXIT [MADynamicSR] -0.50% via max_hold
+  🎯 Signal: BUY MADynamicSR @ 83%
+  📈 ENTRY [MADynamicSR] SL=-1.13% TP=3.52%
+  📉 EXIT [MADynamicSR] +0.35% via trailing_stop
+  🎯 Signal: BUY MADynamicSR @ 79%
+  📈 ENTRY [MADynamicSR] SL=-0.41% TP=1.29%
+  📉 EXIT [MADynamicSR] -0.48% via stop_loss
+  🎯 Signal: SELL EMASMACrossover @ 55%
+  🎯 Signal: BUY MADynamicSR @ 78%
+  📈 ENTRY [MADynamicSR] SL=-0.69% TP=2.16%
+  📉 EXIT [MADynamicSR] -0.36% via max_hold
+  🎯 Signal: SELL LiquiditySweep @ 55%
+  🎯 Signal: SELL LiquiditySweep @ 55%
+  📈 ENTRY [CandlePattern] SL=-0.46% TP=0.84%
+  📉 EXIT [CandlePattern] +0.07% via trailing_stop
+  📈 ENTRY [MADynamicSR] SL=-0.94% TP=2.95%
+  📉 EXIT [MADynamicSR] -0.33% via max_hold
+  📈 ENTRY [MADynamicSR] SL=-0.89% TP=2.80%
+  📉 EXIT [MADynamicSR] +2.36% via other

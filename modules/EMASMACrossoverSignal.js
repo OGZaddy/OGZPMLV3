@@ -206,17 +206,21 @@ class EMASMACrossoverSignal {
       confidence *= 0.5;
     }
 
+    // FIX 2026-02-25: Add SL/TP fields for consistency with other strategies
+    // Default: 0.5% stop, 0.8% target (uses ECM defaults if not overridden)
     const signal = {
       module: 'EMASMACrossover',
       direction,
       confidence,
-      crossovers,          // new crosses this tick
+      stopLoss: null,        // Let ExitContractManager use strategy defaults
+      takeProfit: null,      // Let ExitContractManager use strategy defaults
+      crossovers,            // new crosses this tick
       activeBullish: bullishCount,
       activeBearish: bearishCount,
       confluence: confluenceRatio,
       snapback: snapbackSignal,
       blowoff: blowoffWarning,
-      maValues                     // expose raw MA values for dashboard
+      maValues               // expose raw MA values for dashboard
     };
 
     // Log (bounded)
@@ -281,6 +285,8 @@ class EMASMACrossoverSignal {
       module: 'EMASMACrossover',
       direction: 'neutral',
       confidence: 0,
+      stopLoss: null,      // FIX 2026-02-25: Add for consistency
+      takeProfit: null,    // FIX 2026-02-25: Add for consistency
       crossovers: [],
       activeBullish: 0,
       activeBearish: 0,

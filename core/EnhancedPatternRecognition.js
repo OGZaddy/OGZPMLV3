@@ -456,12 +456,12 @@ class PatternMemorySystem {
       results: []
     };
 
-    // Update statistics
-    entry.timesSeen += 1;
-
-    // FIX 2026-02-19: Only update wins/losses/pnl for OUTCOMES (number), not OBSERVATIONS (null)
-    // Observations (entry) use pnl: null, Outcomes (exit) use pnl: actualNumber
+    // FIX 2026-02-25: Only increment timesSeen for OUTCOMES, not observations
+    // Previously: timesSeen incremented for both entry (null) and exit (number)
+    // This caused win rate = wins/timesSeen to be halved (2 increments per trade, 1 win)
+    // Now: timesSeen only incremented for outcomes, so win rate is accurate
     if (typeof result.pnl === 'number') {
+      entry.timesSeen += 1;  // Only count completed trades
       entry.totalPnL += result.pnl;
       if (result.pnl > 0) {
         entry.wins += 1;

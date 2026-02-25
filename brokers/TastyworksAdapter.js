@@ -296,8 +296,9 @@ class TastyworksAdapter extends IBrokerAdapter {
                 }
             });
 
+            // FIX 2026-02-25: Return milliseconds (was dividing by 1000 → seconds)
             return response.candles.map(candle => ({
-                t: new Date(candle.time).getTime() / 1000,
+                t: new Date(candle.time).getTime(),  // milliseconds, not seconds
                 o: parseFloat(candle.open),
                 h: parseFloat(candle.high),
                 l: parseFloat(candle.low),

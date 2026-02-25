@@ -408,13 +408,14 @@ class SchwabAdapter extends IBrokerAdapter {
         `${this.baseUrl}/pricehistory?symbol=${symbol}&periodType=${periodType}&period=${period}&frequencyType=${frequencyType}&frequency=${frequency}`
       );
 
+      // FIX 2026-02-25: Use Kraken-compatible format {t,o,h,l,c,v} not {timestamp,open,high,low,close,volume}
       return priceHistory.candles.slice(-limit).map(candle => ({
-        timestamp: candle.datetime,
-        open: candle.open,
-        high: candle.high,
-        low: candle.low,
-        close: candle.close,
-        volume: candle.volume
+        t: candle.datetime,  // milliseconds
+        o: candle.open,
+        h: candle.high,
+        l: candle.low,
+        c: candle.close,
+        v: candle.volume
       }));
     } catch (error) {
       console.error('❌ Failed to get candles:', error);
