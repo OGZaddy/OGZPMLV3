@@ -56,12 +56,14 @@ const DEFAULT_CONTRACTS = {
   },
 
   // MA Dynamic S/R - support/resistance bounces
+  // NOTE: Extended hold (180min) tested - made losers worse even with VP filter
+  // 105 min (7 candles) is the sweet spot - cuts non-performers before hard stop
   MADynamicSR: {
     stopLossPercent: -0.45,
     takeProfitPercent: 0.75,
     trailingStopPercent: 0.25,
     invalidationConditions: ['sr_level_broken'],
-    maxHoldTimeMinutes: 100
+    maxHoldTimeMinutes: 105
   },
 
   // Candle Pattern - quick setups
@@ -105,10 +107,11 @@ const DEFAULT_CONTRACTS = {
  * Universal circuit breakers - always enforced regardless of strategy
  */
 // FIX 2026-02-21: Universal limits for 15m trading
+// NOTE: 180 min tested - losers got worse. 150 min is the ceiling.
 const UNIVERSAL_LIMITS = {
   hardStopLossPercent: -2.0,      // Per-trade absolute max loss (wider for 15m)
   accountDrawdownPercent: -10.0,  // Force close all if account down 10%
-  maxHoldTimeMinutes: 150         // 150 min absolute max hold (allows 120 min strategies)
+  maxHoldTimeMinutes: 150         // 150 min absolute max hold
 };
 
 class ExitContractManager {
@@ -123,6 +126,11 @@ class ExitContractManager {
    * @returns {Object} Exit contract with SL/TP/invalidation
    */
   getDefaultContract(strategyName) {
+    // FIX 2026-02-24: Validate strategyName is a string (Phase 12 fuzzing)
+    if (typeof strategyName !== 'string' || !strategyName) {
+      strategyName = 'default';
+    }
+
     // Try exact match first
     if (this.defaultContracts[strategyName]) {
       return { ...this.defaultContracts[strategyName] };
@@ -209,12 +217,20 @@ class ExitContractManager {
 
     // === STRATEGY-SPECIFIC EXIT CONTRACT ===
 
-    // Stop loss
-    if (pnlPercent <= contract.stopLossPercent) {
+    // Break-even logic: if price ever moved 1:1 in our favor, stop becomes entry
+    // Risk = |stopLossPercent|, so 1:1 move = maxProfit >= risk
+    const riskAmount = Math.abs(contract.stopLossPercent);
+    const breakEvenTriggered = trade.maxProfitPercent && trade.maxProfitPercent >= riskAmount;
+    const effectiveStop = breakEvenTriggered ? -0.05 : contract.stopLossPercent;  // -0.05% = tiny buffer for fees
+
+    // Stop loss (uses break-even stop if triggered)
+    if (pnlPercent <= effectiveStop) {
+      const exitReason = breakEvenTriggered ? 'break_even' : 'stop_loss';
+      const stopType = breakEvenTriggered ? 'BE' : 'SL';
       return {
         shouldExit: true,
-        exitReason: 'stop_loss',
-        details: `${trade.entryStrategy || 'Strategy'} SL: ${pnlPercent.toFixed(2)}% <= ${contract.stopLossPercent}%`,
+        exitReason,
+        details: `${trade.entryStrategy || 'Strategy'} ${stopType}: ${pnlPercent.toFixed(2)}% <= ${effectiveStop.toFixed(2)}%`,
         confidence: 100
       };
     }
@@ -230,11 +246,12 @@ class ExitContractManager {
     }
 
     // Trailing stop (only if in profit above trailing threshold)
+    // Also kicks in after break-even is triggered
     if (contract.trailingStopPercent && trade.maxProfitPercent) {
-      const trailTrigger = contract.trailingStopPercent;
+      const trailTrigger = breakEvenTriggered ? 0 : contract.trailingStopPercent;  // Trail from BE if triggered
       if (trade.maxProfitPercent >= trailTrigger) {
         const trailStop = trade.maxProfitPercent - contract.trailingStopPercent;
-        if (pnlPercent <= trailStop) {
+        if (pnlPercent <= trailStop && trailStop > effectiveStop) {  // Only if better than current stop
           return {
             shouldExit: true,
             exitReason: 'trailing_stop',

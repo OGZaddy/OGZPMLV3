@@ -115,8 +115,9 @@ class OptimizedTradingBrain {
     this.position = null; // Current open position
     this.tradeHistory = new RollingWindow(100); // CHANGE 2025-12-11: Fixed-size window (was unbounded [])
     this.lastTradeResult = null; // Last trade result for quick access
-    
-    
+    this.lastExitCandleIndex = 0; // FIX 2026-02-24: Track exit candle for cooldown (Phase 10)
+
+
     // Configuration with intelligent defaults
     // CHANGE 610: Read from config object (populated from .env)
     this.config = {
@@ -157,6 +158,7 @@ class OptimizedTradingBrain {
       confidenceBoost: config.confidenceBoost || 0.05,
       enableSafetyValidation: true,    // Enable safety net validation
       enablePerformanceTracking: true, // Enable performance validator
+      exitCooldownCandles: config.exitCooldownCandles || 4, // FIX 2026-02-24: 4 candles = 1hr on 15m
 
       // Performance tracking
       enablePatternLearning: true,     // Learn from patterns
@@ -840,7 +842,17 @@ class OptimizedTradingBrain {
       console.log('⚠️ Cannot open position: Already in position');
       return false;
     }
-    
+
+    // FIX 2026-02-24: Cooldown after exit (Phase 10 state machine - EXITING → COOLDOWN → IDLE)
+    // NOTE: Use candle count, NOT Date.now() — Date.now() breaks backtest mode (Bug #8 pattern)
+    const currentCandleIndex = this.ogzPrime?.priceHistory?.length || 0;
+    const candlesSinceExit = currentCandleIndex - this.lastExitCandleIndex;
+    if (this.lastExitCandleIndex > 0 && candlesSinceExit < this.config.exitCooldownCandles) {
+      const remaining = this.config.exitCooldownCandles - candlesSinceExit;
+      console.log(`⏳ Cooldown active: ${remaining} candles remaining before next trade`);
+      return false;
+    }
+
     // 🛡️ ENHANCED SAFETY: Validate confidence thresholds
     if (confidence < this.config.minConfidenceThreshold) {
       console.log(`🛡️ Position blocked: Confidence ${(confidence * 100).toFixed(1)}% below minimum ${(this.config.minConfidenceThreshold * 100).toFixed(1)}%`);
@@ -1280,7 +1292,11 @@ class OptimizedTradingBrain {
     // Reset position and profit manager
     this.position = null;
     this.maxProfitManager.reset();
-    
+
+    // FIX 2026-02-24: Set exit candle for cooldown mechanism (Phase 10 state machine)
+    // NOTE: Use candle count, NOT Date.now() — Date.now() breaks backtest mode (Bug #8 pattern)
+    this.lastExitCandleIndex = this.ogzPrime?.priceHistory?.length || 0;
+
     // Display comprehensive trade result with enhanced PnL tracking
     console.log(`\n${pnl >= 0 ? '✅ PROFIT' : '❌ LOSS'} TRADE COMPLETED:`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -1351,7 +1367,7 @@ class OptimizedTradingBrain {
     });
     
     // Handle profit management signals
-    if (profitResult.action === 'exit') {
+    if (profitResult.action === 'exit_full') {
       // Full position exit triggered
       this.closePosition(price, profitResult.reason, currentAnalysis);
     } else if (profitResult.action === 'exit_partial') {

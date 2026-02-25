@@ -2431,7 +2431,7 @@ class OGZPrimeV14Bot {
 
         // Check if MaxProfitManager signals exit (only when maxprofit or legacy active)
         // FIX 2026-02-05: Added exit_partial - tiered profit exits were silently dropped
-        if (profitResult && (profitResult.action === 'exit' || profitResult.action === 'exit_full' || profitResult.action === 'exit_partial') && (this.activeExitSystem === 'maxprofit' || this.activeExitSystem === 'legacy')) {
+        if (profitResult && (profitResult.action === 'exit_full' || profitResult.action === 'exit_partial') && (this.activeExitSystem === 'maxprofit' || this.activeExitSystem === 'legacy')) {
           console.log(`ðŸ“‰ SELL Signal: ${profitResult.reason || 'MaxProfitManager exit'} (${profitResult.action})`);
           // FIX 2026-02-24: Add exitReason so isProfitExit check at line 2572 passes (Bug #11)
           return { action: 'SELL', direction: 'close', confidence: totalConfidence, exitSize: profitResult.exitSize, exitReason: profitResult.reason };
@@ -2568,12 +2568,13 @@ class OGZPrimeV14Bot {
     // FIX 2026-02-17: Dont exit on "no signal" (low confidence)
     // SELL requires: (1) high confidence SELL signal, (2) stop loss, or (3) profit target
     const MIN_SELL_CONFIDENCE = 30;
-    const isStopLossExit = decision.exitReason === "stop_loss" || decision.exitReason === "trailing_stop";
+    const isStopLossExit = decision.exitReason === "stop_loss" || decision.exitReason === "trailing_stop" || decision.exitReason === "invalidation";
     // FIX 2026-02-23: Use startsWith for profit_tier (MaxProfitManager returns "profit_tier_1", "profit_tier_2", etc.)
     const isProfitExit = decision.exitReason?.startsWith("profit_tier") || decision.exitReason === "take_profit";
-    const isEmergencyExit = decision.exitReason === "hard_stop" || decision.confidence >= 70;
+    const isEmergencyExit = decision.exitReason === "hard_stop" || decision.exitReason === "account_drawdown" || decision.confidence >= 70;
+    const isTimeoutExit = decision.exitReason === "max_hold" || decision.exitReason === "max_hold_universal";
     if (decision.action === "SELL" && decision.confidence < MIN_SELL_CONFIDENCE) {
-      if (!isStopLossExit && !isProfitExit && !isEmergencyExit) {
+      if (!isStopLossExit && !isProfitExit && !isEmergencyExit && !isTimeoutExit) {
         console.log("[EXIT BLOCKED] Confidence " + decision.confidence.toFixed(1) + "% < " + MIN_SELL_CONFIDENCE + "% minimum");
         return;
       }
@@ -2741,6 +2742,34 @@ class OGZPrimeV14Bot {
         }
         // Update position tracking
         if (decision.action === 'BUY') {
+          // ═══ SAFETY GATES (wired 2026-02-24) ═══
+          // Gate 1: Risk limits (daily/weekly/monthly loss, drawdown)
+          const riskCheck = this.tradingBrain.checkRiskLimits();
+          if (riskCheck.halt) {
+            console.log(`⛔ [RISK GATE] BUY blocked: ${riskCheck.reason}`);
+            return;
+          }
+
+          // Gate 2: Position limits (max concurrent positions per tier)
+          const positionCount = stateManager.get('activeTrades')?.size || 0;
+          if (!this.tradingBrain.canOpenNewPosition(positionCount, this.tierFlags)) {
+            console.log(`⛔ [POSITION GATE] BUY blocked: Max positions (${positionCount})`);
+            return;
+          }
+
+          // Gate 3: Trade risk assessment (comprehensive risk check)
+          const riskAssessment = this.riskManager.assessTradeRisk({
+            direction: 'BUY',
+            entryPrice: price,
+            confidence: decision.confidence,
+            marketData: indicators,
+            patterns: patterns
+          });
+          if (!riskAssessment.approved) {
+            console.log(`⛔ [RISK ASSESSMENT] BUY blocked: ${riskAssessment.reason} (${riskAssessment.riskLevel})`);
+            return;
+          }
+
           // CHECKPOINT 5: Before position update
           const stateBefore = stateManager.getState();
           console.log(`ðŸ“ CP5: BEFORE BUY - Position: ${stateBefore.position}, Balance: $${stateBefore.balance}`);

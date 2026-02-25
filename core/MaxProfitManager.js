@@ -240,6 +240,21 @@ class MaxProfitManager {
    */
   start(entryPrice, direction, size = 1.0, options = {}) {
     // ====================================================================
+    // FIX 2026-02-24: Type validation (Phase 12 fuzzing - prevent NaN/crash)
+    // ====================================================================
+    if (typeof entryPrice !== 'number' || isNaN(entryPrice) || !isFinite(entryPrice) || entryPrice <= 0) {
+      this.log('Invalid entry price provided (must be positive number)', 'error');
+      return { success: false, error: 'Invalid entry price' };
+    }
+    if (typeof direction !== 'string') {
+      this.log('Invalid direction provided (must be string)', 'error');
+      return { success: false, error: 'Invalid direction' };
+    }
+    if (typeof size !== 'number' || isNaN(size) || size <= 0) {
+      size = 1.0; // Default to 1.0 if invalid
+    }
+
+    // ====================================================================
     // CHANGE 614: Fix case-sensitivity bug - normalize direction
     // ====================================================================
     direction = direction.toLowerCase();
@@ -247,11 +262,6 @@ class MaxProfitManager {
     // ====================================================================
     // INPUT VALIDATION
     // ====================================================================
-    if (!entryPrice || entryPrice <= 0) {
-      this.log('Invalid entry price provided', 'error');
-      return { success: false, error: 'Invalid entry price' };
-    }
-
     if (!['buy', 'sell'].includes(direction)) {
       this.log('Invalid direction provided', 'error');
       return { success: false, error: 'Invalid direction' };
@@ -359,7 +369,11 @@ class MaxProfitManager {
     // ====================================================================
     // VALIDATION AND SETUP
     // ====================================================================
-    if (!this.state.active || !currentPrice || currentPrice <= 0) {
+    // FIX 2026-02-24: Type validation (Phase 12 fuzzing - prevent NaN)
+    if (typeof currentPrice !== 'number' || isNaN(currentPrice) || !isFinite(currentPrice)) {
+      return { action: 'none', reason: 'Invalid price type' };
+    }
+    if (!this.state.active || currentPrice <= 0) {
       return { action: 'none', reason: 'Invalid state or price' };
     }
     

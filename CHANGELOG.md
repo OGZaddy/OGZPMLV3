@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Pipeline Verification & Safety Hardening (2026-02-24)
+
+**Session Focus:** Phase 7/9/10/12 pipeline verification tools found and fixed critical bugs.
+
+#### Safety Gates Wired (3 orphan functions connected)
+- **checkRiskLimits()** - Daily/weekly/monthly loss limits now enforced before BUY
+- **canOpenNewPosition()** - Max concurrent positions per tier now checked
+- **assessTradeRisk()** - Comprehensive risk assessment gate before entry
+- Location: `run-empire-v2.js:2744-2770`
+
+#### Phase 12 Fuzzing Fixes (30 crashes → 0)
+1. **ExitContractManager strategyName validation**
+   - Crash: `.toLowerCase()` on undefined/null/number
+   - Fix: Type check + fallback to 'default'
+   - Location: `core/ExitContractManager.js:128-132`
+
+2. **RiskManager calculatePositionSize validation**
+   - Crash: Math on NaN/undefined/object inputs
+   - Fix: Type validation with safe 0 return
+   - Location: `core/RiskManager.js:399-410`
+
+3. **MaxProfitManager start() validation**
+   - NaN output: Invalid entryPrice/direction/size
+   - Fix: Type checks with error return object
+   - Location: `core/MaxProfitManager.js:241-255`
+
+4. **MaxProfitManager update() validation**
+   - NaN output: Invalid currentPrice
+   - Fix: Type check with safe 'none' action return
+   - Location: `core/MaxProfitManager.js:372-375`
+
+#### Phase 10 State Machine Fix
+- **Cooldown mechanism after exit**
+   - Missing: EXITING → COOLDOWN → IDLE transition
+   - Fix: 4-candle cooldown (1hr on 15m) before re-entry
+   - NOTE: Uses candle count, NOT Date.now() (Bug #8 pattern)
+   - Location: `core/OptimizedTradingBrain.js:118,160,845-852,1288-1290`
+
+#### Evidence
+- Phase 7: 100% pass (11/11 checks)
+- Phase 9: 21/21 invariants passed
+- Phase 10: Invalid transitions reduced (cooldown wired)
+- Phase 12: 30 crashes → 0, 4 NaN outputs → 0
+
 ### AUDIT: Wired-But-Not-Plumbed Bugs (2026-02-23)
 
 **CRITICAL FINDING:** Tiered profit exit system has been completely broken since inception.

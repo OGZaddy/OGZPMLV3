@@ -397,6 +397,20 @@ class RiskManager {
    * @returns {number} - Calculated position size in dollars
    */
   calculatePositionSize(accountBalance, currentPrice, marketConditions = {}) {
+    // FIX 2026-02-24: Validate inputs are correct types (Phase 12 fuzzing)
+    if (typeof accountBalance !== 'number' || isNaN(accountBalance) || !isFinite(accountBalance)) {
+      console.log('🛡️ RISK BLOCK: accountBalance must be a valid number');
+      return 0;
+    }
+    if (typeof currentPrice !== 'number' || isNaN(currentPrice) || !isFinite(currentPrice)) {
+      console.log('🛡️ RISK BLOCK: currentPrice must be a valid number');
+      return 0;
+    }
+    // Coerce null/undefined marketConditions to empty object
+    if (!marketConditions || typeof marketConditions !== 'object') {
+      marketConditions = {};
+    }
+
     console.log('🛡️ RISK MANAGER: Starting position size calculation...');
     console.log('🛡️ Input Parameters:', {
       accountBalance: accountBalance,
