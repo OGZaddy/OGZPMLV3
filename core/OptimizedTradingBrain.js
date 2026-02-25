@@ -163,7 +163,7 @@ class OptimizedTradingBrain {
       confidenceBoost: config.confidenceBoost || 0.05,
       enableSafetyValidation: true,    // Enable safety net validation
       enablePerformanceTracking: true, // Enable performance validator
-      exitCooldownCandles: config.exitCooldownCandles || 4, // FIX 2026-02-24: 4 candles = 1hr on 15m
+      exitCooldownCandles: parseInt(process.env.EXIT_COOLDOWN_CANDLES, 10) || config.exitCooldownCandles || 1, // Configurable via .env, default 1
 
       // Performance tracking
       enablePatternLearning: true,     // Learn from patterns
