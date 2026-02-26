@@ -652,6 +652,11 @@ class OGZPrimeV14Bot {
       console.log('âœ… Using existing state - Balance:', currentState.balance, 'Trades:', currentState.activeTrades?.size || 0);
     }
 
+    // FIX 2026-02-26: Initialize RiskManager with balance (was never called, caused Infinity drawdown)
+    // Without this, peakBalance=0, drawdown=Infinity, checkRiskLimits() blocks ALL trades
+    const balanceForRisk = currentState.balance || initialBalance;
+    this.riskManager.initializeBalance(balanceForRisk);
+
     // CHANGE 644: Initialize trade tracking Maps in constructor to prevent crashes
     // CHANGE 2025-12-13: MOVED TO StateManager - no longer tracked here
     this.pendingTraiDecisions = new Map();

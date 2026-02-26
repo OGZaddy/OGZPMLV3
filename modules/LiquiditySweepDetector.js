@@ -331,11 +331,11 @@ class LiquiditySweepDetector {
 
     // Step 4: Watch for box exit
     if (this.state.phase === 'watching_for_exit') {
-      if (c5m.c > box.high) {
+      if (c(c5m) > box.high) {
         this.state.exitSide = 'above';
         this.state.exitBar = { ...c5m };
         this.state.phase = 'watching_for_pattern';
-      } else if (c5m.c < box.low) {
+      } else if (c(c5m) < box.low) {
         this.state.exitSide = 'below';
         this.state.exitBar = { ...c5m };
         this.state.phase = 'watching_for_pattern';
@@ -346,8 +346,8 @@ class LiquiditySweepDetector {
 
     // Steps 5-7: Watch for reversal pattern
     if (this.state.phase === 'watching_for_pattern') {
-      const isOutsideBox = (this.state.exitSide === 'above' && c5m.c > box.high) ||
-                           (this.state.exitSide === 'below' && c5m.c < box.low);
+      const isOutsideBox = (this.state.exitSide === 'above' && c(c5m) > box.high) ||
+                           (this.state.exitSide === 'below' && c(c5m) < box.low);
 
       if (!isOutsideBox) {
         this.state.phase = 'watching_for_exit';
@@ -499,8 +499,8 @@ class LiquiditySweepDetector {
     const trs = [];
     for (let i = 1; i < candles.length; i++) {
       const curr = candles[i];
-      const prevClose = candles[i - 1].close;
-      trs.push(Math.max(curr.high - curr.low, Math.abs(curr.high - prevClose), Math.abs(curr.low - prevClose)));
+      const prevClose = c(candles[i - 1]);
+      trs.push(Math.max(h(curr) - l(curr), Math.abs(h(curr) - prevClose), Math.abs(l(curr) - prevClose)));
     }
     const recent = trs.slice(-this.config.atrPeriod);
     this.state.dailyATR = recent.reduce((s, t) => s + t, 0) / recent.length;
