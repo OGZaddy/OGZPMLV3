@@ -153,7 +153,7 @@ class BacktestRecorder {
             t.netPnlDollars.toFixed(2),
             t.netPnlPercent.toFixed(2),
             t.strategyName,
-            (t.confidence * 100).toFixed(1),
+            t.confidence.toFixed(1),
             t.exitReason,
             t.balanceAfter.toFixed(2),
             t.holdTimeMinutes.toFixed(1)
@@ -331,7 +331,7 @@ class BacktestRecorder {
         console.log(`\n📋 BASIC INFO:`);
         console.log(`   Strategy:     ${trade.strategyName}`);
         console.log(`   Direction:    ${trade.direction.toUpperCase()}`);
-        console.log(`   Confidence:   ${(trade.confidence * 100).toFixed(1)}%`);
+        console.log(`   Confidence:   ${trade.confidence.toFixed(1)}%`);
         console.log(`   Entry Time:   ${trade.entryTime}`);
         console.log(`   Exit Time:    ${trade.exitTime}`);
         console.log(`   Hold Time:    ${trade.holdTimeMinutes.toFixed(1)} minutes`);

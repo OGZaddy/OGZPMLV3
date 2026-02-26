@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Backtest Accuracy Fixes (2026-02-26)
+
+**Session Focus:** Fixed confidence display bug and strategy attribution collision.
+
+#### BacktestRecorder Fixes (2)
+1. **Confidence double-multiplication**
+   - Bug: CSV showed 8000% confidence instead of 48%
+   - Root cause: `t.confidence * 100` when confidence already stored as percentage
+   - Fix: Removed `* 100` from lines 156 and 334
+   - Location: `core/BacktestRecorder.js:156,334`
+
+#### Strategy Orchestrator Fixes (2)
+2. **RSI Extreme strategy misnamed**
+   - Bug: Strategy named `'CandlePattern'` causing attribution collision
+   - Fix: Renamed to `'RSI'` for proper exit contract matching
+   - Location: `core/StrategyOrchestrator.js:232`
+
+3. **OGZ TPO strategy misnamed**
+   - Bug: Strategy named `'CandlePattern'` causing attribution collision
+   - Fix: Renamed to `'OGZTPO'` for proper exit contract matching
+   - Location: `core/StrategyOrchestrator.js:352`
+
+#### ExitContractManager Fixes (1)
+4. **Missing OGZTPO default contract**
+   - Bug: No default contract for newly renamed OGZTPO strategy
+   - Fix: Added OGZTPO entry to DEFAULT_CONTRACTS
+   - Location: `core/ExitContractManager.js:96-103`
+
+---
+
 ### Data Structure Audit - 7 Critical Mismatches Fixed (2026-02-25)
 
 **Session Focus:** Full pipeline audit found 9 data structure mismatches. Fixed 7, deferred 2 architectural.

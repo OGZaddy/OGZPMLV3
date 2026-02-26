@@ -1,0 +1,26 @@
+[
+  {
+    "id": "FIX-2026-02-26-001",
+    "date": "2026-02-26",
+    "severity": "HIGH",
+    "symptom": "BacktestRecorder showed 8000% confidence instead of 48%",
+    "root_cause": "Double multiplication - confidence already percentage, multiplied by 100 again",
+    "minimal_fix": "Removed * 100 from lines 156 and 334",
+    "files": ["core/BacktestRecorder.js:156", "core/BacktestRecorder.js:334"],
+    "what_worked": ["Simple removal of multiplication"],
+    "what_failed": [],
+    "outcome": "success"
+  },
+  {
+    "id": "FIX-2026-02-26-002",
+    "date": "2026-02-26",
+    "severity": "MEDIUM",
+    "symptom": "Three strategies all named 'CandlePattern' causing attribution collision",
+    "root_cause": "RSI Extreme and OGZTPO strategies both named 'CandlePattern'",
+    "minimal_fix": "Renamed to 'RSI' and 'OGZTPO' respectively, added OGZTPO default contract",
+    "files": ["core/StrategyOrchestrator.js:232", "core/StrategyOrchestrator.js:352", "core/ExitContractManager.js:96-103"],
+    "what_worked": ["Unique strategy names", "Default contract for OGZTPO"],
+    "what_failed": [],
+    "outcome": "success"
+  }
+]

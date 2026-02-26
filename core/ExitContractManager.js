@@ -93,6 +93,15 @@ const DEFAULT_CONTRACTS = {
     maxHoldTimeMinutes: 120
   },
 
+  // OGZ TPO - value area / POC trades (provides own levels via overrideLevels)
+  OGZTPO: {
+    stopLossPercent: -0.5,
+    takeProfitPercent: 0.8,
+    trailingStopPercent: 0.25,
+    invalidationConditions: [],
+    maxHoldTimeMinutes: 90
+  },
+
   // Default fallback for unknown strategies
   default: {
     stopLossPercent: -0.45,

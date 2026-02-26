@@ -229,7 +229,7 @@ class StrategyOrchestrator {
 
     // ─── 5. RSI Extreme Strategy ───
     this.strategies.push({
-      name: 'CandlePattern',  // Maps to CandlePattern exit contract
+      name: 'RSI',  // RSI Extreme strategy
       evaluate: (ctx) => {
         const rsi = ctx.indicators?.rsi;
         if (rsi == null) return null;
@@ -349,7 +349,7 @@ class StrategyOrchestrator {
 
     // ─── 8. OGZ TPO Strategy ───
     this.strategies.push({
-      name: 'CandlePattern', // Uses candle pattern exit contract
+      name: 'OGZTPO',  // OGZ TPO strategy
       evaluate: (ctx) => {
         const tpo = ctx.extras?.tpoResult;
         if (!tpo || !tpo.signal) return null;
