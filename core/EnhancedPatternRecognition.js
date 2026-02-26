@@ -78,8 +78,10 @@ class FeatureExtractor {
       const bb = indicators.calculateBollingerBands(candles);
       const bbWidth = bb.width || 0;
 
-      // Volatility measure
-      const vol = indicators.calculateVolatility(candles);
+      // Volatility measure - FIX 2026-02-26 P1: Normalize to 0-1 scale
+      // Raw stddev ~0.02 for normal, ~0.05 for high vol. Cap at 1.0
+      const rawVol = indicators.calculateVolatility(candles);
+      const vol = Math.min(rawVol / 0.05, 1.0);  // Normalize: 0.05 stddev = 1.0
 
       // Normalize and encode features
       const rsiNormalized = calculatedRsi / 100;  // Scale to 0-1
@@ -316,17 +318,12 @@ class PatternMemorySystem {
     this.memory = {};
   }
 
-  // Add a minimal seed pattern if we have absolutely nothing
+  // FIX 2026-02-26 P6: Removed BASE_PATTERN seed - wrong format, never matched
+  // The old seed used { type, confidence, occurrences } but real patterns use
+  // { timesSeen, wins, losses, totalPnL, results[] }. It was invisible to evaluation.
   if (Object.keys(this.memory).length === 0) {
-    this.memory['BASE_PATTERN'] = {
-      type: 'seed',
-      confidence: 0.5,
-      successRate: 0.5,
-      occurrences: 1,
-      lastSeen: Date.now()
-    };
-    this.patternCount = 1;
-    console.log('âœ… Added minimal seed pattern for bot startup');
+    console.log('📊 Starting with empty pattern memory (will learn from trades)');
+    this.patternCount = 0;
   } else {
     console.log(`âœ… Keeping ${Object.keys(this.memory).length} existing patterns`);
   }
@@ -633,11 +630,10 @@ class PatternMemorySystem {
 
     const opts = {
       similarityThreshold: 0.8,
-      // REFACTOR 2026-02-19: Lowered from 3 to 1. With 8182 patterns all at timesSeen 1-2,
-      // the old threshold of 3 meant NO pattern EVER contributed to a single trade.
-      // Patterns need to start contributing from their first occurrence, then gain
-      // influence as they accumulate history (timesSeen acts as natural weight).
-      minimumMatches: 1,
+      // FIX 2026-02-26 P2: Raised from 1 to 3. Single-sample win rates cause +25% noise.
+      // A pattern with 1 win = 100% WR → +25% confidence. Then 1 loss → 50% WR → 0%.
+      // Need at least 3 samples for statistical relevance.
+      minimumMatches: 3,
       // REFACTOR 2026-02-19: Lowered from 0.6 to 0.2. At 60% threshold, even a pattern
       // with 1 win / 2 seen (50% win rate) returned confidence=0. New patterns need room
       // to grow. Low confidence = low influence, but at least non-zero.

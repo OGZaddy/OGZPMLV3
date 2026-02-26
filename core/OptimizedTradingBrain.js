@@ -2542,9 +2542,12 @@ class OptimizedTradingBrain {
     };
 
     // OFFENSIVE MODULE: Pattern Recognition (CRITICAL: 15-30% confidence boost)
-    if (this.patternRecognition && this.priceData && this.priceData.length >= 30) {
+    // FIX 2026-02-26 P5: Use pre-analyzed patterns if provided (avoid duplicate call)
+    // run-empire already calls analyzePatterns at line 1659, passing result here avoids double computation
+    const preAnalyzedPatterns = marketData.patterns || null;
+    if ((preAnalyzedPatterns || this.patternRecognition) && this.priceData && this.priceData.length >= 30) {
       try {
-        const detectedPatterns = this.patternRecognition.analyzePatterns({
+        const detectedPatterns = preAnalyzedPatterns || this.patternRecognition.analyzePatterns({
           candles: this.priceData,
           trend: marketData.trend || 'sideways',
           macd: marketData.macd || 0,
