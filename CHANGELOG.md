@@ -7,33 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Backtest Accuracy Fixes (2026-02-26)
+### Data Structure Mismatch Audit - Deep Trace (2026-02-26)
 
-**Session Focus:** Fixed confidence display bug and strategy attribution collision.
+**Session Focus:** Fixed 7 bugs from Claude Desktop audit. Every backtest was running with corrupted data.
 
-#### BacktestRecorder Fixes (2)
-1. **Confidence double-multiplication**
-   - Bug: CSV showed 8000% confidence instead of 48%
-   - Root cause: `t.confidence * 100` when confidence already stored as percentage
-   - Fix: Removed `* 100` from lines 156 and 334
+#### Critical Fixes (2)
+1. **ATR missing from indicator reshape** (BUG 1)
+   - Bug: ECM volatility check used raw `volatility` ($500) not `atr`
+   - Result: `500 > 5.0` always true → SL×1.15, TP×1.2 on EVERY trade
+   - Fix: Added `atr: engineState.atr` to indicators
+   - Location: `run-empire-v2.js:1641-1642`
+
+2. **initialBalance mismatch**
+   - Bug: BacktestRecorder=25000, StateManager=10000
+   - Result: All CSV percentages wrong
+   - Fix: Both use `INITIAL_BALANCE || 10000`
+   - Location: `run-empire-v2.js:498,1401`
+
+#### High Priority Fixes (4)
+3. **BacktestRecorder confidence** (BUG 3)
+   - Bug: `t.confidence * 100` when already 0-100 → 4800%
+   - Fix: Removed `* 100`
    - Location: `core/BacktestRecorder.js:156,334`
 
-#### Strategy Orchestrator Fixes (2)
-2. **RSI Extreme strategy misnamed**
-   - Bug: Strategy named `'CandlePattern'` causing attribution collision
-   - Fix: Renamed to `'RSI'` for proper exit contract matching
-   - Location: `core/StrategyOrchestrator.js:232`
+4. **bbWidth always 0.02** (BUG 4)
+   - Bug: Bollinger bandwidth missing from reshape
+   - Fix: Added `bbWidth: engineState.bbExtras?.bandwidth`
+   - Location: `run-empire-v2.js:1643-1644`
 
-3. **OGZ TPO strategy misnamed**
-   - Bug: Strategy named `'CandlePattern'` causing attribution collision
-   - Fix: Renamed to `'OGZTPO'` for proper exit contract matching
-   - Location: `core/StrategyOrchestrator.js:352`
+5. **RSI normalization mismatch** (BUG 5)
+   - Bug: Fallback `(rsi-50)/50`, EPR uses `rsi/100`
+   - Fix: Changed to `rsi / 100`
+   - Location: `run-empire-v2.js:1717`
 
-#### ExitContractManager Fixes (1)
-4. **Missing OGZTPO default contract**
-   - Bug: No default contract for newly renamed OGZTPO strategy
-   - Fix: Added OGZTPO entry to DEFAULT_CONTRACTS
-   - Location: `core/ExitContractManager.js:96-103`
+6. **Strategy naming collision**
+   - Bug: RSI, Pattern, TPO all named 'CandlePattern'
+   - Fix: Renamed to 'RSI', 'OGZTPO'
+   - Location: `core/StrategyOrchestrator.js:232,352`
+
+#### Medium Priority Fixes (1)
+7. **HOLD confidence format** (BUG 6)
+   - Bug: HOLD=0-1, BUY/SELL=0-100
+   - Fix: Added `* 100` to HOLD
+   - Location: `core/StrategyOrchestrator.js:473`
 
 ---
 

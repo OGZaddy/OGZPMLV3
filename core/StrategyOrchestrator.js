@@ -470,7 +470,7 @@ class StrategyOrchestrator {
       return {
         action: 'HOLD',
         direction: 'hold',
-        confidence: winner.confidence,
+        confidence: winner.confidence * 100,  // FIX 2026-02-26: Match BUY/SELL format (0-100)
         winnerStrategy: winner.strategyName,
         exitContract: null,
         sizingMultiplier: 1.0,

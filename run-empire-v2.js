@@ -493,9 +493,12 @@ class OGZPrimeV14Bot {
     this.maDynamicSR = new MADynamicSR();
     this.breakAndRetest = new BreakAndRetest();
 
-    // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking with $25k starting balance
+    // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking
+    // FIX 2026-02-26: Use same INITIAL_BALANCE as StateManager (was hardcoded 25000 vs 10000 mismatch)
     if (process.env.BACKTEST_MODE === 'true') {
-      this.backtestRecorder = new BacktestRecorder({ startingBalance: 25000 });
+      this.backtestRecorder = new BacktestRecorder({
+        startingBalance: parseFloat(process.env.INITIAL_BALANCE) || 10000
+      });
     }
 
     this.liquiditySweep = new LiquiditySweepDetector({
@@ -1398,7 +1401,8 @@ class OGZPrimeV14Bot {
         const currentPosition = stateManager.get('position') || 0;
         const positionValue = currentPosition * price;  // Current market value of position
         const totalAccountValue = currentBalance + positionValue;
-        const initialBalance = 10000;  // TODO: Make this configurable
+        // FIX 2026-02-26: Use StateManager instead of hardcoded value
+        const initialBalance = stateManager.get('initialBalance') || parseFloat(process.env.INITIAL_BALANCE) || 10000;
         const totalPnL = totalAccountValue - initialBalance;  // Correct: includes open position
         const trades = this.executionLayer?.trades || [];
         const closedTrades = trades.filter(t => t.pnl !== undefined);
@@ -1634,7 +1638,11 @@ class OGZPrimeV14Bot {
       ema12: engineState.ema?.[12] || price,
       ema26: engineState.ema?.[26] || price,
       trend: OptimizedIndicators.determineTrend(this.priceHistory, 10, 30), // Keep for now
-      volatility: engineState.atr || OptimizedIndicators.calculateVolatility(this.priceHistory, 20)
+      volatility: engineState.atr || OptimizedIndicators.calculateVolatility(this.priceHistory, 20),
+      // FIX 2026-02-26: Add atr for ECM volatility check (was using raw $ causing always-widen)
+      atr: engineState.atr,
+      // FIX 2026-02-26: Add bbWidth for pattern learning (was always 0.02)
+      bbWidth: engineState.bbExtras?.bandwidth || 0.02
     };
 
     // CHANGE 655: RSI Smoothing - Prevent machine-gun trading without circuit breakers
@@ -1708,7 +1716,8 @@ class OGZPrimeV14Bot {
              indicators.trend === 'bearish' || indicators.trend === 'downtrend' ? -1 : 0)
           : (indicators.trend || 0);
         // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
-          const rsiNormalized = ((indicators.rsi || 50) - 50) / 50;
+          // FIX 2026-02-26: Match EPR's rsi/100 convention (was -1 to 1, EPR uses 0-1)
+          const rsiNormalized = (indicators.rsi || 50) / 100;
           const macdDelta = (indicators.macd?.macd || 0) - (indicators.macd?.signal || 0);
           featuresForRecording = [
             rsiNormalized,                           // [0] RSI normalized -1 to 1
