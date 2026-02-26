@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Pattern System Lifecycle Audit (2026-02-26)
+
+**Session Focus:** Fixed 4 bugs from Claude Desktop pattern system audit. Pattern learning was effectively random due to scale mismatches.
+
+#### Critical Fixes (2)
+1. **Volatility feature destroys similarity matching** (P1)
+   - Bug: Raw stddev ~0.02 vs other features 0-1, 25,000x scale difference
+   - Result: Pattern similarity = "was ATR identical?" - all other features ignored
+   - Fix: `vol = Math.min(rawVol / 0.05, 1.0)` - normalize to 0-1
+   - Location: `core/EnhancedPatternRecognition.js:81-84`
+
+2. **One-sample win rate = +25% confidence swing** (P2)
+   - Bug: minimumMatches=1, single win = 100% WR → +25% confidence
+   - Result: Patterns oscillate between +25% and 0% based on last outcome
+   - Fix: Raised minimumMatches from 1 to 3
+   - Location: `core/EnhancedPatternRecognition.js:636`
+
+#### Already Fixed (1)
+3. **analyzePatterns called twice per candle** (P5)
+   - Audit noted duplicate computation
+   - Already fixed: StrategyOrchestrator replaced TradingBrain for decisions
+   - Added defensive preAnalyzedPatterns check for future-proofing
+   - Location: `core/OptimizedTradingBrain.js:2544-2550`
+
+#### High Fixes (1)
+5. **RSI normalization mismatch at exit** (P3)
+   - Bug: Entry used `rsi/100` (0-1), exit used `(rsi-50)/50` (-1 to 1)
+   - Result: Exit recorded outcomes against DIFFERENT pattern keys than entry
+   - Fix: Changed exit to `rsi/100` to match entry/EPR
+   - Location: `run-empire-v2.js:3152`
+
+#### Removed Dead Code (1)
+4. **BASE_PATTERN seed format wrong** (P6)
+   - Bug: Seed used `{ confidence, occurrences }`, real patterns use `{ timesSeen, wins }`
+   - Result: Seed pattern invisible to all evaluation code
+   - Fix: Removed - patterns learn from trades
+   - Location: `core/EnhancedPatternRecognition.js:321-329`
+
+---
+
 ### Data Structure Mismatch Audit - Deep Trace (2026-02-26)
 
 **Session Focus:** Fixed 7 bugs from Claude Desktop audit. Every backtest was running with corrupted data.

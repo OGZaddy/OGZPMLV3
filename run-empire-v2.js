@@ -3149,7 +3149,8 @@ class OGZPrimeV14Bot {
                      entryTrend === 'bearish' || entryTrend === 'downtrend' ? -1 : 0)
                   : (entryTrend || 0);
                 // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
-                const rsiNormalized = ((buyTrade.entryIndicators?.rsi || 50) - 50) / 50;
+                // FIX 2026-02-26 P3: Match entry/EPR convention (rsi/100 = 0-1 range, was -1 to 1)
+                const rsiNormalized = (buyTrade.entryIndicators?.rsi || 50) / 100;
                 const macdDelta = (buyTrade.entryIndicators?.macd || 0) - (buyTrade.entryIndicators?.macdSignal || 0);
                 featuresForRecording = [
                   rsiNormalized,                                    // [0] RSI normalized

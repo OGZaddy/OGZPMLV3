@@ -24,3 +24,15 @@
     "outcome": "success"
   }
 ]
+,{
+  "id": "FIX-2026-02-26-P3",
+  "date": "2026-02-26",
+  "severity": "CRITICAL",
+  "symptom": "Pattern learning corrupted - outcomes recorded against wrong pattern keys",
+  "root_cause": "Exit RSI normalization used (rsi-50)/50 (-1 to 1) but entry used rsi/100 (0-1)",
+  "minimal_fix": "Changed line 3152 from ((rsi-50)/50) to (rsi/100)",
+  "files": ["run-empire-v2.js:3152"],
+  "what_worked": ["Matching entry normalization convention"],
+  "what_failed": [],
+  "outcome": "success"
+}
