@@ -291,8 +291,6 @@ console.log('  RiskManager:', !!RiskManager);
 const AdvancedExecutionLayer = loader.get('core', 'AdvancedExecutionLayer-439-MERGED');
 console.log('  AdvancedExecutionLayer:', !!AdvancedExecutionLayer);
 const PerformanceAnalyzer = loader.get('core', 'PerformanceAnalyzer');
-const OptimizedIndicators = loader.get('core', 'OptimizedIndicators');
-const MarketRegimeDetector = loader.get('core', 'MarketRegimeDetector');
 const TradingProfileManager = loader.get('core', 'TradingProfileManager');
 const GridTradingStrategy = loader.get('core', 'GridTradingStrategy');
 
@@ -475,7 +473,6 @@ class OGZPrimeV14Bot {
     });
 
     this.performanceAnalyzer = new PerformanceAnalyzer();
-    this.regimeDetector = new MarketRegimeDetector();
 
     // Initialize Pattern Exit Model (shadow mode by default)
     this.patternExitModel = null;
@@ -584,8 +581,6 @@ class OGZPrimeV14Bot {
 
     // ðŸ”¥ CRITICAL FIX (Change 547): Connect modules to TradingBrain
     // Without these connections, confidence calculation fails (stuck at 10-35%)
-    this.tradingBrain.optimizedIndicators = OptimizedIndicators;
-    this.tradingBrain.marketRegimeDetector = this.regimeDetector;
     this.tradingBrain.patternRecognition = this.patternChecker;
 
     // Change 587: SafetyNet and TradeLogger removed
@@ -2469,7 +2464,7 @@ class OGZPrimeV14Bot {
                rsi: indicators.rsi,
                macd: indicators.macd
              },
-             regime: this.regimeDetector?.currentRegime || 'unknown',
+             regime: this.marketRegime?.currentRegime || 'unknown',
              profitPercent,
              maxProfitManagerState: profitResult
            });
