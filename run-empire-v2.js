@@ -134,6 +134,11 @@ const contractValidator = ContractValidator.createMonitor();
 const { CandleStore } = require('./core/CandleStore');
 const { IndicatorCalculator } = require('./core/IndicatorCalculator');
 
+// PHASE 2: IndicatorSnapshot - THE single reshape point for indicators
+// Creates canonical indicator object from raw engine output. No fallback paths.
+// See: ogz-meta/REFACTOR-PLAN-2026-02-27.md
+const { IndicatorSnapshot } = require('./core/IndicatorSnapshot');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
