@@ -3179,6 +3179,15 @@ class OGZPrimeV14Bot {
               console.log(`ðŸ§  Pattern learning: ${pattern.name} â†’ ${pnl.toFixed(2)}%`);
             }
 
+            // FIX 2026-02-26: Run health check every 10 trade exits to detect broken pattern recording
+            this.tradeExitCount = (this.tradeExitCount || 0) + 1;
+            if (this.tradeExitCount % 10 === 0 && this.patternChecker?.memory) {
+              const health = this.patternChecker.memory.healthCheck();
+              if (!health.healthy) {
+                console.error('🚨 PATTERN SYSTEM UNHEALTHY - outcomes not recording correctly!');
+              }
+            }
+
             // 3. Update PerformanceAnalyzer (using processTrade, not recordTrade)
             this.performanceAnalyzer.processTrade(completeTradeResult);
 

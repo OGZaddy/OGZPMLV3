@@ -823,6 +823,71 @@ class PatternMemorySystem {
       overallWinRate: totalTrades > 0 ? totalWins / totalTrades : 0
     };
   }
+
+  /**
+   * HEALTH CHECK: Verify pattern outcomes are being recorded correctly
+   * FIX 2026-02-26: Added after P3 bug (RSI normalization mismatch) was found
+   * This detects if outcomes are going to wrong pattern keys
+   * @returns {Object} Health check result
+   */
+  healthCheck() {
+    const stats = this.getStats();
+    const patternCount = Object.keys(this.memory).length;
+
+    // Skip check if no patterns yet
+    if (patternCount === 0) {
+      return { healthy: true, reason: 'No patterns yet (fresh start)', stats };
+    }
+
+    // Count patterns with outcomes vs observations only
+    let patternsWithOutcomes = 0;
+    let patternsObservationOnly = 0;
+
+    for (const key of Object.keys(this.memory)) {
+      const entry = this.memory[key];
+      if (!entry) continue;
+
+      const hasOutcome = (entry.wins || 0) + (entry.losses || 0) > 0;
+      if (hasOutcome) {
+        patternsWithOutcomes++;
+      } else if (entry.timesSeen > 0) {
+        patternsObservationOnly++;
+      }
+    }
+
+    // Health check logic
+    const outcomeRatio = patternCount > 0 ? patternsWithOutcomes / patternCount : 0;
+
+    // If we have many patterns but zero outcomes, something is wrong
+    if (patternCount >= 10 && patternsWithOutcomes === 0) {
+      console.error('🚨 PATTERN HEALTH CHECK FAILED!');
+      console.error(`   ${patternCount} patterns observed, but 0 have outcomes (wins/losses)`);
+      console.error('   This suggests exit recording is broken (RSI normalization mismatch?)');
+      console.error('   Check: run-empire-v2.js line 3152 should use rsi/100, not (rsi-50)/50');
+      return {
+        healthy: false,
+        reason: `${patternCount} patterns but 0 outcomes - exit recording broken!`,
+        patternsWithOutcomes,
+        patternsObservationOnly,
+        outcomeRatio,
+        stats
+      };
+    }
+
+    // Healthy
+    if (patternsWithOutcomes > 0) {
+      console.log(`✅ Pattern health OK: ${patternsWithOutcomes}/${patternCount} patterns have outcomes`);
+    }
+
+    return {
+      healthy: true,
+      reason: `${patternsWithOutcomes}/${patternCount} patterns have outcomes`,
+      patternsWithOutcomes,
+      patternsObservationOnly,
+      outcomeRatio,
+      stats
+    };
+  }
 }
 
 /**

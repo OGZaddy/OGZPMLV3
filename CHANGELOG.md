@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Fix: Changed exit to `rsi/100` to match entry/EPR
    - Location: `run-empire-v2.js:3152`
 
+#### Health Check Added
+6. **Pattern system health check** (NEW)
+   - Added `healthCheck()` method to PatternMemorySystem
+   - Runs every 10 trade exits to detect broken pattern recording
+   - Alerts if patterns observed but zero outcomes recorded
+   - Location: `core/EnhancedPatternRecognition.js:827-890`, `run-empire-v2.js:3182-3189`
+
 #### Removed Dead Code (1)
 4. **BASE_PATTERN seed format wrong** (P6)
    - Bug: Seed used `{ confidence, occurrences }`, real patterns use `{ timesSeen, wins }`

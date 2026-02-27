@@ -22,17 +22,29 @@
     "what_worked": ["Unique strategy names", "Default contract for OGZTPO"],
     "what_failed": [],
     "outcome": "success"
+  },
+  {
+    "id": "FIX-2026-02-26-P3",
+    "date": "2026-02-26",
+    "severity": "CRITICAL",
+    "symptom": "Pattern learning corrupted - outcomes recorded against wrong pattern keys",
+    "root_cause": "Exit RSI normalization used (rsi-50)/50 (-1 to 1) but entry used rsi/100 (0-1)",
+    "minimal_fix": "Changed line 3152 from ((rsi-50)/50) to (rsi/100)",
+    "files": ["run-empire-v2.js:3152"],
+    "what_worked": ["Matching entry normalization convention"],
+    "what_failed": [],
+    "outcome": "success"
+  },
+  {
+    "id": "FIX-2026-02-26-P3-HC",
+    "date": "2026-02-26",
+    "severity": "MEDIUM",
+    "symptom": "No automatic detection when pattern recording breaks",
+    "root_cause": "Pattern system corruption only discovered after weeks of lost data",
+    "minimal_fix": "Added healthCheck() method that runs every 10 trade exits",
+    "files": ["core/EnhancedPatternRecognition.js:827-890", "run-empire-v2.js:3182-3189"],
+    "what_worked": ["Automatic health check detects broken pattern recording"],
+    "what_failed": [],
+    "outcome": "success"
   }
 ]
-,{
-  "id": "FIX-2026-02-26-P3",
-  "date": "2026-02-26",
-  "severity": "CRITICAL",
-  "symptom": "Pattern learning corrupted - outcomes recorded against wrong pattern keys",
-  "root_cause": "Exit RSI normalization used (rsi-50)/50 (-1 to 1) but entry used rsi/100 (0-1)",
-  "minimal_fix": "Changed line 3152 from ((rsi-50)/50) to (rsi/100)",
-  "files": ["run-empire-v2.js:3152"],
-  "what_worked": ["Matching entry normalization convention"],
-  "what_failed": [],
-  "outcome": "success"
-}
