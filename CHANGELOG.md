@@ -67,6 +67,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pipeline audit: 98.1% pass (261/266)
 - 5 failures expected (old method names no longer called)
 
+### Dead Code Removal (2026-02-27)
+
+**Session Focus:** Removed dead imports and injections replaced by Phase 0-3 wired modules.
+
+#### Removed (4 lines)
+1. `const MarketRegimeDetector = loader.get(...)` - import
+2. `this.regimeDetector = new MarketRegimeDetector()` - instantiation
+3. `this.tradingBrain.marketRegimeDetector = this.regimeDetector` - injection
+4. `const OptimizedIndicators = loader.get(...)` - import
+5. `this.tradingBrain.optimizedIndicators = OptimizedIndicators` - injection
+
+#### Fixed (1 line)
+- `this.regimeDetector?.currentRegime` → `this.marketRegime?.currentRegime`
+
+#### NOT Removed (still needed)
+- `OptimizedIndicators.js` file - brain has internal refs, skipped via null check
+- `MarketRegimeDetector.js` file - can be removed in future cleanup
+
 ### Pattern System Lifecycle Audit (2026-02-26)
 
 **Session Focus:** Fixed 4 bugs from Claude Desktop pattern system audit. Pattern learning was effectively random due to scale mismatches.
