@@ -40,6 +40,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 5 wiring failures expected (Phase 5+ will wire modules into trading loop)
 - All modules load and instantiate correctly
 
+### Modular Architecture Phase 0-3 WIRING (2026-02-27)
+
+**Session Focus:** Wired corrected modules into trading pipeline per FULL-INTEGRATION-PACKAGE.md from Claude Desktop.
+
+#### Wiring Complete (3)
+1. **IndicatorSnapshot replaces manual reshape**
+   - Before: Manual reshape at line 1661 with silent fallbacks (`rsi ?? 50`)
+   - After: `_indicatorSnapshot.create(engineState, price)` with contracts
+   - Warmup fallback for first ~50 candles, then strict mode
+   - Backward compat aliases: ema12, ema26, volatility, bbWidth
+   - Location: `run-empire-v2.js:1660-1695`
+
+2. **RegimeDetector replaces MarketRegimeDetector call**
+   - Before: 797-line MarketRegimeDetector.analyzeMarket()
+   - After: New RegimeDetector.detect() with trend > volatile priority
+   - Location: `run-empire-v2.js:1820-1830`
+
+3. **CandleStore shadows priceHistory**
+   - Dual-write to both priceHistory and _candleStore
+   - Zero behavior change, enables future migration
+   - Location: `run-empire-v2.js:636, 1351, 1365`
+
+#### Test Results
+- Golden test: No errors, no contract violations, trades firing
+- Pipeline audit: 98.1% pass (261/266)
+- 5 failures expected (old method names no longer called)
+
 ### Pattern System Lifecycle Audit (2026-02-26)
 
 **Session Focus:** Fixed 4 bugs from Claude Desktop pattern system audit. Pattern learning was effectively random due to scale mismatches.
