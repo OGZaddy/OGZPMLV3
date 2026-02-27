@@ -10,6 +10,9 @@
  * @see ogz-meta/REFACTOR-PLAN-2026-02-27.md
  */
 
+// FIX: Use CandleHelper for format compatibility (Kraken vs standard candle format)
+const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require('./CandleHelper');
+
 class ContractViolation extends Error {
   constructor(message, field, value, expected) {
     super(`CONTRACT VIOLATION: ${message}`);
@@ -201,6 +204,7 @@ class ContractValidator {
 
   /**
    * Validates OHLCV candle objects
+   * Uses CandleHelper for format compatibility (supports both Kraken and standard format)
    */
   validateCandle(candle) {
     if (!candle || typeof candle !== 'object') {
@@ -208,29 +212,37 @@ class ContractValidator {
       return false;
     }
 
+    // Extract values using CandleHelper for format compatibility
+    const timestamp = _t(candle);
+    const open = _o(candle);
+    const high = _h(candle);
+    const low = _l(candle);
+    const close = _c(candle);
+    const volume = _v(candle);
+
     let valid = true;
 
-    valid = this.assertPositive('timestamp', candle.timestamp) && valid;
-    valid = this.assertPositive('open', candle.open) && valid;
-    valid = this.assertPositive('high', candle.high) && valid;
-    valid = this.assertPositive('low', candle.low) && valid;
-    valid = this.assertPositive('close', candle.close) && valid;
-    valid = this.assertNumber('volume', candle.volume) && valid;
+    valid = this.assertPositive('timestamp', timestamp) && valid;
+    valid = this.assertPositive('open', open) && valid;
+    valid = this.assertPositive('high', high) && valid;
+    valid = this.assertPositive('low', low) && valid;
+    valid = this.assertPositive('close', close) && valid;
+    valid = this.assertNumber('volume', volume) && valid;
 
     // Sanity checks
     if (valid) {
-      if (candle.high < candle.low) {
-        this._violation('candle.high/low', `high=${candle.high}, low=${candle.low}`,
+      if (high < low) {
+        this._violation('candle.high/low', `high=${high}, low=${low}`,
           'high >= low', 'candle high must be >= low');
         valid = false;
       }
-      if (candle.high < candle.open || candle.high < candle.close) {
-        this._violation('candle.high', candle.high,
+      if (high < open || high < close) {
+        this._violation('candle.high', high,
           '>= open and close', 'candle high must be >= open and close');
         valid = false;
       }
-      if (candle.low > candle.open || candle.low > candle.close) {
-        this._violation('candle.low', candle.low,
+      if (low > open || low > close) {
+        this._violation('candle.low', low,
           '<= open and close', 'candle low must be <= open and close');
         valid = false;
       }

@@ -127,6 +127,13 @@ const { c: _c, o: _o, h: _h, l: _l, v: _v } = require('./core/CandleHelper');
 const { ContractValidator } = require('./core/ContractValidator');
 const contractValidator = ContractValidator.createMonitor();
 
+// PHASE 1: CandleStore + IndicatorCalculator - pure data and math modules
+// CandleStore: stores candles by symbol/timeframe (will replace this.priceHistory)
+// IndicatorCalculator: stateless indicator calculations (pure math)
+// See: ogz-meta/REFACTOR-PLAN-2026-02-27.md
+const { CandleStore } = require('./core/CandleStore');
+const { IndicatorCalculator } = require('./core/IndicatorCalculator');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
