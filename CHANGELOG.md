@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Modular Architecture Phase 0-3 Corrections (2026-02-27)
+
+**Session Focus:** Applied corrections from Claude Desktop audit. Modules were imported but never instantiated/called. Fixed silent fallbacks and incorrect classification priority.
+
+#### Critical Fixes (3)
+1. **ContractValidator: bb/trend validation now mandatory**
+   - Bug: trend and bb checks were wrapped in `if (... !== undefined)` - missing data passed silently
+   - Result: IndicatorSnapshot could return incomplete data without any warning
+   - Fix: Removed optional wrappers, validation now REQUIRED
+   - Location: `core/ContractValidator.js:67-81`
+
+2. **IndicatorSnapshot: strict extraction, throws on missing**
+   - Bug: Silent fallbacks like `raw.rsi ?? 50` masked missing data
+   - Result: Missing RSI looked "neutral" instead of erroring
+   - Fix: `_requireNumber()` and `_requirePositive()` THROW on missing fields
+   - Location: `core/IndicatorSnapshot.js:160-186`
+
+3. **RegimeDetector: trend priority over volatility**
+   - Bug: Volatile override trend (BTC trending UP with high vol = "volatile")
+   - Result: Trending markets misclassified as volatile, wrong strategy applied
+   - Fix: Trend takes PRIORITY - only "volatile" if high ATR + NO direction
+   - Location: `core/RegimeDetector.js:226-258`
+
+#### Renamed for Honesty (1)
+4. **ADX renamed to directionalDominance**
+   - The metric was never ADX - it counted candles moving in dominant direction
+   - Honest name prevents future confusion about what it measures
+
+#### Audit Results
+- Pipeline audit: 98.1% pass (261/266)
+- 5 wiring failures expected (Phase 5+ will wire modules into trading loop)
+- All modules load and instantiate correctly
+
 ### Pattern System Lifecycle Audit (2026-02-26)
 
 **Session Focus:** Fixed 4 bugs from Claude Desktop pattern system audit. Pattern learning was effectively random due to scale mismatches.
