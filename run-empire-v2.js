@@ -120,6 +120,13 @@ const FeatureFlagManager = require('./core/FeatureFlagManager');
 
 // FIX 2026-02-16: Use centralized candle helper for format compatibility (backtest vs live)
 const { c: _c, o: _o, h: _h, l: _l, v: _v } = require('./core/CandleHelper');
+
+// PHASE 0: ContractValidator - validates data contracts at module boundaries
+// Monitor mode: logs violations but doesn't throw (zero behavioral impact)
+// See: ogz-meta/REFACTOR-PLAN-2026-02-27.md
+const { ContractValidator } = require('./core/ContractValidator');
+const contractValidator = ContractValidator.createMonitor();
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -2090,6 +2097,8 @@ class OGZPrimeV14Bot {
     // CHANGE 639: Pass TradingBrain's direction to makeTradeDecision
     // Bug: When TRAI disabled, TradingBrain's 'sell' signal was ignored
     // Fix: Pass tradingDirection so makeTradeDecision respects TradingBrain
+    // DEBUG 2026-02-27: Log what's being passed to makeTradeDecision
+    console.log(`🔍 PRE-DECISION: tradingDirection=${tradingDirection}, conf=${confidenceData.totalConfidence.toFixed(1)}%`);
     const decision = this.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection);
 
     // CHANGE 2026-02-16: Store for PipelineSnapshot to read
@@ -2602,6 +2611,7 @@ class OGZPrimeV14Bot {
     }
 
     // Log allowed trade
+    console.log("*** EXECUTE_TRADE_REACHED ***");
     console.log(`\nðŸŽ¯ ${decision.action} SIGNAL @ $${price.toFixed(2)} | Confidence: ${decision.confidence.toFixed(1)}%`);
 
     // CHECKPOINT 1: Entry
@@ -2763,7 +2773,7 @@ class OGZPrimeV14Bot {
         }
         // Update position tracking
         if (decision.action === 'BUY') {
-          // ═══ SAFETY GATES (wired 2026-02-24) ═══
+          // ═══ SAFETY GATES (wired 2026-02-24, re-enabled 2026-02-27) ═══
           // Gate 1: Risk limits (daily/weekly/monthly loss, drawdown)
           const riskCheck = this.tradingBrain.checkRiskLimits();
           if (riskCheck.halt) {
