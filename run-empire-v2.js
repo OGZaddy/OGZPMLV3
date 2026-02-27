@@ -634,6 +634,7 @@ class OGZPrimeV14Bot {
     this.isRunning = false;
     this.marketData = null;
     this.priceHistory = [];  // 1m candles for trading logic
+    this._candleStore = new CandleStore({ maxCandles: 250 });  // REFACTOR: shadow priceHistory
     this.candleSaveCounter = 0; // CHANGE 2026-01-28: Track candles for periodic save
     this.loadCandleHistory(); // CHANGE 2026-01-28: Load saved candles on startup
 
@@ -1349,6 +1350,7 @@ class OGZPrimeV14Bot {
     if (!isNewMinute) {
       // Update existing candle (same minute) - Kraken sends multiple updates per minute
       this.priceHistory[this.priceHistory.length - 1] = candle;
+      this._candleStore.addCandle('BTC-USD', '15m', candle);  // REFACTOR: dual-write (update)
 
       // Debug: Show updates for first few candles
       if (this.priceHistory.length <= 3) {
@@ -1363,6 +1365,7 @@ class OGZPrimeV14Bot {
     } else {
       // New candle (new minute) - etime changed
       this.priceHistory.push(candle);
+      this._candleStore.addCandle('BTC-USD', '15m', candle);  // REFACTOR: dual-write
 
       // CHANGE 2026-02-10: Feed modular entry system with new candle
       if (this.mtfAdapter) this.mtfAdapter.ingestCandle(candle);
@@ -1657,19 +1660,40 @@ class OGZPrimeV14Bot {
     // CHANGE 2025-12-23: Use IndicatorEngine as single source of truth
     const engineState = indicatorEngine.getSnapshot();
 
-    // Map IndicatorEngine output to expected format
-    const indicators = {
-      rsi: engineState.rsi || 50,
-      macd: engineState.macd || { macd: 0, signal: 0, hist: 0 },
-      ema12: engineState.ema?.[12] || price,
-      ema26: engineState.ema?.[26] || price,
-      trend: OptimizedIndicators.determineTrend(this.priceHistory, 10, 30), // Keep for now
-      volatility: engineState.atr || OptimizedIndicators.calculateVolatility(this.priceHistory, 20),
-      // FIX 2026-02-26: Add atr for ECM volatility check (was using raw $ causing always-widen)
-      atr: engineState.atr,
-      // FIX 2026-02-26: Add bbWidth for pattern learning (was always 0.02)
-      bbWidth: engineState.bbExtras?.bandwidth || 0.02
-    };
+    // REFACTOR 2026-02-27: IndicatorSnapshot replaces manual reshape
+    // Single transformation point. No fallback paths. Contracts that scream.
+    const _indicatorSnapshot = new IndicatorSnapshot(contractValidator);
+    let indicators;
+    try {
+      indicators = _indicatorSnapshot.create(engineState, price, this.priceHistory);
+    } catch (snapErr) {
+      // During warmup (first ~200 candles), IndicatorEngine may not have all data yet.
+      // RSI needs 14 candles, BB needs 20, EMA200 needs 200.
+      // This is the ONLY acceptable reason for the catch to fire.
+      if (this.priceHistory.length < 50) {
+        console.warn(`⚠️ IndicatorSnapshot warmup (${this.priceHistory.length} candles): ${snapErr.message}`);
+        indicators = {
+          price, rsi: engineState.rsi || 50, rsiNormalized: ((engineState.rsi || 50) / 100),
+          macd: engineState.macd || { macd: 0, signal: 0, histogram: 0 },
+          ema9: price, ema21: price, ema50: price, ema200: price,
+          trend: 'neutral',
+          atr: engineState.atr || (price * 0.005), atrPercent: 0.5, atrNormalized: 0.1,
+          bb: { upper: price * 1.02, middle: price, lower: price * 0.98, bandwidth: 4, percentB: 0.5 },
+          volatilityNormalized: 0.1, volume: 0, vwap: price
+        };
+      } else {
+        // After warmup, a throw means real missing data — this IS the bug
+        console.error(`❌ IndicatorSnapshot FAILED after warmup: ${snapErr.message}`);
+        throw snapErr;
+      }
+    }
+
+    // BACKWARD COMPAT: downstream reads these legacy field names
+    indicators.ema12 = indicators.ema9 || price;
+    indicators.ema26 = indicators.ema21 || price;
+    indicators.volatility = indicators.atr || 0;
+    indicators.bbWidth = indicators.bb?.bandwidth || 0;
+    indicators.bollingerBands = indicators.bb;
 
     // CHANGE 655: RSI Smoothing - Prevent machine-gun trading without circuit breakers
     if (!this.rsiHistory) this.rsiHistory = [];
@@ -1816,16 +1840,14 @@ class OGZPrimeV14Bot {
     // ðŸ“¡ Broadcast pattern analysis to dashboard
     this.broadcastPatternAnalysis(patterns, indicators);
 
-    // Detect market regime
-    // FIX 2026-02-15: Call analyzeMarket() not detectRegime()
-    // detectRegime() takes no args (ignores priceHistory), returns a plain string,
-    // but downstream reads regime.currentRegime — getting undefined → 'unknown'.
-    // analyzeMarket() processes candles, populates metrics, returns {regime, confidence, parameters}.
-    const regimeResult = this.regimeDetector.analyzeMarket(this.priceHistory, indicators);
+    // REFACTOR 2026-02-27: New RegimeDetector replaces 797-line MarketRegimeDetector
+    // Trend takes priority over volatility (BTC trends UP with high vol)
+    const _regimeDetector = new RegimeDetector();
+    const regimeResult = _regimeDetector.detect(indicators, this.priceHistory);
     const regime = {
-      currentRegime: regimeResult?.regime || this.regimeDetector.currentRegime || 'unknown',
-      confidence: regimeResult?.confidence || 0,
-      parameters: regimeResult?.parameters || {}
+      currentRegime: regimeResult.regime || 'unknown',
+      confidence: regimeResult.confidence || 0,
+      parameters: regimeResult.details || {}
     };
     this.marketRegime = regime;  // Store for downstream reads (line 1928+)
 
