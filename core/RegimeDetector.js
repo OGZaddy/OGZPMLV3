@@ -1,16 +1,30 @@
 /**
  * RegimeDetector - Phase 3 of Modular Architecture Refactor
  *
+ * CORRECTED VERSION — 2026-02-27
+ *
  * PURPOSE: Detects market regime (trending, ranging, volatile). Pure function.
  *
- * Self-contained: Yes - takes indicators, returns regime string.
+ * Self-contained: Yes - takes indicators + candles, returns regime.
  * Hot-swap: Yes - can swap detection algorithm.
  *
  * REGIMES:
- * - trending_up: Strong directional upward movement
- * - trending_down: Strong directional downward movement
- * - ranging: Sideways consolidation
- * - volatile: High volatility, unclear direction
+ * - trending_up:   Strong directional upward movement
+ * - trending_down:  Strong directional downward movement
+ * - ranging:        Sideways consolidation, low directional movement
+ * - volatile:       High volatility WITHOUT clear trend direction
+ *
+ * DESIGN DECISIONS:
+ * 1. Trend takes priority over volatility. BTC regularly trends WITH high volatility.
+ *    A market trending up 5% with 3% ATR is "trending_up", not "volatile."
+ *    "Volatile" means high ATR but NO clear direction — choppy, whipsawing.
+ *
+ * 2. No fake ADX. The directional metric is called "directionalDominance" —
+ *    it measures what fraction of candles move in the dominant direction.
+ *    It is NOT ADX and doesn't pretend to be.
+ *
+ * 3. Thresholds are configurable. The defaults are reasonable for BTC 15-minute
+ *    candles but should be tuned per asset class.
  *
  * @see ogz-meta/REFACTOR-PLAN-2026-02-27.md
  */
@@ -20,26 +34,30 @@ const { c: _c, h: _h, l: _l } = require('./CandleHelper');
 class RegimeDetector {
   constructor(config = {}) {
     this.config = {
-      // Trend strength threshold (total movement over lookback as % of price)
-      trendThreshold: config.trendThreshold || 0.005,     // 0.5% movement = trending
-      strongTrendThreshold: config.strongTrendThreshold || 0.015, // 1.5% = strong trend
+      // Trend: total price movement over lookback as fraction of price
+      // 0.5% over 20 candles (5 hours on 15m) = trending
+      trendThreshold: config.trendThreshold || 0.005,
+      strongTrendThreshold: config.strongTrendThreshold || 0.015,
 
-      // Volatility thresholds (ATR as % of price)
-      volatilityThreshold: config.volatilityThreshold || 0.012,  // 1.2% ATR = high volatility
+      // Volatility: ATR as fraction of price
+      // 1.2% ATR on 15m candles = elevated volatility for BTC
+      volatilityThreshold: config.volatilityThreshold || 0.012,
 
-      // Lookback periods
-      trendLookback: config.trendLookback || 20,    // Candles to analyze for trend
-      volatilityLookback: config.volatilityLookback || 14,  // Candles for volatility
+      // Lookback periods (in candles)
+      trendLookback: config.trendLookback || 20,
+      volatilityLookback: config.volatilityLookback || 14,
 
-      ...config
+      // Minimum consistency to classify as trending (fraction of candles in same direction)
+      minTrendConsistency: config.minTrendConsistency || 0.5
     };
   }
 
   /**
-   * Detect market regime from indicators and candles
+   * Detect market regime from indicators and candles.
    *
    * @param {Object} indicators - Canonical indicators from IndicatorSnapshot
-   * @param {Array} candles - Recent candles for analysis
+   *   Used for: atrPercent (if available, avoids recomputation)
+   * @param {Array} candles - Recent candles for slope/consistency analysis
    * @returns {Object} { regime, confidence, details }
    */
   detect(indicators, candles) {
@@ -48,7 +66,7 @@ class RegimeDetector {
         regime: 'ranging',
         confidence: 0,
         details: {
-          adx: 0,
+          directionalDominance: 0,
           trendStrength: 0,
           volatility: 0,
           reason: 'insufficient_data'
@@ -57,50 +75,55 @@ class RegimeDetector {
     }
 
     // === CALCULATE METRICS ===
-    const trendMetrics = this._calculateTrend(candles);
-    const volatility = this._calculateVolatility(candles, indicators);
-    const adx = this._calculateADX(candles);
+    const trend = this._measureTrend(candles);
+    const volatility = this._measureVolatility(candles, indicators);
+    const directionalDominance = this._measureDirectionalDominance(candles);
 
-    // === DETECT REGIME ===
-    const { regime, confidence } = this._detectRegime(
-      trendMetrics.slope,
-      trendMetrics.consistency,
+    // === CLASSIFY REGIME ===
+    // PRIORITY: trend first, then volatile (no-direction + high-vol), then ranging
+    const { regime, confidence } = this._classify(
+      trend.slope,
+      trend.consistency,
       volatility,
-      adx
+      directionalDominance
     );
 
     return {
       regime,
       confidence,
       details: {
-        adx,
-        trendStrength: Math.abs(trendMetrics.slope),
-        trendDirection: trendMetrics.slope > 0 ? 1 : trendMetrics.slope < 0 ? -1 : 0,
-        trendConsistency: trendMetrics.consistency,
-        volatility,
-        reason: this._getReasonString(regime, trendMetrics.slope, volatility, adx)
+        directionalDominance,           // 0-1. How dominant is the main direction
+        trendStrength: Math.abs(trend.slope),  // 0+. Absolute slope as fraction of price
+        trendDirection: trend.slope > 0 ? 1 : trend.slope < 0 ? -1 : 0,
+        trendConsistency: trend.consistency,   // 0-1. Fraction of candles in slope direction
+        volatility,                     // 0+. ATR as fraction of price
+        reason: this._reason(regime, trend.slope, volatility, directionalDominance)
       }
     };
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // METRICS — each measures one thing
+  // ═══════════════════════════════════════════════════════════════════════════
+
   /**
-   * Calculate trend metrics from candles
-   * @private
+   * Measure trend: slope of price movement and directional consistency.
+   * Returns slope as fraction of price (positive = up, negative = down)
+   * and consistency as fraction of candles moving with the slope.
    */
-  _calculateTrend(candles) {
+  _measureTrend(candles) {
     const lookback = Math.min(this.config.trendLookback, candles.length);
     const recent = candles.slice(-lookback);
-
-    // Linear regression slope of closes
     const closes = recent.map(c => _c(c));
+
+    // Linear regression slope (dollars per candle)
     const slope = this._linearRegressionSlope(closes);
 
-    // Normalize slope as TOTAL movement over lookback period (percentage of price)
-    // slope is per-candle, multiply by lookback to get total movement
+    // Normalize: total movement over lookback as fraction of average price
     const avgPrice = closes.reduce((a, b) => a + b, 0) / closes.length;
     const normalizedSlope = avgPrice > 0 ? (slope * lookback) / avgPrice : 0;
 
-    // Trend consistency: how many candles moved in same direction as slope
+    // Consistency: what fraction of candles moved in the slope's direction?
     let consistent = 0;
     for (let i = 1; i < closes.length; i++) {
       const move = closes[i] - closes[i - 1];
@@ -110,23 +133,21 @@ class RegimeDetector {
     }
     const consistency = closes.length > 1 ? consistent / (closes.length - 1) : 0;
 
-    return {
-      slope: normalizedSlope,
-      consistency
-    };
+    return { slope: normalizedSlope, consistency };
   }
 
   /**
-   * Calculate volatility (ATR as % of price)
-   * @private
+   * Measure volatility: ATR as fraction of price.
+   * Uses IndicatorSnapshot's atrPercent if available (already computed correctly).
+   * Falls back to manual computation from candles.
    */
-  _calculateVolatility(candles, indicators) {
-    // Use indicators if available
-    if (indicators && typeof indicators.atrPercent === 'number') {
-      return indicators.atrPercent / 100; // Convert from 0-100 to 0-1
+  _measureVolatility(candles, indicators) {
+    // Prefer IndicatorSnapshot's already-validated value
+    if (indicators && typeof indicators.atrPercent === 'number' && indicators.atrPercent > 0) {
+      return indicators.atrPercent / 100; // Convert percent (0-100) to fraction (0-1)
     }
 
-    // Calculate manually
+    // Manual computation
     const lookback = Math.min(this.config.volatilityLookback, candles.length);
     const recent = candles.slice(-lookback);
 
@@ -153,19 +174,18 @@ class RegimeDetector {
   }
 
   /**
-   * Calculate simplified ADX (Average Directional Index)
-   * @private
+   * Measure directional dominance: how one-sided is the movement?
+   * NOT ADX. This counts what fraction of candles expand in the dominant direction.
+   * Returns 0-1 where 1 = all candles move one way, 0 = perfectly balanced.
    */
-  _calculateADX(candles) {
+  _measureDirectionalDominance(candles) {
     const lookback = Math.min(14, candles.length);
     const recent = candles.slice(-lookback);
 
     if (recent.length < 3) return 0;
 
-    // Simplified: Count how many candles are "directional"
     let upMoves = 0;
     let downMoves = 0;
-    let totalMoves = 0;
 
     for (let i = 1; i < recent.length; i++) {
       const high = _h(recent[i]);
@@ -173,36 +193,83 @@ class RegimeDetector {
       const prevHigh = _h(recent[i - 1]);
       const prevLow = _l(recent[i - 1]);
 
-      const upMove = high - prevHigh;
-      const downMove = prevLow - low;
+      const upExpansion = high - prevHigh;
+      const downExpansion = prevLow - low;
 
-      if (upMove > downMove && upMove > 0) {
+      if (upExpansion > downExpansion && upExpansion > 0) {
         upMoves++;
-      } else if (downMove > upMove && downMove > 0) {
+      } else if (downExpansion > upExpansion && downExpansion > 0) {
         downMoves++;
       }
-      totalMoves++;
     }
 
-    // ADX-like: how dominant is the main direction?
-    const dominance = totalMoves > 0
-      ? Math.abs(upMoves - downMoves) / totalMoves
-      : 0;
-
-    // Scale to 0-100
-    return dominance * 100;
+    const total = recent.length - 1;
+    return total > 0 ? Math.abs(upMoves - downMoves) / total : 0;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLASSIFICATION — trend takes priority over volatility
+  // ═══════════════════════════════════════════════════════════════════════════
+
   /**
-   * Linear regression slope
-   * @private
+   * Classify regime from metrics.
+   *
+   * PRIORITY ORDER:
+   * 1. Strong trend + consistency → trending (even if volatile)
+   * 2. Moderate trend + consistency → trending
+   * 3. High volatility + NO trend → volatile (choppy/whipsaw)
+   * 4. Default → ranging
+   *
+   * This is different from Claude Code's version which let volatile override trend.
+   * BTC regularly trends UP with high volatility. That's "trending_up", not "volatile."
+   */
+  _classify(slope, consistency, volatility, dominance) {
+    const absSlope = Math.abs(slope);
+
+    // 1. Strong trend with consistency — always wins
+    if (absSlope > this.config.strongTrendThreshold && consistency > 0.6) {
+      return {
+        regime: slope > 0 ? 'trending_up' : 'trending_down',
+        confidence: Math.min(1, (consistency * 0.6 + dominance * 0.4))
+      };
+    }
+
+    // 2. Moderate trend with consistency
+    if (absSlope > this.config.trendThreshold && consistency > this.config.minTrendConsistency) {
+      return {
+        regime: slope > 0 ? 'trending_up' : 'trending_down',
+        confidence: Math.min(1, (consistency * 0.6 + dominance * 0.4)) * 0.8
+      };
+    }
+
+    // 3. High volatility WITHOUT trend = choppy/whipsaw
+    if (volatility > this.config.volatilityThreshold && absSlope < this.config.trendThreshold) {
+      return {
+        regime: 'volatile',
+        confidence: Math.min(1, volatility / (this.config.volatilityThreshold * 2))
+      };
+    }
+
+    // 4. Default: ranging
+    return {
+      regime: 'ranging',
+      confidence: 1 - Math.min(1, absSlope / this.config.trendThreshold)
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MATH
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Linear regression slope of a value series.
+   * Returns dollars-per-index (multiply by count to get total movement).
    */
   _linearRegressionSlope(values) {
     const n = values.length;
     if (n < 2) return 0;
 
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-
     for (let i = 0; i < n; i++) {
       sumX += i;
       sumY += values[i];
@@ -210,87 +277,40 @@ class RegimeDetector {
       sumX2 += i * i;
     }
 
-    const denominator = (n * sumX2 - sumX * sumX);
-    if (denominator === 0) return 0;
+    const denom = (n * sumX2 - sumX * sumX);
+    if (denom === 0) return 0;
 
-    return (n * sumXY - sumX * sumY) / denominator;
+    return (n * sumXY - sumX * sumY) / denom;
   }
 
-  /**
-   * Detect regime from metrics
-   * @private
-   */
-  _detectRegime(slope, consistency, volatility, adx) {
-    const absSlope = Math.abs(slope);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REASON STRING
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    // High volatility overrides trend detection
-    if (volatility > this.config.volatilityThreshold) {
-      return {
-        regime: 'volatile',
-        confidence: Math.min(1, volatility / (this.config.volatilityThreshold * 2))
-      };
-    }
-
-    // Strong trend with consistency
-    if (absSlope > this.config.strongTrendThreshold && consistency > 0.6) {
-      return {
-        regime: slope > 0 ? 'trending_up' : 'trending_down',
-        confidence: Math.min(1, (consistency + adx / 100) / 2)
-      };
-    }
-
-    // Moderate trend
-    if (absSlope > this.config.trendThreshold && consistency > 0.5) {
-      return {
-        regime: slope > 0 ? 'trending_up' : 'trending_down',
-        confidence: Math.min(1, (consistency + adx / 100) / 2) * 0.8
-      };
-    }
-
-    // Default: ranging
-    return {
-      regime: 'ranging',
-      confidence: 1 - Math.min(1, absSlope / this.config.trendThreshold)
-    };
-  }
-
-  /**
-   * Get human-readable reason
-   * @private
-   */
-  _getReasonString(regime, slope, volatility, adx) {
-    const parts = [];
-
+  _reason(regime, slope, volatility, dominance) {
     if (regime === 'volatile') {
-      parts.push(`high_volatility_${(volatility * 100).toFixed(1)}pct`);
-    } else if (regime.startsWith('trending')) {
-      parts.push(`slope_${(slope * 100).toFixed(2)}pct`);
-      parts.push(`adx_${adx.toFixed(0)}`);
-    } else {
-      parts.push('no_clear_direction');
+      return `high_vol_${(volatility * 100).toFixed(1)}pct_no_direction`;
     }
-
-    return parts.join('_');
+    if (regime.startsWith('trending')) {
+      return `slope_${(slope * 100).toFixed(2)}pct_dom_${(dominance * 100).toFixed(0)}pct`;
+    }
+    return 'no_clear_direction';
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BACKWARD COMPATIBILITY
+  // ═══════════════════════════════════════════════════════════════════════════
+
   /**
-   * Get simple regime string (for backward compatibility)
-   *
-   * Maps to: 'uptrend' | 'downtrend' | 'neutral'
-   * @param {Object} indicators - Canonical indicators
-   * @param {Array} candles - Recent candles
-   * @returns {string} Simple regime string
+   * Simple regime detection returning 'uptrend' | 'downtrend' | 'neutral'
+   * For backward compatibility with code expecting the old trend strings.
    */
   detectSimple(indicators, candles) {
     const result = this.detect(indicators, candles);
-
     switch (result.regime) {
-      case 'trending_up':
-        return 'uptrend';
-      case 'trending_down':
-        return 'downtrend';
-      default:
-        return 'neutral';
+      case 'trending_up': return 'uptrend';
+      case 'trending_down': return 'downtrend';
+      default: return 'neutral';
     }
   }
 }

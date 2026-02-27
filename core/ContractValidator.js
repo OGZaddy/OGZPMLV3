@@ -64,7 +64,8 @@ class ContractValidator {
     valid = this.assertRange('atrPercent', indicators.atrPercent, 0, 100) && valid;
     valid = this.assertRange('atrNormalized', indicators.atrNormalized, 0, 1) && valid;
 
-    // === BOLLINGER BANDS ===
+    // === BOLLINGER BANDS (REQUIRED — IndicatorSnapshot always produces these) ===
+    valid = this.assertDefined('bb', indicators.bb) && valid;
     if (indicators.bb) {
       valid = this.assertPositive('bb.upper', indicators.bb.upper) && valid;
       valid = this.assertPositive('bb.middle', indicators.bb.middle) && valid;
@@ -76,10 +77,8 @@ class ContractValidator {
     // === DERIVED ===
     valid = this.assertRange('volatilityNormalized', indicators.volatilityNormalized, 0, 1) && valid;
 
-    // === TREND ===
-    if (indicators.trend !== undefined) {
-      valid = this.assertEnum('trend', indicators.trend, ['uptrend', 'downtrend', 'neutral']) && valid;
-    }
+    // === TREND (REQUIRED — IndicatorSnapshot is THE single source of trend) ===
+    valid = this.assertEnum('trend', indicators.trend, ['uptrend', 'downtrend', 'neutral']) && valid;
 
     return valid;
   }
