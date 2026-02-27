@@ -24,91 +24,99 @@
 // OLD values (2-5% TP) were UNREACHABLE on 1m candles where BTC moves 0.05-0.5% per bar
 // This caused trades to be trapped until max hold timeout, bleeding fees
 // NEW values: Realistic R:R ratios that actually trigger on 1-minute price action
-// FIX 2026-02-21: Scaled for 1-minute candle reality (REVERTED to v1)
-// FIX 2026-02-21: Realistic TP targets for 15m BTC
-// 15m candles typically move 0.3-0.8%, need achievable targets that clear 0.52% fees
+// TUNE 2026-02-27: Widened exits for positive net R:R after 0.52% fees
+// Old: TP 0.75%, SL -0.45% → Net R:R 0.24:1 (needed 81% WR)
+// New: TP 2.0%, SL -1.0% → Net R:R ~1:1 (needs 50% WR)
+// Added trailingActivation to prevent premature trail triggers on volatility noise
 const DEFAULT_CONTRACTS = {
-  // EMA/SMA Crossover - trend following
+  // ═══ Trend Following (hold longer, ride the trend) ═══
   EMASMACrossover: {
-    stopLossPercent: -0.5,
-    takeProfitPercent: 0.8,
-    trailingStopPercent: 0.25,
+    stopLossPercent: -1.2,
+    takeProfitPercent: 2.5,
+    trailingStopPercent: 0.8,
+    trailingActivation: 1.0,    // Don't activate trail until +1%
     invalidationConditions: ['ema_cross_reversal'],
-    maxHoldTimeMinutes: 120
+    maxHoldTimeMinutes: 300     // 20 candles at 15m — trends need room
   },
 
-  // Liquidity Sweep - mean reversion
+  // ═══ Mean Reversion (tighter, quicker exits) ═══
   LiquiditySweep: {
-    stopLossPercent: -0.4,
-    takeProfitPercent: 0.7,
-    trailingStopPercent: 0.2,
+    stopLossPercent: -0.8,
+    takeProfitPercent: 1.5,
+    trailingStopPercent: 0.5,
+    trailingActivation: 0.8,
     invalidationConditions: ['sweep_invalidated', 'box_broken'],
-    maxHoldTimeMinutes: 90
+    maxHoldTimeMinutes: 180
   },
 
-  // RSI - momentum trades
+  // ═══ Momentum (RSI extremes — expect snapback) ═══
   RSI: {
-    stopLossPercent: -0.45,
-    takeProfitPercent: 0.75,
-    trailingStopPercent: 0.25,
+    stopLossPercent: -1.0,
+    takeProfitPercent: 2.0,
+    trailingStopPercent: 0.6,
+    trailingActivation: 0.8,
     invalidationConditions: [],
-    maxHoldTimeMinutes: 90
+    maxHoldTimeMinutes: 240
   },
 
-  // MA Dynamic S/R - support/resistance bounces
-  // NOTE: Extended hold (180min) tested - made losers worse even with VP filter
-  // 105 min (7 candles) is the sweet spot - cuts non-performers before hard stop
+  // ═══ Support/Resistance (bounce trades) ═══
   MADynamicSR: {
-    stopLossPercent: -0.45,
-    takeProfitPercent: 0.75,
-    trailingStopPercent: 0.25,
+    stopLossPercent: -0.8,
+    takeProfitPercent: 1.5,
+    trailingStopPercent: 0.5,
+    trailingActivation: 0.8,
     invalidationConditions: ['sr_level_broken'],
-    maxHoldTimeMinutes: 105
+    maxHoldTimeMinutes: 180
   },
 
-  // Candle Pattern - quick setups
+  // ═══ Pattern Recognition (quick setups, moderate hold) ═══
   CandlePattern: {
-    stopLossPercent: -0.4,
-    takeProfitPercent: 0.7,
-    trailingStopPercent: 0.2,
+    stopLossPercent: -0.8,
+    takeProfitPercent: 1.5,
+    trailingStopPercent: 0.5,
+    trailingActivation: 0.7,
     invalidationConditions: ['pattern_negated'],
-    maxHoldTimeMinutes: 75
-  },
-
-  // Market Regime - longer holds in strong trends
-  MarketRegime: {
-    stopLossPercent: -0.6,
-    takeProfitPercent: 1.0,
-    trailingStopPercent: 0.35,
-    invalidationConditions: ['regime_change'],
     maxHoldTimeMinutes: 150
   },
 
-  // Multi-Timeframe - confluence trades
+  // ═══ Regime Confluence (strongest signals, widest room) ═══
+  MarketRegime: {
+    stopLossPercent: -1.5,
+    takeProfitPercent: 3.0,
+    trailingStopPercent: 1.0,
+    trailingActivation: 1.5,
+    invalidationConditions: ['regime_change'],
+    maxHoldTimeMinutes: 360     // 24 candles — big moves need time
+  },
+
+  // ═══ Multi-Timeframe (high-conviction confluence) ═══
   MultiTimeframe: {
-    stopLossPercent: -0.5,
-    takeProfitPercent: 0.85,
-    trailingStopPercent: 0.3,
+    stopLossPercent: -1.2,
+    takeProfitPercent: 2.5,
+    trailingStopPercent: 0.8,
+    trailingActivation: 1.0,
     invalidationConditions: ['mtf_divergence'],
-    maxHoldTimeMinutes: 120
+    maxHoldTimeMinutes: 300
   },
 
-  // OGZ TPO - value area / POC trades (provides own levels via overrideLevels)
+  // ═══ TPO / Volume Profile ═══
   OGZTPO: {
-    stopLossPercent: -0.5,
-    takeProfitPercent: 0.8,
-    trailingStopPercent: 0.25,
+    stopLossPercent: -1.0,
+    takeProfitPercent: 2.0,
+    trailingStopPercent: 0.6,
+    trailingActivation: 0.8,
     invalidationConditions: [],
-    maxHoldTimeMinutes: 90
+    maxHoldTimeMinutes: 240
   },
 
-  // Default fallback for unknown strategies
+  // ═══ Default fallback ═══
   default: {
-    stopLossPercent: -0.45,
-    takeProfitPercent: 0.75,
-    trailingStopPercent: 0.25,
+    stopLossPercent: -1.0,
+    takeProfitPercent: 2.0,
+    trailingStopPercent: 0.6,
+    trailingActivation: 0.8,
     invalidationConditions: [],
-    maxHoldTimeMinutes: 100
+    maxHoldTimeMinutes: 240
   }
 };
 
@@ -255,28 +263,35 @@ class ExitContractManager {
     }
 
     // Trailing stop (only if in profit above trailing threshold)
-    // Also kicks in after break-even is triggered
+    // TUNE 2026-02-27: Added trailingActivation - don't trail until price has moved enough
+    // This prevents normal volatility from triggering premature trail exits
     if (contract.trailingStopPercent && trade.maxProfitPercent) {
-      const trailTrigger = breakEvenTriggered ? 0 : contract.trailingStopPercent;  // Trail from BE if triggered
-      if (trade.maxProfitPercent >= trailTrigger) {
-        const trailStop = trade.maxProfitPercent - contract.trailingStopPercent;
-        if (pnlPercent <= trailStop && trailStop > effectiveStop) {  // Only if better than current stop
-          return {
-            shouldExit: true,
-            exitReason: 'trailing_stop',
-            details: `Trailing stop: P&L ${pnlPercent.toFixed(2)}% fell from peak ${trade.maxProfitPercent.toFixed(2)}%`,
-            confidence: 100
-          };
+      const activationThreshold = contract.trailingActivation || 0;
+      // Only activate trailing once we've reached the activation threshold
+      if (trade.maxProfitPercent >= activationThreshold) {
+        const trailTrigger = breakEvenTriggered ? 0 : contract.trailingStopPercent;  // Trail from BE if triggered
+        if (trade.maxProfitPercent >= trailTrigger) {
+          const trailStop = trade.maxProfitPercent - contract.trailingStopPercent;
+          if (pnlPercent <= trailStop && trailStop > effectiveStop) {  // Only if better than current stop
+            return {
+              shouldExit: true,
+              exitReason: 'trailing_stop',
+              details: `Trailing stop: P&L ${pnlPercent.toFixed(2)}% fell from peak ${trade.maxProfitPercent.toFixed(2)}% (activated at ${activationThreshold}%)`,
+              confidence: 100
+            };
+          }
         }
       }
     }
 
     // Max hold time (strategy-specific)
+    // TUNE 2026-02-27: Tag as winner/loser for analysis
     if (contract.maxHoldTimeMinutes && holdTimeMinutes >= contract.maxHoldTimeMinutes) {
+      const holdExitType = pnlPercent > 0 ? 'max_hold_winner' : 'max_hold_loser';
       return {
         shouldExit: true,
-        exitReason: 'max_hold',
-        details: `${trade.entryStrategy || 'Strategy'} max hold: ${holdTimeMinutes.toFixed(0)} min >= ${contract.maxHoldTimeMinutes} min`,
+        exitReason: holdExitType,
+        details: `${trade.entryStrategy || 'Strategy'} max hold: ${holdTimeMinutes.toFixed(0)} min >= ${contract.maxHoldTimeMinutes} min (P&L ${pnlPercent.toFixed(2)}%)`,
         confidence: 80
       };
     }

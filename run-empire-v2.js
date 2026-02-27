@@ -728,7 +728,7 @@ class OGZPrimeV14Bot {
         ? (parseFloat(process.env.MIN_TRADE_CONFIDENCE) > 1
           ? parseFloat(process.env.MIN_TRADE_CONFIDENCE) / 100  // Convert percentage to decimal
           : parseFloat(process.env.MIN_TRADE_CONFIDENCE))      // Already decimal
-        : 0.35,  // Default 35%
+        : 0.50,  // Default 50% — reject coin-flip signals
       tradingPair: process.env.TRADING_PAIR || 'BTC-USD',
       enableShorts: process.env.ENABLE_SHORTS === 'true',
       enableLiveTrading,
@@ -2656,6 +2656,19 @@ class OGZPrimeV14Bot {
     // FIXED: Use actual balance from StateManager, not stale systemState
     const currentBalance = stateManager.get('balance') || 10000;
     let basePositionPercent = parseFloat(process.env.MAX_POSITION_SIZE_PCT) || 0.01;
+
+    // TUNE 2026-02-27: Confidence-scaled position sizing
+    // 50% confidence = 0.5x, 75% = 1.5x, 90%+ = 2.5x (cap)
+    const rawConfidence = decision.confidence;
+    console.log('RAW confidence value:', rawConfidence); // Sanity check: is this 75 or 0.75?
+    // decision.confidence comes as percentage (e.g., 75 = 75%), convert to decimal
+    const tradeConfidence = (rawConfidence > 1 ? rawConfidence / 100 : rawConfidence) || 0.5;
+    // Linear scale: confidence 0.5 → multiplier 0.5, confidence 1.0 → multiplier 2.5
+    const confidenceMultiplier = Math.max(0.5, Math.min(2.5,
+      0.5 + (tradeConfidence - 0.5) * 4.0
+    ));
+    basePositionPercent = basePositionPercent * confidenceMultiplier;
+    console.log(`📏 Confidence sizing: ${(tradeConfidence * 100).toFixed(0)}% → ${confidenceMultiplier.toFixed(1)}x → ${(basePositionPercent * 100).toFixed(2)}% of balance`);
 
     // FIX 2026-02-02: AGGRESSIVE_LEARNING_MODE boosts position size while pattern bank builds
     const aggressiveLearning = flagManager.isEnabled('AGGRESSIVE_LEARNING_MODE');
