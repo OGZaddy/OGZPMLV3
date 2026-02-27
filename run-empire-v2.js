@@ -139,6 +139,13 @@ const { IndicatorCalculator } = require('./core/IndicatorCalculator');
 // See: ogz-meta/REFACTOR-PLAN-2026-02-27.md
 const { IndicatorSnapshot } = require('./core/IndicatorSnapshot');
 
+// PHASE 3: CandleAggregator + RegimeDetector - pure functions
+// CandleAggregator: builds higher timeframe candles from 1m candles
+// RegimeDetector: detects market regime (trending/ranging/volatile)
+// See: ogz-meta/REFACTOR-PLAN-2026-02-27.md
+const { CandleAggregator } = require('./core/CandleAggregator');
+const { RegimeDetector } = require('./core/RegimeDetector');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
