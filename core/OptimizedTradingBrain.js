@@ -61,6 +61,7 @@ const { getInstance: getStateManager } = require('./StateManager');  // CHANGE 2
 const ErrorHandler = require('./ErrorHandler');  // CHANGE 2025-12-11: Error escalation
 const { RollingWindow } = require('./MemoryManager');  // CHANGE 2025-12-11: Memory leak prevention
 const { c: _c } = require('./CandleHelper');  // FIX 2026-02-17: Candle format compatibility
+const TradingConfig = require('./TradingConfig');  // CHANGE 2026-02-28: Centralized config
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION: OptimizedTradingBrain Class
@@ -205,15 +206,15 @@ class OptimizedTradingBrain {
       breakevenThreshold: parseFloat(process.env.MPM_BREAKEVEN_THRESHOLD) || 0.015,
       minProfit: parseFloat(process.env.MIN_PROFIT_TRAIL) || 0.015,
 
-      // WIDE trailing stops for crypto (from .env)
-      trailDistance: parseFloat(process.env.TRAIL_DISTANCE) || 0.07,
-      tightTrailDistance: parseFloat(process.env.TIGHT_TRAIL_DISTANCE) || 0.10,
+      // WIDE trailing stops for crypto (from TradingConfig)
+      trailDistance: TradingConfig.get('exits.normalTrailDistance', 0.025),
+      tightTrailDistance: TradingConfig.get('exits.tightTrailDistance', 0.015),
 
-      // Profit targets for partial exits (from .env)
-      firstTierTarget: parseFloat(process.env.TIER1_TARGET) || 0.02,
-      secondTierTarget: parseFloat(process.env.TIER2_TARGET) || 0.04,
-      thirdTierTarget: parseFloat(process.env.TIER3_TARGET) || 0.06,
-      finalTarget: parseFloat(process.env.FINAL_TARGET) || 0.10
+      // Profit targets for partial exits (from TradingConfig)
+      firstTierTarget: TradingConfig.get('exits.profitTiers.tier1', 0.007),
+      secondTierTarget: TradingConfig.get('exits.profitTiers.tier2', 0.010),
+      thirdTierTarget: TradingConfig.get('exits.profitTiers.tier3', 0.015),
+      finalTarget: TradingConfig.get('exits.profitTiers.final', 0.025)
     });
 
     // Change 608: Initialize Fibonacci and Support/Resistance detectors
@@ -249,27 +250,27 @@ class OptimizedTradingBrain {
     this.patternMemory = null; // DISABLED - Let System 1 (EnhancedPatternRecognition) handle patterns
     this.currentPatternId = null;
     
-    // CHANGE 623: SCALPER CONFIG from .env instead of hardcoding
+    // CHANGE 623→2026-02-28: SCALPER CONFIG from TradingConfig
     // 🚀 SCALPER-SPECIFIC: FEE-AWARE Micro-profit and quick exit system
     this.scalperConfig = {
-      microProfitThreshold: parseFloat(process.env.SCALPER_MICRO_PROFIT) || 0.005,
-      quickProfitThreshold: parseFloat(process.env.SCALPER_QUICK_PROFIT) || 0.008,
-      momentumShiftThreshold: parseFloat(process.env.SCALPER_MOMENTUM_SHIFT) || 0.15,
-      tightStopMultiplier: parseFloat(process.env.SCALPER_STOP_MULTIPLIER) || 0.5,
-      maxHoldTime: parseInt(process.env.SCALPER_MAX_HOLD_TIME) || 300000,
+      microProfitThreshold: TradingConfig.get('scalper.microProfitTarget', 0.005),
+      quickProfitThreshold: TradingConfig.get('scalper.quickProfitTarget', 0.008),
+      momentumShiftThreshold: TradingConfig.get('scalper.momentumShiftExit', 0.15),
+      tightStopMultiplier: TradingConfig.get('scalper.stopMultiplier', 0.5),
+      maxHoldTime: TradingConfig.get('scalper.maxHoldTime', 300000),
       entryMomentum: null,             // Track entry momentum for comparison
       lastMomentumCheck: 0,            // Throttle momentum checks to every 5 seconds
       scalperModeActive: false         // Track if scalper mode is active
     };
     
-    // CHANGE 623: FEE CONFIG from .env instead of hardcoding
+    // CHANGE 623→2026-02-28: FEE CONFIG from TradingConfig
     // 💰 FEE-AWARE TRADING: Critical for profitability
     this.feeConfig = {
-      maker: parseFloat(process.env.FEE_MAKER) || 0.0010,
-      taker: parseFloat(process.env.FEE_TAKER) || 0.0015,
-      slippage: parseFloat(process.env.FEE_SLIPPAGE) || 0.0005,
-      totalRoundTrip: parseFloat(process.env.FEE_TOTAL_ROUNDTRIP) || 0.0035,
-      safetyBuffer: parseFloat(process.env.FEE_SAFETY_BUFFER) || 0.001
+      maker: TradingConfig.get('fees.makerFee', 0.0010),
+      taker: TradingConfig.get('fees.takerFee', 0.0015),
+      slippage: TradingConfig.get('fees.slippage', 0.0005),
+      totalRoundTrip: TradingConfig.get('fees.totalRoundTrip', 0.0035),
+      safetyBuffer: TradingConfig.get('fees.safetyBuffer', 0.001)
     };
     
     // Reference to parent OGZ Prime system for logging
@@ -3086,7 +3087,7 @@ console.log(`   📊 EMA9=${ema9?.toFixed(2) || 'null'}, EMA20=${ema20?.toFixed(
     // --- ultra-minimal bars (toggle with DEBUG_AGG=1) ---
     if (process.env.DEBUG_AGG === '1') {
       const base = confidence;
-      const gate = parseFloat(process.env.MIN_TRADE_CONFIDENCE) || 0.08;
+      const gate = TradingConfig.get('confidence.minTradeConfidence', 0.50);
       const bullish = bullishConfidence;
       const bearish = bearishConfidence;
       const bar = p => '█'.repeat(Math.max(0, Math.min(20, Math.round(p * 20)))).padEnd(20, ' ');

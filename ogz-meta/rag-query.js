@@ -21,6 +21,8 @@ const RAG_INDEX = path.join(META_DIR, 'rag_index.json');
  * Score relevance of text to query
  */
 function scoreRelevance(text, query) {
+  if (!text || typeof text !== 'string') return 0;
+  if (!query || typeof query !== 'string') return 0;
   const queryWords = query.toLowerCase().split(/\s+/);
   const textLower = text.toLowerCase();
   let score = 0;
@@ -61,12 +63,12 @@ function queryLedger(query, limit = 3) {
   const scored = entries.map(entry => {
     let score = 0;
 
-    // Score against various fields
-    score += scoreRelevance(entry.symptom, query);
-    score += scoreRelevance(entry.root_cause, query) * 0.8;
-    score += scoreRelevance(entry.minimal_fix, query) * 0.5;
-    score += scoreRelevance(entry.tags.join(' '), query) * 2;
-    score += scoreRelevance(entry.files.join(' '), query) * 1.5;
+    // Score against various fields (handle alternate schemas: feature entries use summary/details)
+    score += scoreRelevance(entry.symptom || entry.summary || '', query);
+    score += scoreRelevance(entry.root_cause || entry.details || '', query) * 0.8;
+    score += scoreRelevance(entry.minimal_fix || '', query) * 0.5;
+    score += scoreRelevance((entry.tags || []).join(' '), query) * 2;
+    score += scoreRelevance((entry.files || []).join(' '), query) * 1.5;
 
     // Recency boost (last 30 days)
     const daysSince = Math.floor((Date.now() - new Date(entry.date).getTime()) / (1000 * 60 * 60 * 24));
