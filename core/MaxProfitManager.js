@@ -61,6 +61,8 @@
  * ============================================================================
  */
 
+const TradingConfig = require('./TradingConfig');  // CHANGE 2026-02-28: Centralized config
+
 /**
  * MaxProfitManager Class - Advanced Profit Optimization Engine
  * 
@@ -114,7 +116,7 @@ class MaxProfitManager {
       // TRAILING STOP MANAGEMENT
       // --------------------------------------------------------------------
       enableTrailingStop: true,       // Enable dynamic trailing stops
-      initialStopLossPercent: parseFloat(process.env.STOP_LOSS_PERCENT) / 100 || 0.04,  // CHANGE 629: From .env
+      initialStopLossPercent: TradingConfig.get('exits.stopLossPercent', 1.5) / 100,  // CHANGE 629→2026-02-28: From TradingConfig (percent→decimal)
       // CHANGE 653: Realistic trailing stop thresholds for scalping
       minProfit: 0.003,                // 0.3% minimum profit before trailing starts
       trailDistance: 0.002,            // 0.2% trail distance (tight for scalping)
@@ -129,8 +131,8 @@ class MaxProfitManager {
       maxHoldTimeMinutes: 180,              // 3 hours maximum hold time
 
       // Minimum hold time - can be 0 for aggressive scalping
-      // Read from env to allow flexibility in backtest/scalping modes
-      minHoldTimeMinutes: parseFloat(process.env.MIN_HOLD_TIME_MINUTES ?? 0.05),
+      // Read from TradingConfig to allow flexibility in backtest/scalping modes
+      minHoldTimeMinutes: TradingConfig.get('holdTimes.minHoldTimeMinutes', 0),
 
       timeAdjustmentIntervals: [
         { minutes: 30, trailFactor: 1.0 },  // Normal trail for first 30 min

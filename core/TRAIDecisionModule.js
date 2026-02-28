@@ -23,6 +23,7 @@
 const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
+const TradingConfig = require('./TradingConfig');  // CHANGE 2026-02-28: Centralized config
 
 // Version hash for telemetry
 const VERSION_HASH = 'v2.0.0-telem';
@@ -612,15 +613,15 @@ class TRAIDecisionModule extends EventEmitter {
       return 'HOLD';
     }
 
-    // Change 598: Honor minConfidenceOverride from config
+    // Change 598→2026-02-28: Honor minConfidenceOverride from config
     // Determine minimum confidence threshold:
     // 1) prefer explicit override from config (TRAI_MIN_CONF)
-    // 2) fall back to MIN_TRADE_CONFIDENCE env
+    // 2) fall back to TradingConfig centralized config
     // 3) default to 0.35 if nothing set
     const minConfidence =
       (this.config && typeof this.config.minConfidenceOverride === 'number'
         ? this.config.minConfidenceOverride
-        : parseFloat(process.env.MIN_TRADE_CONFIDENCE)) || 0.35;
+        : TradingConfig.get('confidence.minTradeConfidence', 0.50)) || 0.35;
 
     // Change 595: Simplified logic - trust the confidence threshold
     // If confidence exceeds threshold, approve the trade (unless vetoed by risk)

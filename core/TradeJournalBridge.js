@@ -27,6 +27,7 @@ const TradeJournal = require('./TradeJournal');
 const TradeReplayCapture = require('./TradeReplayCapture');
 const path = require('path');
 const fs = require('fs');
+const TradingConfig = require('./TradingConfig');  // CHANGE 2026-02-28: Centralized config
 
 class TradeJournalBridge {
   constructor(bot, config = {}) {
@@ -35,7 +36,7 @@ class TradeJournalBridge {
     // ── Initialize journal ──────────────────────────────────────────
     this.journal = new TradeJournal({
       dataDir: config.dataDir || path.join(process.cwd(), 'data', 'journal'),
-      startingBalance: config.startingBalance || parseFloat(process.env.INITIAL_BALANCE || '10000'),
+      startingBalance: config.startingBalance || TradingConfig.get('startingBalance', 10000),
       ...config
     });
 
