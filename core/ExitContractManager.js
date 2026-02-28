@@ -124,11 +124,12 @@ const DEFAULT_CONTRACTS = {
  * Universal circuit breakers - always enforced regardless of strategy
  */
 // FIX 2026-02-21: Universal limits for 15m trading
-// NOTE: 180 min tested - losers got worse. 150 min is the ceiling.
+// TUNE 2026-02-27: Raised from 150 to 360 to match widened strategy contracts
+// Old 150 min cap was firing before TPs could hit with widened exits
 const UNIVERSAL_LIMITS = {
   hardStopLossPercent: -2.0,      // Per-trade absolute max loss (wider for 15m)
   accountDrawdownPercent: -10.0,  // Force close all if account down 10%
-  maxHoldTimeMinutes: 150         // 150 min absolute max hold
+  maxHoldTimeMinutes: 360         // 360 min — matches MarketRegime max hold
 };
 
 class ExitContractManager {
@@ -286,8 +287,10 @@ class ExitContractManager {
 
     // Max hold time (strategy-specific)
     // TUNE 2026-02-27: Tag as winner/loser for analysis
+    // FIX 2026-02-28: Use net PnL (after 0.52% round-trip fees) not raw PnL
     if (contract.maxHoldTimeMinutes && holdTimeMinutes >= contract.maxHoldTimeMinutes) {
-      const holdExitType = pnlPercent > 0 ? 'max_hold_winner' : 'max_hold_loser';
+      const roundTripFee = 0.52; // 0.26% × 2 sides
+      const holdExitType = pnlPercent > roundTripFee ? 'max_hold_winner' : 'max_hold_loser';
       return {
         shouldExit: true,
         exitReason: holdExitType,

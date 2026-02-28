@@ -2631,6 +2631,14 @@ class OGZPrimeV14Bot {
     // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
     // Rate limiting now handled by MIN_TRADE_CONFIDENCE threshold + position sizing
 
+    // FIX 2026-02-28: Hard gate for BUY confidence - catches any leaky entry paths
+    // This should NEVER trigger if makeTradeDecision is working correctly
+    const MIN_BUY_CONFIDENCE = this.config.minTradeConfidence * 100; // 50% default
+    if (decision.action === 'BUY' && decision.confidence < MIN_BUY_CONFIDENCE) {
+      console.log(`🚨 [BUY BLOCKED] Confidence ${decision.confidence.toFixed(1)}% < ${MIN_BUY_CONFIDENCE}% threshold (LEAKY ENTRY PATH DETECTED!)`);
+      return;
+    }
+
     // FIX 2026-02-17: Dont exit on "no signal" (low confidence)
     // SELL requires: (1) high confidence SELL signal, (2) stop loss, or (3) profit target
     const MIN_SELL_CONFIDENCE = 30;
