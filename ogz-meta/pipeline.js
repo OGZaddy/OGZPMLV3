@@ -4,31 +4,31 @@
  * pipeline.js
  * Executes the full Claudito pipeline
  *
- * IMMUTABLE ORDER:
- * 1. /commander
- * 2. /architect
- * 3. /entomologist
- * 4. /exterminator
- * 5. /debugger
- * 6. /critic
- * 7. /validator
- * 8. /forensics
- * 9. /cicd
- * 10. /committer
- * 11. /scribe
- * 12. /janitor
- * 13. /warden
+ * MODES:
+ * - BUG FIX (default): Full pipeline with entomologist/exterminator
+ * - REFACTOR: Issue starts with "refactor:" or "extract:" - skips bug hunting
+ *
+ * BUG FIX ORDER:
+ * 1. /commander → 2. /branch → 3. /architect → 4. /entomologist → 5. /exterminator
+ * 6. /critic → 7. /exterminator → 8. /debugger → 9. /validator → 10. /forensics
+ * 11. /debugger → 12. /cicd → 13. /committer → 14. /scribe → 15. /janitor → 16. /warden
+ *
+ * REFACTOR ORDER (skips entomologist, branches from current):
+ * 1. /commander → 2. /branch --refactor → 3. /architect → 4. /fixer
+ * 5. /debugger → 6. /critic → 7. /validator → 8. /forensics
+ * 9. /debugger → 10. /committer → 11. /scribe → 12. /janitor → 13. /warden
  */
 
 const { route } = require('./slash-router');
 const { shouldStop } = require('./manifest-schema');
 
-const PIPELINE = [
+// Bug fix pipeline - hunts for bugs, applies fixes
+const BUGFIX_PIPELINE = [
   '/commander',
-  '/branch',              // Creates mission branch (Clauditos never write to master)
+  '/branch',              // Creates mission branch off master
   '/architect',
-  '/entomologist',
-  '/exterminator',
+  '/entomologist',        // Find bugs
+  '/exterminator',        // Fix bugs
   '/critic',              // Hardening directives
   '/exterminator',        // Apply hardening
   '/debugger',            // Verification pass 1
@@ -42,23 +42,59 @@ const PIPELINE = [
   '/warden'
 ];
 
+// Refactor pipeline - extraction/refactoring tasks, no bug hunting
+const REFACTOR_PIPELINE = [
+  '/commander',
+  '/branch --refactor',   // Stay on current branch (no checkout master)
+  '/architect',
+  // NO entomologist - we're not hunting bugs
+  // NO exterminator - architect + fixer handles extraction
+  '/fixer',               // Apply the extraction/refactor
+  '/debugger',            // Verification pass 1
+  '/critic',              // Review the changes
+  '/validator',
+  '/forensics',
+  '/debugger',            // Verification pass 2 (conditional)
+  '/committer',
+  '/scribe',
+  '/janitor',
+  '/warden'
+];
+
+// Detect mode from issue prefix
+function detectMode(issue) {
+  const lower = issue.toLowerCase();
+  if (lower.startsWith('refactor:') || lower.startsWith('extract:')) {
+    return 'refactor';
+  }
+  return 'bugfix';
+}
+
+// Legacy export for backwards compatibility
+const PIPELINE = BUGFIX_PIPELINE;
+
 /**
  * Execute full pipeline
  */
 async function execute(issue) {
+  const mode = detectMode(issue);
+  const pipeline = mode === 'refactor' ? REFACTOR_PIPELINE : BUGFIX_PIPELINE;
+
   console.log('🚀 CLAUDITO PIPELINE INITIATED');
   console.log('=' .repeat(50));
+  console.log(`🔧 Mode: ${mode.toUpperCase()}`);
 
   // Start mission
   let manifest = await route(`/start ${issue}`, {});
+  manifest.mode = mode;  // Store mode in manifest for downstream use
   console.log(`\n📋 Mission: ${manifest.mission_id}`);
   console.log(`📝 Issue: ${issue}`);
 
   // Execute pipeline
   let debuggerRuns = 0;
 
-  for (let i = 0; i < PIPELINE.length; i++) {
-    const command = PIPELINE[i];
+  for (let i = 0; i < pipeline.length; i++) {
+    const command = pipeline[i];
 
     // Handle conditional second debugger pass
     if (command === '/debugger') {
@@ -100,10 +136,15 @@ async function execute(issue) {
 
   if (manifest.state === 'COMPLETE') {
     console.log('   ✅ SUCCESS: Pipeline completed');
-    console.log(`   Bugs found: ${manifest.entomologist.bugs_found?.length || 0}`);
-    console.log(`   Fixes applied: ${manifest.exterminator.fixes_applied?.length || 0}`);
-    console.log(`   Tests passed: ${manifest.debugger.results?.filter(r => r.passed).length || 0}`);
-    console.log(`   Warden approved: ${manifest.warden.final_approval ? 'YES' : 'NO'}`);
+    if (mode === 'bugfix') {
+      console.log(`   Bugs found: ${manifest.entomologist?.bugs_found?.length || 0}`);
+      console.log(`   Fixes applied: ${manifest.exterminator?.fixes_applied?.length || 0}`);
+    } else {
+      console.log(`   Mode: REFACTOR/EXTRACTION`);
+      console.log(`   Changes applied: ${manifest.fixer?.changes_applied?.length || 'N/A'}`);
+    }
+    console.log(`   Tests passed: ${manifest.debugger?.results?.filter(r => r.passed).length || 0}`);
+    console.log(`   Warden approved: ${manifest.warden?.final_approval ? 'YES' : 'NO'}`);
   } else {
     const stopCheck = shouldStop(manifest);
     console.log(`   ⚠️  INCOMPLETE: ${stopCheck.reason || 'Unknown'}`);
@@ -119,8 +160,15 @@ if (require.main === module) {
   if (!issue) {
     console.log('🚀 Claudito Pipeline');
     console.log('\nUsage: node ogz-meta/pipeline.js "<issue description>"');
-    console.log('\nThis will execute the FULL pipeline:');
-    PIPELINE.forEach((cmd, i) => {
+    console.log('\nMODES:');
+    console.log('  BUG FIX (default): Any issue without prefix');
+    console.log('  REFACTOR: Start with "refactor:" or "extract:"');
+    console.log('\nBUG FIX PIPELINE:');
+    BUGFIX_PIPELINE.forEach((cmd, i) => {
+      console.log(`  ${i + 1}. ${cmd}`);
+    });
+    console.log('\nREFACTOR PIPELINE (skips bug hunting, stays on current branch):');
+    REFACTOR_PIPELINE.forEach((cmd, i) => {
       console.log(`  ${i + 1}. ${cmd}`);
     });
     console.log('\nStop conditions:');
@@ -134,4 +182,4 @@ if (require.main === module) {
   execute(issue).catch(console.error);
 }
 
-module.exports = { execute, PIPELINE };
+module.exports = { execute, PIPELINE, BUGFIX_PIPELINE, REFACTOR_PIPELINE, detectMode };

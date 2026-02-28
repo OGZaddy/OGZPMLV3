@@ -59,6 +59,13 @@ function createManifest(missionId) {
       proposals: []         // ADVISORY mode: proposed changes for human review
     },
 
+    fixer: {
+      timestamp: null,
+      changes_applied: [],  // For refactor mode
+      plan: {},
+      proposal_path: null
+    },
+
     debugger: {
       timestamp: null,
       tests_run: [],

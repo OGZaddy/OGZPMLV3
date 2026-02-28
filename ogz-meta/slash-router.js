@@ -57,6 +57,7 @@ async function route(command, args) {
     '/architect': architect,
     '/entomologist': entomologist,
     '/exterminator': exterminator,
+    '/fixer': fixer,           // For refactor mode - applies extractions/refactors
     '/debugger': debuggerHandler,
     '/critic': critic,
     '/validator': validator,
@@ -92,6 +93,7 @@ async function route(command, args) {
  */
 async function branch(manifest, params) {
   const missionBranch = `mission/${manifest.mission_id}`;
+  const isRefactor = params.includes('--refactor') || manifest.mode === 'refactor';
 
   // Safety: must be clean before branching (ignore untracked, manifests, submodules, data files)
   const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
@@ -113,7 +115,20 @@ async function branch(manifest, params) {
     return manifest;
   }
 
-  // Always base off latest master
+  // REFACTOR MODE: Stay on current branch, don't checkout master
+  if (isRefactor) {
+    const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+    console.log(`✅ Branch: Staying on ${currentBranch} (refactor mode)`);
+    updateSection(manifest, 'branch', {
+      success: true,
+      branch: currentBranch,
+      mode: 'refactor',
+      based_on: currentBranch
+    });
+    return manifest;
+  }
+
+  // BUG FIX MODE: Base off latest master
   try {
     execSync('git checkout master', { stdio: 'pipe' });
     execSync('git pull origin master', { stdio: 'pipe' });
@@ -325,6 +340,84 @@ async function exterminator(manifest, params) {
   }
 
   return manifest;
+}
+
+/**
+ * Fixer: For refactor mode - applies extractions/refactors based on architect plan
+ * Similar to exterminator but works from architect's plan instead of entomologist's bugs
+ */
+async function fixer(manifest, params) {
+  const plan = manifest.architect?.plan || {};
+  const changes = [];
+
+  // In ADVISORY mode (default): Generate proposal, don't apply
+  // Generate refactor proposal document
+  const proposalDoc = generateRefactorProposal(manifest);
+  const proposalPath = path.join(__dirname, 'proposals', `${manifest.mission_id}-REFACTOR-PROPOSAL.md`);
+
+  // Ensure proposals directory exists
+  if (!fs.existsSync(path.join(__dirname, 'proposals'))) {
+    fs.mkdirSync(path.join(__dirname, 'proposals'), { recursive: true });
+  }
+
+  fs.writeFileSync(proposalPath, proposalDoc);
+  manifest.artifacts.proposals.push(proposalPath);
+
+  updateSection(manifest, 'fixer', {
+    changes_applied: [],  // Empty in advisory mode
+    plan: plan,
+    proposal_path: proposalPath
+  });
+
+  console.log(`📋 Fixer: Generated refactor proposal (ADVISORY MODE)`);
+  console.log(`   📄 Proposal document: ${proposalPath}`);
+  console.log(`   ⏳ Awaiting human approval before any changes`);
+  console.log(`   💡 Run with approved manifest to apply changes`);
+
+  return manifest;
+}
+
+/**
+ * Generate refactor proposal document
+ */
+function generateRefactorProposal(manifest) {
+  return `# REFACTOR PROPOSAL: ${manifest.mission_id}
+Generated: ${new Date().toISOString()}
+
+## ⚠️ ADVISORY MODE - NO CHANGES MADE
+This document proposes refactoring changes for human review.
+**Nothing has been modified. You must approve before execution.**
+
+---
+
+## Task
+${manifest.issue}
+
+## Architect Plan
+${manifest.architect?.plan?.description || 'No plan generated'}
+
+### Files to Create
+${manifest.architect?.plan?.files_to_create?.map(f => `- \`${f}\``).join('\n') || 'None specified'}
+
+### Files to Modify
+${manifest.architect?.plan?.files_to_modify?.map(f => `- \`${f}\``).join('\n') || 'None specified'}
+
+### Extraction Details
+${manifest.architect?.plan?.details || 'See architect analysis'}
+
+## RAG Context
+${manifest.commander?.known_issues?.map(i => `- [${i.severity}] ${i.id}: ${i.symptom?.slice(0, 80)}...`).join('\n') || 'No prior issues found'}
+
+---
+
+## Approval
+To approve and execute:
+1. Review the plan above
+2. Set \`manifest.approval.status = 'APPROVED'\` in the manifest
+3. Re-run the pipeline
+
+Or manually apply the changes following the architect plan.
+`;
 }
 
 /**
