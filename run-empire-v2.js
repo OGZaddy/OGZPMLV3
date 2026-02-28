@@ -192,6 +192,9 @@ const stateManager = getStateManager();
 const { getInstance: getExitContractManager } = require('./core/ExitContractManager');
 const exitContractManager = getExitContractManager();
 
+// CHANGE 2026-02-28: TradingConfig - Centralized trading parameters
+const TradingConfig = require('./core/TradingConfig');
+
 // CHANGE 2025-12-11: MessageQueue - Prevent WebSocket race conditions
 const MessageQueue = require('./core/MessageQueue');
 
@@ -390,40 +393,38 @@ class OGZPrimeV14Bot {
       enableQuantumSizing: this.tierFlags.hasQuantumPositionSizer,
       tier: this.tier,
 
-      // Phase 1: High-priority risk management (env vars ONLY)
-      // CHANGE 661: Fix percentage conversion (15 â†’ 0.15, not 15.0)
-      minConfidenceThreshold: process.env.MIN_TRADE_CONFIDENCE
-        ? (parseFloat(process.env.MIN_TRADE_CONFIDENCE) > 1
-          ? parseFloat(process.env.MIN_TRADE_CONFIDENCE) / 100
-          : parseFloat(process.env.MIN_TRADE_CONFIDENCE))
-        : 0.08,
-      maxRiskPerTrade: parseFloat(process.env.MAX_RISK_PER_TRADE) || 0.02,
-      stopLossPercent: parseFloat(process.env.STOP_LOSS_PERCENT) || 0.02,
-      takeProfitPercent: parseFloat(process.env.TAKE_PROFIT_PERCENT) || 0.04,
-      trailingStopPercent: parseFloat(process.env.TRAILING_STOP_PERCENT) || 0.035,
-      trailingStopActivation: parseFloat(process.env.TRAILING_ACTIVATION) || 0.025,
-      profitProtectionLevel: parseFloat(process.env.PROFIT_PROTECTION) || 0.015,
-      breakevenTrigger: parseFloat(process.env.BREAKEVEN_TRIGGER) || 0.005,
-      breakevenPercentage: parseFloat(process.env.BREAKEVEN_EXIT_PERCENT) || 0.50,
-      postBreakevenTrailing: parseFloat(process.env.POST_BREAKEVEN_TRAIL) || 0.05,
+      // CHANGE 2026-02-28: All trading params from TradingConfig (single source of truth)
+      // Confidence
+      minConfidenceThreshold: TradingConfig.get('confidence.minTradeConfidence'),
+      maxConfidenceThreshold: TradingConfig.get('confidence.maxConfidence'),
+      confidencePenalty: TradingConfig.get('confidence.confidencePenalty'),
+      confidenceBoost: TradingConfig.get('confidence.confidenceBoost'),
 
-      // Phase 1: High-priority position sizing
-      basePositionSize: parseFloat(process.env.BASE_POSITION_SIZE) || 0.01,
-      maxPositionSize: parseFloat(process.env.MAX_POSITION_SIZE_PCT) || 0.05,
-      lowVolatilityMultiplier: parseFloat(process.env.LOW_VOL_MULTIPLIER) || 1.5,
-      highVolatilityMultiplier: parseFloat(process.env.HIGH_VOL_MULTIPLIER) || 0.6,
+      // Risk management
+      maxRiskPerTrade: TradingConfig.get('risk.maxRiskPerTrade'),
+
+      // Exit parameters
+      stopLossPercent: TradingConfig.get('exits.stopLossPercent'),
+      takeProfitPercent: TradingConfig.get('exits.takeProfitPercent'),
+      trailingStopPercent: TradingConfig.get('exits.trailingStopPercent'),
+      trailingStopActivation: TradingConfig.get('exits.trailingActivation'),
+      profitProtectionLevel: TradingConfig.get('exits.profitProtectionLevel'),
+      breakevenTrigger: TradingConfig.get('exits.breakevenTrigger'),
+      breakevenPercentage: TradingConfig.get('exits.breakevenExitPercent'),
+      postBreakevenTrailing: TradingConfig.get('exits.postBreakevenTrail'),
+
+      // Position sizing
+      basePositionSize: TradingConfig.get('positionSizing.basePositionSize'),
+      maxPositionSize: TradingConfig.get('positionSizing.maxPositionSize'),
+      lowVolatilityMultiplier: TradingConfig.get('positionSizing.lowVolMultiplier'),
+      highVolatilityMultiplier: TradingConfig.get('positionSizing.highVolMultiplier'),
       volatilityThresholds: {
-        low: parseFloat(process.env.LOW_VOL_THRESHOLD) || 0.015,
-        high: parseFloat(process.env.HIGH_VOL_THRESHOLD) || 0.035
+        low: TradingConfig.get('positionSizing.lowVolThreshold'),
+        high: TradingConfig.get('positionSizing.highVolThreshold')
       },
 
-      // Phase 1: Confidence thresholds
-      maxConfidenceThreshold: parseFloat(process.env.MAX_CONFIDENCE) || 0.95,
-      confidencePenalty: parseFloat(process.env.CONFIDENCE_PENALTY) || 0.1,
-      confidenceBoost: parseFloat(process.env.CONFIDENCE_BOOST) || 0.05,
-
-      // Phase 1: Fund target
-      houstonFundTarget: parseFloat(process.env.FUND_TARGET) || 25000
+      // Fund target
+      houstonFundTarget: TradingConfig.get('fundTarget')
     };
 
     // Pass feature flags to TradingBrain
@@ -439,12 +440,8 @@ class OGZPrimeV14Bot {
     // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
     // Confluence only affects POSITION SIZING, not the entry decision.
     this.strategyOrchestrator = new StrategyOrchestrator({
-      // FIX 2026-02-23: Wire orchestrator to respect MIN_TRADE_CONFIDENCE env var
-      minStrategyConfidence: process.env.MIN_TRADE_CONFIDENCE
-        ? (parseFloat(process.env.MIN_TRADE_CONFIDENCE) > 1
-          ? parseFloat(process.env.MIN_TRADE_CONFIDENCE) / 100
-          : parseFloat(process.env.MIN_TRADE_CONFIDENCE))
-        : 0.65,  // Default to 65% - quality over quantity
+      // CHANGE 2026-02-28: Use TradingConfig for minStrategyConfidence
+      minStrategyConfidence: TradingConfig.get('confidence.minStrategyConfidence'),
       minConfluenceCount: 1,         // 1 = winner alone can trade
     });
 
@@ -457,8 +454,9 @@ class OGZPrimeV14Bot {
     });
 
     this.riskManager = new RiskManager({
-      maxDailyLoss: parseFloat(process.env.MAX_DAILY_LOSS) || 0.05,
-      maxDrawdown: parseFloat(process.env.MAX_DRAWDOWN) || 0.15
+      // CHANGE 2026-02-28: Use TradingConfig
+      maxDailyLoss: TradingConfig.get('risk.maxDailyLoss'),
+      maxDrawdown: TradingConfig.get('risk.maxDrawdown')
     });
 
     // Use Browser Claude's merged AdvancedExecutionLayer (Change 513 compliant)
@@ -723,14 +721,10 @@ class OGZPrimeV14Bot {
     }
 
     this.config = {
-      // CHANGE 632: Fix MIN_TRADE_CONFIDENCE parsing - accept percentage or decimal
-      minTradeConfidence: process.env.MIN_TRADE_CONFIDENCE
-        ? (parseFloat(process.env.MIN_TRADE_CONFIDENCE) > 1
-          ? parseFloat(process.env.MIN_TRADE_CONFIDENCE) / 100  // Convert percentage to decimal
-          : parseFloat(process.env.MIN_TRADE_CONFIDENCE))      // Already decimal
-        : 0.50,  // Default 50% — reject coin-flip signals
+      // CHANGE 2026-02-28: Use TradingConfig for minTradeConfidence
+      minTradeConfidence: TradingConfig.get('confidence.minTradeConfidence'),
       tradingPair: process.env.TRADING_PAIR || 'BTC-USD',
-      enableShorts: process.env.ENABLE_SHORTS === 'true',
+      enableShorts: TradingConfig.get('features.enableShorts'),
       enableLiveTrading,
       enableBacktestMode,
       tradingMode
@@ -2663,7 +2657,8 @@ class OGZPrimeV14Bot {
 
     // FIXED: Use actual balance from StateManager, not stale systemState
     const currentBalance = stateManager.get('balance') || 10000;
-    let basePositionPercent = parseFloat(process.env.MAX_POSITION_SIZE_PCT) || 0.01;
+    // CHANGE 2026-02-28: Use TradingConfig for position sizing
+    let basePositionPercent = TradingConfig.get('positionSizing.maxPositionSize');
 
     // TUNE 2026-02-27: Confidence-scaled position sizing
     // 50% confidence = 0.5x, 75% = 1.5x, 90%+ = 2.5x (cap)
