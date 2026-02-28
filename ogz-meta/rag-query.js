@@ -28,8 +28,9 @@ function scoreRelevance(text, query) {
   let score = 0;
 
   queryWords.forEach(word => {
-    // Exact word match
-    const exactMatches = (textLower.match(new RegExp(`\\b${word}\\b`, 'g')) || []).length;
+    // Exact word match (escape regex special chars like +, *, etc.)
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const exactMatches = (textLower.match(new RegExp(`\\b${escaped}\\b`, 'g')) || []).length;
     score += exactMatches * 10;
 
     // Partial match
