@@ -93,10 +93,13 @@ async function route(command, args) {
 async function branch(manifest, params) {
   const missionBranch = `mission/${manifest.mission_id}`;
 
-  // Safety: must be clean before branching (ignore manifest files)
+  // Safety: must be clean before branching (ignore untracked, manifests, submodules, data files)
   const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
     .split('\n')
+    .filter(line => !line.startsWith('??'))  // Untracked files are not dirty
     .filter(line => !line.includes('ogz-meta/manifests/'))
+    .filter(line => !line.includes('prodlock-portable'))  // Submodule with untracked content
+    .filter(line => !line.includes('data/journal/'))  // Auto-generated data files
     .join('\n')
     .trim();
   if (dirty) {
