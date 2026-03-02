@@ -101,7 +101,8 @@ async function branch(manifest, params) {
     .filter(line => !line.startsWith('??'))  // Untracked files are not dirty
     .filter(line => !line.includes('ogz-meta/manifests/'))
     .filter(line => !line.includes('prodlock-portable'))  // Submodule with untracked content
-    .filter(line => !line.includes('data/journal/'))  // Auto-generated data files
+    .filter(line => !line.includes('data/'))  // Runtime data files
+    .filter(line => !line.includes('public/proof/'))  // Live trade proofs
     .join('\n')
     .trim();
   if (dirty) {
