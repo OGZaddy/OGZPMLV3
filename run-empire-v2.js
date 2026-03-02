@@ -146,6 +146,10 @@ const { IndicatorSnapshot } = require('./core/IndicatorSnapshot');
 const { CandleAggregator } = require('./core/CandleAggregator');
 const { RegimeDetector } = require('./core/RegimeDetector');
 
+// REFACTOR Phase 4: FeatureExtractor + PatternMemoryStore
+const FeatureExtractor = require('./core/FeatureExtractor');
+const PatternMemoryStore = require('./core/PatternMemoryStore');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -1747,28 +1751,12 @@ class OGZPrimeV14Bot {
         if (Array.isArray(pattern.features)) {
           featuresForRecording = pattern.features;
         } else {
-          // Create fallback array from indicators
-          console.warn('âš ï¸ Creating fallback features array');
-          // FIX 2026-02-01: Convert trend to numeric if string (bullish=1, bearish=-1, else=0)
-        const trendNumeric = typeof indicators.trend === 'string'
-          ? (indicators.trend === 'bullish' || indicators.trend === 'uptrend' ? 1 :
-             indicators.trend === 'bearish' || indicators.trend === 'downtrend' ? -1 : 0)
-          : (indicators.trend || 0);
-        // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
-          // FIX 2026-02-26: Match EPR's rsi/100 convention (was -1 to 1, EPR uses 0-1)
-          const rsiNormalized = (indicators.rsi || 50) / 100;
-          const macdDelta = (indicators.macd?.macd || 0) - (indicators.macd?.signal || 0);
-          featuresForRecording = [
-            rsiNormalized,                           // [0] RSI normalized -1 to 1
-            macdDelta,                               // [1] MACD delta
-            trendNumeric,                            // [2] Trend -1/0/1
-            indicators.bbWidth || 0.02,              // [3] Bollinger width
-            indicators.volatility || 0.01,           // [4] Volatility
-            0.5,                                     // [5] Wick ratio default
-            0,                                       // [6] Price change default
-            0,                                       // [7] Volume change default
-            0                                        // [8] Last direction default
-          ];
+          // REFACTOR Phase 4: Use FeatureExtractor module for fallback
+          console.warn('[FeatureExtractor] Creating fallback features array');
+          featuresForRecording = FeatureExtractor.extractArray({
+            indicators: indicators,
+            candles: this.priceHistory
+          });
         }
 
         // FIX 2026-02-19: Re-enable entry recording with pnl: null (observation-only mode)
