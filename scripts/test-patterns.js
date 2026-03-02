@@ -11,7 +11,7 @@ const path = require('path');
 
 console.log('🔍 PATTERN TEST: Checking pattern memory growth...');
 
-const testFile = 'pattern_memory_test.json';
+const testFile = 'data/pattern-memory.backtest.json';
 const testPath = path.join(__dirname, '..', testFile);
 
 // Clean start
@@ -26,7 +26,7 @@ const bot = spawn('node', ['run-empire-v2.js'], {
   env: {
     ...process.env,
     NODE_ENV: 'test',
-    PATTERN_MEMORY_FILE: testFile,
+    BACKTEST_MODE: 'true',  // Use backtest pattern file
     CANDLE_LIMIT: '50'  // Process 50 candles then stop
   }
 });
