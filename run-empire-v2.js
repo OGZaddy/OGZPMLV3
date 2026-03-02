@@ -150,6 +150,9 @@ const { RegimeDetector } = require('./core/RegimeDetector');
 const FeatureExtractor = require('./core/FeatureExtractor');
 const PatternMemoryStore = require('./core/PatternMemoryStore');
 
+// REFACTOR Phase 5: OrderRouter for multi-broker order routing
+const OrderRouter = require('./core/OrderRouter');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -604,8 +607,15 @@ class OGZPrimeV14Bot {
     console.log('ðŸ­ [EMPIRE V2] Created Kraken adapter via BrokerFactory');
     console.log('ðŸ” [DEBUG] Kraken adapter type:', this.kraken.constructor.name);
 
-    // Connect execution layer to Kraken
+    // Connect execution layer to Kraken (legacy path)
     this.executionLayer.setKrakenAdapter(this.kraken);
+
+    // REFACTOR Phase 5: OrderRouter for multi-broker routing
+    // Future: Add more brokers with orderRouter.registerBroker(adapter, symbols)
+    this.orderRouter = new OrderRouter();
+    this.orderRouter.registerBroker(this.kraken, ['BTC/USD', 'XBT/USD', 'ETH/USD', 'SOL/USD']);
+    this.executionLayer.setOrderRouter(this.orderRouter);
+    console.log('[EMPIRE V2] OrderRouter initialized - multi-broker ready');
 
     // RECONCILER REMOVED - was causing more problems than it solved
 

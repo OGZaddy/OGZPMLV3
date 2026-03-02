@@ -44,7 +44,7 @@
  * const order = await adapter.placeOrder('XBT/USD', 'buy', 0.001, { type: 'market' });
  */
 
-const IBrokerAdapter = require('../foundation/IBrokerAdapter');
+const IBrokerAdapter = require('../brokers/IBrokerAdapter');
 const KrakenAdapterSimple = require('../kraken_adapter_simple');
 const { getStateManager } = require('./StateManager');
 

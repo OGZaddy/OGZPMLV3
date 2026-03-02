@@ -91,6 +91,15 @@ class AdvancedExecutionLayer {
     console.log('✅ Kraken adapter connected');
   }
 
+  /**
+   * Set the OrderRouter for multi-broker order routing
+   * @param {OrderRouter} router
+   */
+  setOrderRouter(router) {
+    this.orderRouter = router;
+    console.log('✅ OrderRouter connected');
+  }
+
   setWebSocketClient(ws) {
     this.wsClient = ws;
     console.log('✅ WebSocket client connected');
@@ -417,25 +426,41 @@ class AdvancedExecutionLayer {
       };
     }
 
-    console.log('🔹 Executing REAL Kraken trade');
+    console.log('🔹 Executing REAL trade via OrderRouter');
     console.log(`   Client Order ID: ${params.clientOrderId}`);
     try {
-      const order = await this.krakenAdapter.placeOrder({
-        symbol: params.symbol,
-        side: params.side,
-        type: 'market',
-        quantity: params.size,
-        clientOrderId: params.clientOrderId  // Pass to Kraken for idempotency
-      });
+      let order;
 
-      console.log('✅ KRAKEN ORDER PLACED:', order.orderId);
+      // Use OrderRouter if available (multi-broker), else fall back to direct Kraken
+      if (this.orderRouter) {
+        order = await this.orderRouter.sendOrder({
+          symbol: params.symbol,
+          side: params.side,
+          type: 'market',
+          amount: params.size,
+          options: { clientOrderId: params.clientOrderId }
+        });
+      } else if (this.krakenAdapter) {
+        // Legacy fallback - direct Kraken adapter
+        order = await this.krakenAdapter.placeOrder({
+          symbol: params.symbol,
+          side: params.side,
+          type: 'market',
+          quantity: params.size,
+          clientOrderId: params.clientOrderId
+        });
+      } else {
+        throw new Error('No OrderRouter or KrakenAdapter configured');
+      }
+
+      console.log('✅ ORDER PLACED:', order.orderId);
       return {
         ...order,
         confidence: params.confidence,
         clientOrderId: params.clientOrderId
       };
     } catch (error) {
-      console.error('❌ Kraken execution failed:', error.message);
+      console.error('❌ Order execution failed:', error.message);
 
       // Check if error is due to duplicate clientOrderId
       if (error.message && error.message.includes('duplicate') || error.message.includes('already exists')) {
