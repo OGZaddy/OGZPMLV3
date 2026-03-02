@@ -60,8 +60,11 @@ bot.stdout.on('data', (data) => {
 bot.stderr.on('data', (data) => {
   const text = data.toString();
 
-  // Ignore warnings about missing optional modules
-  if (!text.includes('Warning') && !text.includes('Deprecation')) {
+  // Ignore warnings about missing optional modules and expected warmup messages
+  if (!text.includes('Warning') &&
+      !text.includes('Deprecation') &&
+      !text.includes('warmup') &&
+      !text.includes('WebSocket not ready')) {
     console.error('❌ ERROR:', text);
     hasErrors = true;
   }
