@@ -16,6 +16,12 @@
 
 'use strict';
 
+// Phase 10: Delegate to individual exit checkers
+const StopLossChecker = require('./exit/StopLossChecker');
+const TakeProfitChecker = require('./exit/TakeProfitChecker');
+const TrailingStopChecker = require('./exit/TrailingStopChecker');
+const MaxHoldChecker = require('./exit/MaxHoldChecker');
+
 /**
  * Default exit contracts by strategy type
  * These are used when a strategy doesn't provide its own generateExitContract()
@@ -136,6 +142,12 @@ class ExitContractManager {
   constructor() {
     this.universalLimits = UNIVERSAL_LIMITS;
     this.defaultContracts = DEFAULT_CONTRACTS;
+
+    // Phase 10: Delegate to individual checkers
+    this.stopLossChecker = new StopLossChecker(UNIVERSAL_LIMITS);
+    this.takeProfitChecker = new TakeProfitChecker();
+    this.trailingStopChecker = new TrailingStopChecker();
+    this.maxHoldChecker = new MaxHoldChecker(UNIVERSAL_LIMITS);
   }
 
   /**
@@ -180,6 +192,7 @@ class ExitContractManager {
 
   /**
    * Check if exit conditions are met for a trade
+   * Phase 10: Delegates to individual checkers
    * @param {Object} trade - Trade object with exitContract
    * @param {number} currentPrice - Current market price
    * @param {Object} context - { indicators, accountBalance, initialBalance, currentTime }
@@ -197,109 +210,28 @@ class ExitContractManager {
       : (Date.now() - trade.entryTime) / 60000;
 
     const contract = trade.exitContract || this.getDefaultContract(trade.entryStrategy || 'default');
+    // Ensure trade has contract for checkers
+    if (!trade.exitContract) trade.exitContract = contract;
 
-    // === UNIVERSAL CIRCUIT BREAKERS (always checked first) ===
+    // PRIORITY ORDER: StopLoss > TakeProfit > TrailingStop > MaxHold > Invalidation
 
-    // Hard stop loss - absolute per-trade limit
-    if (pnlPercent <= this.universalLimits.hardStopLossPercent) {
-      return {
-        shouldExit: true,
-        exitReason: 'hard_stop',
-        details: `Universal hard stop: ${pnlPercent.toFixed(2)}% <= ${this.universalLimits.hardStopLossPercent}%`,
-        confidence: 100
-      };
-    }
+    // 1. Stop loss + universal circuit breakers
+    const slResult = this.stopLossChecker.check(trade, currentPrice, pnlPercent, context);
+    if (slResult.shouldExit) return slResult;
 
-    // Account drawdown check
-    if (context.accountBalance && context.initialBalance) {
-      const accountDrawdown = ((context.accountBalance - context.initialBalance) / context.initialBalance) * 100;
-      if (accountDrawdown <= this.universalLimits.accountDrawdownPercent) {
-        return {
-          shouldExit: true,
-          exitReason: 'account_drawdown',
-          details: `Account drawdown: ${accountDrawdown.toFixed(2)}% <= ${this.universalLimits.accountDrawdownPercent}%`,
-          confidence: 100
-        };
-      }
-    }
+    // 2. Take profit
+    const tpResult = this.takeProfitChecker.check(trade, pnlPercent);
+    if (tpResult.shouldExit) return tpResult;
 
-    // Universal max hold time
-    if (holdTimeMinutes >= this.universalLimits.maxHoldTimeMinutes) {
-      return {
-        shouldExit: true,
-        exitReason: 'max_hold_universal',
-        details: `Universal max hold: ${holdTimeMinutes.toFixed(0)} min >= ${this.universalLimits.maxHoldTimeMinutes} min`,
-        confidence: 100
-      };
-    }
+    // 3. Trailing stop
+    const tsResult = this.trailingStopChecker.check(trade, pnlPercent);
+    if (tsResult.shouldExit) return tsResult;
 
-    // === STRATEGY-SPECIFIC EXIT CONTRACT ===
+    // 4. Max hold time
+    const mhResult = this.maxHoldChecker.check(trade, holdTimeMinutes, pnlPercent);
+    if (mhResult.shouldExit) return mhResult;
 
-    // Break-even logic: if price ever moved 1:1 in our favor, stop becomes entry
-    // Risk = |stopLossPercent|, so 1:1 move = maxProfit >= risk
-    const riskAmount = Math.abs(contract.stopLossPercent);
-    const breakEvenTriggered = trade.maxProfitPercent && trade.maxProfitPercent >= riskAmount;
-    const effectiveStop = breakEvenTriggered ? -0.05 : contract.stopLossPercent;  // -0.05% = tiny buffer for fees
-
-    // Stop loss (uses break-even stop if triggered)
-    if (pnlPercent <= effectiveStop) {
-      const exitReason = breakEvenTriggered ? 'break_even' : 'stop_loss';
-      const stopType = breakEvenTriggered ? 'BE' : 'SL';
-      return {
-        shouldExit: true,
-        exitReason,
-        details: `${trade.entryStrategy || 'Strategy'} ${stopType}: ${pnlPercent.toFixed(2)}% <= ${effectiveStop.toFixed(2)}%`,
-        confidence: 100
-      };
-    }
-
-    // Take profit
-    if (pnlPercent >= contract.takeProfitPercent) {
-      return {
-        shouldExit: true,
-        exitReason: 'take_profit',
-        details: `${trade.entryStrategy || 'Strategy'} TP: ${pnlPercent.toFixed(2)}% >= ${contract.takeProfitPercent}%`,
-        confidence: 100
-      };
-    }
-
-    // Trailing stop (only if in profit above trailing threshold)
-    // TUNE 2026-02-27: Added trailingActivation - don't trail until price has moved enough
-    // This prevents normal volatility from triggering premature trail exits
-    if (contract.trailingStopPercent && trade.maxProfitPercent) {
-      const activationThreshold = contract.trailingActivation || 0;
-      // Only activate trailing once we've reached the activation threshold
-      if (trade.maxProfitPercent >= activationThreshold) {
-        const trailTrigger = breakEvenTriggered ? 0 : contract.trailingStopPercent;  // Trail from BE if triggered
-        if (trade.maxProfitPercent >= trailTrigger) {
-          const trailStop = trade.maxProfitPercent - contract.trailingStopPercent;
-          if (pnlPercent <= trailStop && trailStop > effectiveStop) {  // Only if better than current stop
-            return {
-              shouldExit: true,
-              exitReason: 'trailing_stop',
-              details: `Trailing stop: P&L ${pnlPercent.toFixed(2)}% fell from peak ${trade.maxProfitPercent.toFixed(2)}% (activated at ${activationThreshold}%)`,
-              confidence: 100
-            };
-          }
-        }
-      }
-    }
-
-    // Max hold time (strategy-specific)
-    // TUNE 2026-02-27: Tag as winner/loser for analysis
-    // FIX 2026-02-28: Use net PnL (after 0.52% round-trip fees) not raw PnL
-    if (contract.maxHoldTimeMinutes && holdTimeMinutes >= contract.maxHoldTimeMinutes) {
-      const roundTripFee = 0.52; // 0.26% × 2 sides
-      const holdExitType = pnlPercent > roundTripFee ? 'max_hold_winner' : 'max_hold_loser';
-      return {
-        shouldExit: true,
-        exitReason: holdExitType,
-        details: `${trade.entryStrategy || 'Strategy'} max hold: ${holdTimeMinutes.toFixed(0)} min >= ${contract.maxHoldTimeMinutes} min (P&L ${pnlPercent.toFixed(2)}%)`,
-        confidence: 80
-      };
-    }
-
-    // Invalidation conditions (strategy-specific logic)
+    // 5. Invalidation conditions (stays in ECM — strategy-specific)
     if (contract.invalidationConditions && contract.invalidationConditions.length > 0 && context.indicators) {
       const invalidation = this.checkInvalidationConditions(
         contract.invalidationConditions,
@@ -396,16 +328,13 @@ class ExitContractManager {
 
   /**
    * Update trade's max profit for trailing stop calculation
+   * Phase 10: Delegates to TrailingStopChecker (single owner of maxProfitPercent)
    * @param {Object} trade - Trade object
    * @param {number} currentPrice - Current market price
    * @returns {number} Updated max profit percent
    */
   updateMaxProfit(trade, currentPrice) {
-    if (!trade || !trade.entryPrice) return 0;
-
-    const pnlPercent = ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
-    trade.maxProfitPercent = Math.max(trade.maxProfitPercent || 0, pnlPercent);
-    return trade.maxProfitPercent;
+    return this.trailingStopChecker.updateMaxProfit(trade, currentPrice);
   }
 
   /**
