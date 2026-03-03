@@ -21,6 +21,8 @@ const StopLossChecker = require('./exit/StopLossChecker');
 const TakeProfitChecker = require('./exit/TakeProfitChecker');
 const TrailingStopChecker = require('./exit/TrailingStopChecker');
 const MaxHoldChecker = require('./exit/MaxHoldChecker');
+// Phase 11: Break-even state machine (single source of truth)
+const BreakEvenManager = require('./exit/BreakEvenManager');
 
 /**
  * Default exit contracts by strategy type
@@ -148,6 +150,8 @@ class ExitContractManager {
     this.takeProfitChecker = new TakeProfitChecker();
     this.trailingStopChecker = new TrailingStopChecker();
     this.maxHoldChecker = new MaxHoldChecker(UNIVERSAL_LIMITS);
+    // Phase 11: Break-even state machine (for external access/dashboard)
+    this.breakEvenManager = new BreakEvenManager();
   }
 
   /**

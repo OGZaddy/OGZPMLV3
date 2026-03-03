@@ -2,12 +2,14 @@
  * StopLossChecker.js - Stop Loss Exit Condition
  * ==============================================
  * Checks universal hard stop AND strategy-specific stop loss.
- * Break-even logic: if maxProfit >= risk (1:1 move), stop moves to entry.
+ * Phase 11: Uses BreakEvenManager for break-even state (single source of truth).
  *
  * @module core/exit/StopLossChecker
  */
 
 'use strict';
+
+const BreakEvenManager = require('./BreakEvenManager');
 
 class StopLossChecker {
   /**
@@ -15,6 +17,7 @@ class StopLossChecker {
    */
   constructor(universalLimits) {
     this.universalLimits = universalLimits;
+    this.breakEvenManager = new BreakEvenManager();
   }
 
   /**
@@ -51,11 +54,12 @@ class StopLossChecker {
       }
     }
 
-    // === STRATEGY STOP LOSS (with break-even) ===
+    // === STRATEGY STOP LOSS (with break-even via BreakEvenManager) ===
     if (contract.stopLossPercent !== undefined) {
-      const riskAmount = Math.abs(contract.stopLossPercent);
-      const breakEvenTriggered = trade.maxProfitPercent && trade.maxProfitPercent >= riskAmount;
-      const effectiveStop = breakEvenTriggered ? -0.05 : contract.stopLossPercent;
+      // Phase 11: Query BreakEvenManager instead of inline computation
+      const beState = this.breakEvenManager.evaluate(trade);
+      const effectiveStop = beState.effectiveStopPercent;
+      const breakEvenTriggered = beState.isBreakEven;
 
       if (pnlPercent <= effectiveStop) {
         const exitReason = breakEvenTriggered ? 'break_even' : 'stop_loss';
@@ -79,11 +83,7 @@ class StopLossChecker {
    * @returns {number} Effective stop loss percent
    */
   getEffectiveStop(trade) {
-    const contract = trade.exitContract || {};
-    if (contract.stopLossPercent === undefined) return null;
-    const riskAmount = Math.abs(contract.stopLossPercent);
-    const breakEvenTriggered = trade.maxProfitPercent && trade.maxProfitPercent >= riskAmount;
-    return breakEvenTriggered ? -0.05 : contract.stopLossPercent;
+    return this.breakEvenManager.getEffectiveStop(trade);
   }
 }
 

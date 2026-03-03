@@ -3,6 +3,7 @@
  * =====================================================
  * Checks trailing stop AND owns maxProfitPercent updates.
  * Single owner of high water mark — prevents split responsibility bugs.
+ * Phase 11: Uses BreakEvenManager for break-even state (single source of truth).
  *
  * OWNS: trade.maxProfitPercent mutation
  *
@@ -11,7 +12,13 @@
 
 'use strict';
 
+const BreakEvenManager = require('./BreakEvenManager');
+
 class TrailingStopChecker {
+  constructor() {
+    this.breakEvenManager = new BreakEvenManager();
+  }
+
   /**
    * Update max profit tracking (call BEFORE check)
    * @param {Object} trade - Trade object (MUTATED: maxProfitPercent updated)
@@ -45,10 +52,10 @@ class TrailingStopChecker {
       return { shouldExit: false };
     }
 
-    // Break-even check for trail baseline
-    const riskAmount = Math.abs(contract.stopLossPercent || 1.0);
-    const breakEvenTriggered = trade.maxProfitPercent >= riskAmount;
-    const effectiveStop = breakEvenTriggered ? -0.05 : contract.stopLossPercent;
+    // Phase 11: Query BreakEvenManager instead of inline computation
+    const beState = this.breakEvenManager.evaluate(trade);
+    const breakEvenTriggered = beState.isBreakEven;
+    const effectiveStop = beState.effectiveStopPercent;
 
     const trailTrigger = breakEvenTriggered ? 0 : contract.trailingStopPercent;
     if (trade.maxProfitPercent >= trailTrigger) {
