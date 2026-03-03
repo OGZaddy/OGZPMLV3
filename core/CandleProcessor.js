@@ -1,8 +1,8 @@
 /**
- * CandleProcessor - Phase 19 Extraction
+ * CandleProcessor - Phase 19 Extraction + Gap Recovery
  *
- * EXACT COPY of handleMarketData() from run-empire-v2.js
- * NO logic changes. Just moved to separate file.
+ * Handles incoming market data from WebSocket.
+ * Includes gap detection and REST API backfill recovery.
  *
  * Dependencies passed via context object in constructor.
  *
@@ -13,6 +13,7 @@
 
 const { getInstance: getStateManager } = require('./StateManager');
 const stateManager = getStateManager();
+const BackfillService = require('./BackfillService');
 
 // Candle accessors (V2 format)
 const _o = (candle) => candle?.o ?? candle?.open ?? 0;
@@ -23,7 +24,108 @@ const _c = (candle) => candle?.c ?? candle?.close ?? 0;
 class CandleProcessor {
   constructor(ctx) {
     this.ctx = ctx;
-    console.log('[CandleProcessor] Initialized (Phase 19 - exact copy)');
+
+    // Gap recovery state
+    this.lastCandleEtime = null;
+    this.cleanCandleCount = 0;
+    this.gapRecoveryRequired = parseInt(process.env.RECOVERY_CANDLES_REQUIRED) || 3;
+    this.gapThresholdMs = parseInt(process.env.GAP_THRESHOLD_MS) || 120000; // 2 minutes default
+    this.isBackfilling = false;
+
+    // Initialize BackfillService
+    this.backfillService = new BackfillService(ctx);
+
+    console.log('[CandleProcessor] Initialized with gap recovery (threshold: ' + (this.gapThresholdMs/1000) + 's)');
+  }
+
+  /**
+   * Detect gap between last candle and incoming candle
+   * @param {Object} candle - Incoming candle with etime property
+   * @returns {Object} { hasGap: bool, gapSize: ms, expectedCandles: int, start: ms, end: ms }
+   */
+  detectGap(candle) {
+    // Skip gap detection in backtest mode - candles are intentionally compressed
+    const isBacktesting = process.env.BACKTEST_MODE === 'true' || this.ctx.config?.enableBacktestMode;
+    if (isBacktesting) {
+      return { hasGap: false };
+    }
+
+    // No gap if this is the first candle
+    if (!this.lastCandleEtime) {
+      return { hasGap: false };
+    }
+
+    const gapSize = candle.etime - this.lastCandleEtime;
+
+    // Gap must be larger than threshold (default 2 minutes)
+    if (gapSize <= this.gapThresholdMs) {
+      return { hasGap: false };
+    }
+
+    // Calculate expected candles (assuming 1-minute candles)
+    const expectedCandles = Math.floor(gapSize / 60000);
+
+    return {
+      hasGap: true,
+      gapSize: gapSize,
+      expectedCandles: expectedCandles,
+      start: this.lastCandleEtime,
+      end: candle.etime
+    };
+  }
+
+  /**
+   * Splice backfilled candles into price history
+   * @param {Array} candles - Array of candles to insert
+   */
+  spliceBackfilledCandles(candles) {
+    if (!candles || candles.length === 0) return;
+
+    // Find insertion point based on timestamp
+    let insertIndex = this.ctx.priceHistory.length;
+    for (let i = this.ctx.priceHistory.length - 1; i >= 0; i--) {
+      if (this.ctx.priceHistory[i].etime <= candles[0].etime) {
+        insertIndex = i + 1;
+        break;
+      }
+    }
+
+    // Insert candles
+    this.ctx.priceHistory.splice(insertIndex, 0, ...candles);
+
+    // Also add to candle store
+    for (const candle of candles) {
+      this.ctx._candleStore.addCandle('BTC-USD', '15m', candle);
+    }
+
+    console.log(`[CandleProcessor] Spliced ${candles.length} backfilled candles at index ${insertIndex}`);
+  }
+
+  /**
+   * Recalculate indicators after backfill
+   */
+  recalculateIndicators() {
+    if (this.ctx.indicatorEngine && this.ctx.indicatorEngine.computeBatch) {
+      console.log('[CandleProcessor] Recalculating indicators after backfill...');
+      this.ctx.indicatorEngine.computeBatch(this.ctx.priceHistory);
+    }
+  }
+
+  /**
+   * Handle successful backfill recovery
+   * @param {Array} candles - Backfilled candles
+   */
+  handleBackfillSuccess(candles) {
+    this.spliceBackfilledCandles(candles);
+    this.recalculateIndicators();
+    this.isBackfilling = false;
+
+    // Resume trading if it was paused for gap
+    if (this.ctx.gapPaused) {
+      console.log('[CandleProcessor] Gap recovered via backfill - resuming');
+      this.ctx.gapPaused = false;
+      stateManager.resumeTrading();
+    }
   }
 
   /**
@@ -87,6 +189,50 @@ class CandleProcessor {
       t: parseFloat(time) * 1000,  // Actual timestamp for display
       etime: parseFloat(etime) * 1000  // End time for deduplication
     };
+
+    // GAP RECOVERY: Check for gaps before processing
+    const gap = this.detectGap(candle);
+    if (gap.hasGap && !this.isBackfilling) {
+      console.warn(`⚠️ [Gap Detected] ${gap.gapSize}ms gap (${gap.expectedCandles} candles missing)`);
+
+      // Attempt REST backfill FIRST before halting
+      this.isBackfilling = true;
+      this.backfillService.fill(gap.start, gap.end).then(result => {
+        if (result.success) {
+          console.log(`✅ [Gap Recovery] Backfilled ${result.candles.length} candles via REST API`);
+          this.handleBackfillSuccess(result.candles);
+        } else {
+          console.error(`❌ [Gap Recovery] Backfill failed: ${result.error}`);
+          // THEN halt and start retry loop
+          this.ctx.gapPaused = true;
+          stateManager.pauseTrading(`Data gap: ${gap.expectedCandles} candles missing`);
+          this.backfillService.startRetryLoop(gap, (candles) => {
+            this.handleBackfillSuccess(candles);
+          });
+        }
+        this.isBackfilling = false;
+      }).catch(err => {
+        console.error(`❌ [Gap Recovery] Exception: ${err.message}`);
+        this.isBackfilling = false;
+      });
+    }
+
+    // Track last candle time for gap detection
+    this.lastCandleEtime = candle.etime;
+
+    // Track clean candles for recovery requirement
+    if (this.ctx.gapPaused) {
+      this.cleanCandleCount++;
+      if (this.cleanCandleCount >= this.gapRecoveryRequired) {
+        console.log(`✅ [Gap Recovery] ${this.cleanCandleCount} clean candles received - resuming`);
+        this.ctx.gapPaused = false;
+        this.cleanCandleCount = 0;
+        stateManager.resumeTrading();
+        this.backfillService.stopRetryLoop();
+      }
+    } else {
+      this.cleanCandleCount = 0;
+    }
 
     // Update price history (use etime to detect new minutes, not actual timestamp)
     const lastCandle = this.ctx.priceHistory[this.ctx.priceHistory.length - 1];
