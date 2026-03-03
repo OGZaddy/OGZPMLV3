@@ -171,6 +171,9 @@ const CandleProcessor = require('./core/CandleProcessor');
 // REFACTOR Phase 20: WebSocketManager - dashboard WebSocket handling
 const WebSocketManager = require('./core/WebSocketManager');
 
+// REFACTOR Phase 21: ModuleInitializer - configuration and module factory helpers
+const ModuleInitializer = require('./core/ModuleInitializer');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -376,6 +379,9 @@ class OGZPrimeV14Bot {
     console.log('ðŸ“Š Desktop Claude (402-line) + Browser Claude (439-line) = MERGED');
     console.log('â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•\n');
 
+    // REFACTOR Phase 21: ModuleInitializer for configuration helpers
+    this.moduleInitializer = new ModuleInitializer();
+
     // Environment validation
     this.validateEnvironment();
 
@@ -418,50 +424,11 @@ class OGZPrimeV14Bot {
     this.profileManager.setActiveProfile(initialProfile);
     console.log(`ðŸ“Š Trading Profile: ${initialProfile.toUpperCase()} (manual switching only)`);
 
-    // CHANGE 610: Centralized configuration - all trading params from .env
-    // Profile settings are for reference only - env vars take precedence
-    const tradingBrainConfig = {
-      // Tier settings
-      enableQuantumSizing: this.tierFlags.hasQuantumPositionSizer,
-      tier: this.tier,
-
-      // CHANGE 2026-02-28: All trading params from TradingConfig (single source of truth)
-      // Confidence
-      minConfidenceThreshold: TradingConfig.get('confidence.minTradeConfidence'),
-      maxConfidenceThreshold: TradingConfig.get('confidence.maxConfidence'),
-      confidencePenalty: TradingConfig.get('confidence.confidencePenalty'),
-      confidenceBoost: TradingConfig.get('confidence.confidenceBoost'),
-
-      // Risk management
-      maxRiskPerTrade: TradingConfig.get('risk.maxRiskPerTrade'),
-
-      // Exit parameters
-      stopLossPercent: TradingConfig.get('exits.stopLossPercent'),
-      takeProfitPercent: TradingConfig.get('exits.takeProfitPercent'),
-      trailingStopPercent: TradingConfig.get('exits.trailingStopPercent'),
-      trailingStopActivation: TradingConfig.get('exits.trailingActivation'),
-      profitProtectionLevel: TradingConfig.get('exits.profitProtectionLevel'),
-      breakevenTrigger: TradingConfig.get('exits.breakevenTrigger'),
-      breakevenPercentage: TradingConfig.get('exits.breakevenExitPercent'),
-      postBreakevenTrailing: TradingConfig.get('exits.postBreakevenTrail'),
-
-      // Position sizing
-      basePositionSize: TradingConfig.get('positionSizing.basePositionSize'),
-      maxPositionSize: TradingConfig.get('positionSizing.maxPositionSize'),
-      lowVolatilityMultiplier: TradingConfig.get('positionSizing.lowVolMultiplier'),
-      highVolatilityMultiplier: TradingConfig.get('positionSizing.highVolMultiplier'),
-      volatilityThresholds: {
-        low: TradingConfig.get('positionSizing.lowVolThreshold'),
-        high: TradingConfig.get('positionSizing.highVolThreshold')
-      },
-
-      // Fund target
-      houstonFundTarget: TradingConfig.get('fundTarget')
-    };
-
-    // Pass feature flags to TradingBrain
-    tradingBrainConfig.featureFlags = featureFlags.features || {};
-    tradingBrainConfig.patternDominance = featureFlags.features.PATTERN_DOMINANCE?.enabled || false;
+    // REFACTOR Phase 21: Use ModuleInitializer for TradingBrain config
+    const tradingBrainConfig = this.moduleInitializer.createTradingBrainConfig(
+      { ...this.tierFlags, tier: this.tier },
+      featureFlags
+    );
 
     this.tradingBrain = new OptimizedTradingBrain(
       parseFloat(process.env.INITIAL_BALANCE) || 10000,
