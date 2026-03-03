@@ -567,19 +567,18 @@ class StateManager {
 
   /**
    * Add or update an active trade
-   * PHASE 13A: BYPASS DETECTION - logs violations when called from outside PositionTracker
+   * PHASE 13B: BYPASS HALT - triggers haltNewEntries when called from outside PositionTracker
    */
   updateActiveTrade(orderId, tradeData) {
-    // PHASE 13A: Bypass detection - collect violations before enforcing
+    // PHASE 13B: Bypass halt switch ENABLED
+    const BYPASS_HALT_ENABLED = true;
+
     const stack = new Error().stack;
     const isFromPositionTracker = stack.includes('PositionTracker');
     if (!isFromPositionTracker) {
-      // Collect violation but do NOT halt (13A = detection mode)
       const caller = stack.split('\n')[2]?.trim() || 'unknown';
-      console.warn(`⚠️ [StateManager] BYPASS DETECTED: updateActiveTrade() called from outside PositionTracker`);
-      console.warn(`   Caller: ${caller}`);
-      console.warn(`   OrderId: ${orderId}`);
-      // Store violation for analysis
+
+      // Always collect violation for analysis
       this._bypassViolations = this._bypassViolations || [];
       this._bypassViolations.push({
         method: 'updateActiveTrade',
@@ -588,6 +587,37 @@ class StateManager {
         timestamp: Date.now(),
         stack: stack.split('\n').slice(1, 6).join('\n')
       });
+
+      // PHASE 13B: Trigger halt on bypass
+      if (BYPASS_HALT_ENABLED) {
+        this._haltNewEntries = true;
+        this._haltReason = `Bypass detected: ${caller} called updateActiveTrade() directly`;
+
+        console.error(`🚨 [StateManager] BYPASS HALT TRIGGERED`);
+        console.error(`   Caller: ${caller}`);
+        console.error(`   OrderId: ${orderId}`);
+        console.error(`   Stack trace:\n${stack.split('\n').slice(1, 6).join('\n')}`);
+        console.error(`   ⛔ NEW ENTRIES HALTED - exits only until flat`);
+
+        // Emit alert event if listeners registered
+        if (this._alertListeners?.length > 0) {
+          const alert = {
+            type: 'BYPASS_VIOLATION',
+            method: 'updateActiveTrade',
+            caller,
+            orderId,
+            timestamp: Date.now()
+          };
+          for (const listener of this._alertListeners) {
+            try { listener(alert); } catch (e) { /* ignore */ }
+          }
+        }
+      } else {
+        // Detection mode only (Phase 13A behavior)
+        console.warn(`⚠️ [StateManager] BYPASS DETECTED: updateActiveTrade() called from outside PositionTracker`);
+        console.warn(`   Caller: ${caller}`);
+        console.warn(`   OrderId: ${orderId}`);
+      }
     }
 
     console.log(`🔍 [StateManager] updateActiveTrade called with orderId: ${orderId}`);
@@ -653,6 +683,40 @@ class StateManager {
    */
   clearBypassViolations() {
     this._bypassViolations = [];
+  }
+
+  /**
+   * PHASE 13B: Check if new entries are halted due to bypass violation
+   * @returns {boolean} True if entries halted
+   */
+  isHalted() {
+    return this._haltNewEntries === true;
+  }
+
+  /**
+   * PHASE 13B: Get halt reason
+   * @returns {string|null} Reason for halt or null
+   */
+  getHaltReason() {
+    return this._haltReason || null;
+  }
+
+  /**
+   * PHASE 13B: Reset halt flag (use with caution - only on bot restart)
+   */
+  resetHalt() {
+    console.warn('[StateManager] HALT FLAG RESET - entries re-enabled');
+    this._haltNewEntries = false;
+    this._haltReason = null;
+  }
+
+  /**
+   * PHASE 13B: Register alert listener for bypass violations
+   * @param {Function} callback - Called with alert object on violation
+   */
+  onAlert(callback) {
+    this._alertListeners = this._alertListeners || [];
+    this._alertListeners.push(callback);
   }
 
   // === CHANGE 2025-12-13: CRITICAL - MAP SERIALIZATION FOR PERSISTENCE ===
