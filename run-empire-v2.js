@@ -296,6 +296,8 @@ const { OptimizedTradingBrain } = OptimizedTradingBrainModule || {};
 
 const RiskManager = loader.get('core', 'RiskManager');
 console.log('  RiskManager:', !!RiskManager);
+const EntryDecider = loader.get('core', 'EntryDecider');
+console.log('  EntryDecider:', !!EntryDecider);
 // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
 // const ExecutionRateLimiter = loader.get('core', 'ExecutionRateLimiter');
 const AdvancedExecutionLayer = loader.get('core', 'AdvancedExecutionLayer-439-MERGED');
@@ -464,6 +466,14 @@ class OGZPrimeV14Bot {
       // CHANGE 2026-02-28: Use TradingConfig
       maxDailyLoss: TradingConfig.get('risk.maxDailyLoss'),
       maxDrawdown: TradingConfig.get('risk.maxDrawdown')
+    });
+
+    // Phase 9: EntryDecider - gate checks BEFORE execution (fixes bug where gates ran after)
+    this.entryDecider = new EntryDecider({
+      riskManager: this.riskManager,
+      tradingBrain: this.tradingBrain,
+      stateManager: stateManager,
+      tierFlags: this.tierFlags
     });
 
     // Use Browser Claude's merged AdvancedExecutionLayer (Change 513 compliant)
@@ -2214,26 +2224,12 @@ class OGZPrimeV14Bot {
 
     const pos = stateManager.get('position');
 
-    // FIX 2026-02-16: Guard against position/activeTrades desync (killed 41 zombie trades)
-    const activeTrades = stateManager.get('activeTrades');
-    const hasActiveTrades = activeTrades && (activeTrades instanceof Map ? activeTrades.size > 0 : activeTrades.length > 0);
-    if (pos === 0 && hasActiveTrades) {
-      console.log(`🚨 [DESYNC GUARD] position=0 but activeTrades exists! Blocking new BUY until resolved.`);
-      console.log(`   type=${activeTrades instanceof Map ? 'Map' : typeof activeTrades} size=${activeTrades?.size ?? activeTrades?.length ?? 'unknown'} first=${JSON.stringify(activeTrades instanceof Map ? [...activeTrades.entries()].slice(0,1) : [])}`);
-      return { action: 'HOLD', confidence: 0, reason: 'position_desync_detected' };
-    }
+    // PHASE 9: Desync guard + drawdown block moved to EntryGateChecker
+    // Now checked in executeTrade() BEFORE order execution (was checking AFTER - bug!)
+    // See: core/EntryGateChecker.js
 
     // CHANGE 2025-12-13: Step 5 - MaxProfitManager gets priority on exits
     // Math (stops/targets) ALWAYS wins over Brain (emotional) signals
-
-    // FIX 2026-02-21: Block new entries when account in significant drawdown
-    const currentBalance = stateManager.get('balance') || 10000;
-    const initialBalance = stateManager.get('initialBalance') || 10000;
-    const accountDrawdown = ((currentBalance - initialBalance) / initialBalance) * 100;
-    if (accountDrawdown <= -10) {
-      console.log(`🛑 DRAWDOWN BLOCK: Account ${accountDrawdown.toFixed(1)}% down - blocking new entries until recovery`);
-      return { action: 'HOLD', confidence: 0, reason: 'account_drawdown_block' };
-    }
 
     // Check if we should BUY (when flat) - Brain direction MUST agree
     // FIX 2026-02-05: Was buying on bearish/hold signals (~50% of positions opened wrong direction)
@@ -2698,6 +2694,24 @@ class OGZPrimeV14Bot {
         // return;
       }
 
+      // ═══ PHASE 9 FIX: Gate checks BEFORE execution ═══
+      // Previously gates ran AFTER executeTrade() - order was already on exchange!
+      // Now gates block BEFORE any order is sent
+      if (decision.action === 'BUY') {
+        const entryDecision = this.entryDecider.decide(decision, {
+          price,
+          indicators,
+          patterns,
+          positionSize
+        });
+
+        if (!entryDecision.enter) {
+          console.log(`⛔ [ENTRY GATE] BUY blocked BEFORE execution: ${entryDecision.reason}`);
+          return;
+        }
+        console.log(`✅ [ENTRY GATE] All gates passed (risk: ${entryDecision.riskLevel})`);
+      }
+
       // Generate decisionId for pattern attribution (join key to trai-decisions.log)
       const decisionId = decision.decisionId || `dec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
@@ -2782,33 +2796,9 @@ class OGZPrimeV14Bot {
         }
         // Update position tracking
         if (decision.action === 'BUY') {
-          // ═══ SAFETY GATES (wired 2026-02-24, re-enabled 2026-02-27) ═══
-          // Gate 1: Risk limits (daily/weekly/monthly loss, drawdown)
-          const riskCheck = this.tradingBrain.checkRiskLimits();
-          if (riskCheck.halt) {
-            console.log(`⛔ [RISK GATE] BUY blocked: ${riskCheck.reason}`);
-            return;
-          }
-
-          // Gate 2: Position limits (max concurrent positions per tier)
-          const positionCount = stateManager.get('activeTrades')?.size || 0;
-          if (!this.tradingBrain.canOpenNewPosition(positionCount, this.tierFlags)) {
-            console.log(`⛔ [POSITION GATE] BUY blocked: Max positions (${positionCount})`);
-            return;
-          }
-
-          // Gate 3: Trade risk assessment (comprehensive risk check)
-          const riskAssessment = this.riskManager.assessTradeRisk({
-            direction: 'BUY',
-            entryPrice: price,
-            confidence: decision.confidence,
-            marketData: indicators,
-            patterns: patterns
-          });
-          if (!riskAssessment.approved) {
-            console.log(`⛔ [RISK ASSESSMENT] BUY blocked: ${riskAssessment.reason} (${riskAssessment.riskLevel})`);
-            return;
-          }
+          // ═══ PHASE 9: Gates moved to EntryDecider (BEFORE execution) ═══
+          // Previously gates ran HERE (after order filled) - BUG!
+          // Now handled by this.entryDecider.decide() before executionLayer.executeTrade()
 
           // CHECKPOINT 5: Before position update
           const stateBefore = stateManager.getState();
