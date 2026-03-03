@@ -1244,7 +1244,7 @@ class OGZPrimeV14Bot {
     const LIVENESS_CHECK_INTERVAL = 60000;  // Check every 60 seconds
     const MAX_DATA_SILENCE = 120000;  // 2 minutes without data = dead feed
 
-    this.livenessCheckInterval = setInterval(() => {
+    this.livenessCheckInterval = setInterval(async () => {
       if (!this.lastDataReceived) {
         // No data ever received - still warming up
         return;
@@ -1253,22 +1253,52 @@ class OGZPrimeV14Bot {
       const silenceDuration = Date.now() - this.lastDataReceived;
 
       if (silenceDuration > MAX_DATA_SILENCE && !this.staleFeedPaused) {
-        console.error('ðŸš¨ðŸš¨ðŸš¨ LIVENESS WATCHDOG: NO DATA RECEIVED FOR', Math.round(silenceDuration / 1000), 'SECONDS');
-        console.error('â¸ï¸ PAUSING TRADING - DATA FEED APPEARS DEAD');
+        console.warn('⚠️ LIVENESS WATCHDOG: No data for', Math.round(silenceDuration / 1000), 'seconds - attempting REST backfill...');
+
+        // ATTEMPT BACKFILL FIRST before halting
+        try {
+          const candles = await this.kraken.getHistoricalOHLC('XBTUSD', 15, 10);
+          if (candles && candles.length > 0) {
+            console.log(`✅ REST backfill success: ${candles.length} candles recovered`);
+            // Feed candles through CandleProcessor one at a time (uses canonical processNewCandle)
+            for (const candle of candles) {
+              this.candleProcessor.handleMarketData([
+                candle.t / 1000,  // time (seconds)
+                candle.etime / 1000,  // etime (seconds)
+                candle.o,
+                candle.h,
+                candle.l,
+                candle.c,
+                0,  // vwap (not used)
+                candle.v,
+                0   // count (not used)
+              ]);
+            }
+            this.lastDataReceived = Date.now();
+            console.log('🔄 Data feed recovered via REST backfill - continuing');
+            return; // Don't halt - we recovered
+          }
+        } catch (backfillError) {
+          console.error('❌ REST backfill failed:', backfillError.message);
+        }
+
+        // Backfill failed - now halt
+        console.error('🚨🚨🚨 LIVENESS WATCHDOG: BACKFILL FAILED - HALTING');
+        console.error('⸏ PAUSING TRADING - DATA FEED APPEARS DEAD');
         this.staleFeedPaused = true;
 
         // Notify StateManager to pause
         try {
           const { getInstance: getStateManager } = require('./core/StateManager');
           const stateManager = getStateManager();
-          stateManager.pauseTrading(`Liveness watchdog: No data for ${Math.round(silenceDuration / 1000)}s`);
+          stateManager.pauseTrading(`Liveness watchdog: No data for ${Math.round(silenceDuration / 1000)}s, backfill failed`);
         } catch (error) {
           console.error('Failed to pause via StateManager:', error.message);
         }
       }
     }, LIVENESS_CHECK_INTERVAL);
 
-    console.log('ðŸ” Liveness watchdog started (checks every 60s, alerts if no data for 2min)');
+    console.log('ðŸ” Liveness watchdog started (checks every 60s, attempts REST backfill before halting)');
   }
 
   /**

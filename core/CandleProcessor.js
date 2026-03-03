@@ -4,7 +4,11 @@
  * Handles incoming market data from WebSocket.
  * Includes gap detection and REST API backfill recovery.
  *
- * Dependencies passed via context object in constructor.
+ * Gap Recovery Flow:
+ * 1. Gap detected (>1.5x candle interval)
+ * 2. Attempt REST backfill via kraken.getHistoricalOHLC()
+ * 3. Success: splice candles, replay through indicators, continue
+ * 4. Fail: THEN halt, retry every 60s, resume after 3 clean candles
  *
  * @module core/CandleProcessor
  */
@@ -13,7 +17,6 @@
 
 const { getInstance: getStateManager } = require('./StateManager');
 const stateManager = getStateManager();
-const BackfillService = require('./BackfillService');
 
 // Candle accessors (V2 format)
 const _o = (candle) => candle?.o ?? candle?.open ?? 0;
@@ -26,112 +29,176 @@ class CandleProcessor {
     this.ctx = ctx;
 
     // Gap recovery state
-    this.lastCandleEtime = null;
+    this.candleIntervalMs = 15 * 60 * 1000; // 15 minutes default
+    this.gapThresholdMultiplier = 1.5; // Gap if > 1.5x interval (22.5 min for 15m candles)
     this.cleanCandleCount = 0;
-    this.gapRecoveryRequired = parseInt(process.env.RECOVERY_CANDLES_REQUIRED) || 3;
-    this.gapThresholdMs = parseInt(process.env.GAP_THRESHOLD_MS) || 120000; // 2 minutes default
-    this.isBackfilling = false;
+    this.cleanCandlesRequired = 3;
+    this.backfillRetryInterval = null;
+    this.backfillRetryDelayMs = 60000; // 60 seconds
 
-    // Initialize BackfillService
-    this.backfillService = new BackfillService(ctx);
-
-    console.log('[CandleProcessor] Initialized with gap recovery (threshold: ' + (this.gapThresholdMs/1000) + 's)');
+    console.log('[CandleProcessor] Initialized with gap recovery');
   }
 
   /**
-   * Detect gap between last candle and incoming candle
-   * @param {Object} candle - Incoming candle with etime property
-   * @returns {Object} { hasGap: bool, gapSize: ms, expectedCandles: int, start: ms, end: ms }
+   * Process a new candle - ONE CANONICAL PATH
+   * Used by both live feed and backfill replay
+   * Dedupes by etime, inserts in timestamp order, feeds all indicators
+   * @param {Object} candle - Candle in V2 format { o, h, l, c, v, t, etime }
    */
-  detectGap(candle) {
-    // Skip gap detection in backtest mode - candles are intentionally compressed
-    const isBacktesting = process.env.BACKTEST_MODE === 'true' || this.ctx.config?.enableBacktestMode;
-    if (isBacktesting) {
-      return { hasGap: false };
+  processNewCandle(candle) {
+    // Dedupe by etime - skip if we already have this candle
+    const existing = this.ctx.priceHistory.find(c => c.etime === candle.etime);
+    if (existing) {
+      return; // Already have this candle
     }
 
-    // No gap if this is the first candle
-    if (!this.lastCandleEtime) {
-      return { hasGap: false };
-    }
-
-    const gapSize = candle.etime - this.lastCandleEtime;
-
-    // Gap must be larger than threshold (default 2 minutes)
-    if (gapSize <= this.gapThresholdMs) {
-      return { hasGap: false };
-    }
-
-    // Calculate expected candles (assuming 1-minute candles)
-    const expectedCandles = Math.floor(gapSize / 60000);
-
-    return {
-      hasGap: true,
-      gapSize: gapSize,
-      expectedCandles: expectedCandles,
-      start: this.lastCandleEtime,
-      end: candle.etime
-    };
-  }
-
-  /**
-   * Splice backfilled candles into price history
-   * @param {Array} candles - Array of candles to insert
-   */
-  spliceBackfilledCandles(candles) {
-    if (!candles || candles.length === 0) return;
-
-    // Find insertion point based on timestamp
-    let insertIndex = this.ctx.priceHistory.length;
-    for (let i = this.ctx.priceHistory.length - 1; i >= 0; i--) {
-      if (this.ctx.priceHistory[i].etime <= candles[0].etime) {
-        insertIndex = i + 1;
-        break;
+    // Smart insert: push if latest, splice if backfill (older than last)
+    const lastCandle = this.ctx.priceHistory[this.ctx.priceHistory.length - 1];
+    if (!lastCandle || candle.etime > lastCandle.etime) {
+      // Normal case: append to end
+      this.ctx.priceHistory.push(candle);
+    } else {
+      // Backfill case: insert in timestamp order
+      let insertIndex = 0;
+      for (let i = this.ctx.priceHistory.length - 1; i >= 0; i--) {
+        if (this.ctx.priceHistory[i].etime < candle.etime) {
+          insertIndex = i + 1;
+          break;
+        }
       }
+      this.ctx.priceHistory.splice(insertIndex, 0, candle);
     }
 
-    // Insert candles
-    this.ctx.priceHistory.splice(insertIndex, 0, ...candles);
+    this.ctx._candleStore.addCandle('BTC-USD', '15m', candle);
 
-    // Also add to candle store
-    for (const candle of candles) {
-      this.ctx._candleStore.addCandle('BTC-USD', '15m', candle);
+    // Feed IndicatorEngine
+    if (this.ctx.indicatorEngine) {
+      this.ctx.indicatorEngine.updateCandle({
+        t: candle.t,
+        o: candle.o,
+        h: candle.h,
+        l: candle.l,
+        c: candle.c,
+        v: candle.v
+      });
     }
 
-    console.log(`[CandleProcessor] Spliced ${candles.length} backfilled candles at index ${insertIndex}`);
+    // Feed modular entry system
+    if (this.ctx.mtfAdapter) this.ctx.mtfAdapter.ingestCandle(candle);
+    if (this.ctx.emaCrossover) this.ctx.emaCrossoverSignal = this.ctx.emaCrossover.update(candle, this.ctx.priceHistory);
+    if (this.ctx.maDynamicSR) this.ctx.maDynamicSRSignal = this.ctx.maDynamicSR.update(candle, this.ctx.priceHistory);
+    if (this.ctx.breakAndRetest) this.ctx.breakRetestSignal = this.ctx.breakAndRetest.update(candle, this.ctx.priceHistory);
+    if (this.ctx.liquiditySweep) this.ctx.liquiditySweepSignal = this.ctx.liquiditySweep.feedCandle(candle);
+    if (this.ctx.volumeProfile) this.ctx.volumeProfile.update(candle, this.ctx.priceHistory);
+
+    // Warmup log (only first 20 candles)
+    if (this.ctx.priceHistory.length <= 20) {
+      const candleTime = new Date(candle.t).toLocaleTimeString();
+      console.log(`✅ Candle #${this.ctx.priceHistory.length}/15 [${candleTime}]`);
+    }
+
+    // Trim history to 250
+    if (this.ctx.priceHistory.length > 250) {
+      this.ctx.priceHistory = this.ctx.priceHistory.slice(-250);
+    }
+
+    // Save counter
+    this.ctx.candleSaveCounter++;
+    if (this.ctx.candleSaveCounter >= 5) {
+      this.ctx.saveCandleHistory();
+      this.ctx.candleSaveCounter = 0;
+    }
   }
 
   /**
-   * Recalculate indicators after backfill
+   * Attempt to backfill missing candles via REST API
+   * @param {number} gapStart - Start timestamp of gap (ms)
+   * @param {number} gapEnd - End timestamp of gap (ms)
+   * @returns {Array} Backfilled candles or empty array on failure
    */
-  recalculateIndicators() {
-    if (this.ctx.indicatorEngine && this.ctx.indicatorEngine.computeBatch) {
-      console.log('[CandleProcessor] Recalculating indicators after backfill...');
-      this.ctx.indicatorEngine.computeBatch(this.ctx.priceHistory);
+  async attemptBackfill(gapStart, gapEnd) {
+    try {
+      if (!this.ctx.kraken || !this.ctx.kraken.getHistoricalOHLC) {
+        console.error('[GAP-RECOVERY] Kraken adapter not available');
+        return [];
+      }
+
+      // Calculate how many candles we need
+      const missingCount = Math.ceil((gapEnd - gapStart) / this.candleIntervalMs);
+      const fetchCount = missingCount + 5; // Small buffer
+
+      console.log(`[GAP-RECOVERY] Fetching ${fetchCount} candles to fill ${missingCount} missing`);
+
+      const candles = await this.ctx.kraken.getHistoricalOHLC('XBTUSD', 15, fetchCount);
+
+      if (!candles || candles.length === 0) {
+        console.error('[GAP-RECOVERY] REST API returned no candles');
+        return [];
+      }
+
+      // Filter to only candles within the gap
+      const gapCandles = candles.filter(c => c.etime > gapStart && c.etime <= gapEnd);
+
+      // Sort chronologically (oldest first - critical for indicator replay)
+      gapCandles.sort((a, b) => a.t - b.t);
+
+      return gapCandles;
+
+    } catch (error) {
+      console.error(`[GAP-RECOVERY] Backfill failed: ${error.message}`);
+      return [];
     }
   }
 
   /**
-   * Handle successful backfill recovery
-   * @param {Array} candles - Backfilled candles
+   * Start retry loop for failed backfill
+   * @param {number} gapStart - Start timestamp
+   * @param {number} gapEnd - End timestamp
+   */
+  startBackfillRetry(gapStart, gapEnd) {
+    if (this.backfillRetryInterval) return; // Already retrying
+
+    console.log('[GAP-RECOVERY] Starting retry loop (every 60s)');
+
+    this.backfillRetryInterval = setInterval(async () => {
+      console.log('[GAP-RECOVERY] Retry attempt...');
+
+      const candles = await this.attemptBackfill(gapStart, gapEnd);
+
+      if (candles.length > 0) {
+        console.log(`[GAP-RECOVERY] Retry succeeded: ${candles.length} candles`);
+        this.handleBackfillSuccess(candles);
+        this.stopBackfillRetry();
+      }
+    }, this.backfillRetryDelayMs);
+  }
+
+  /**
+   * Stop the retry loop
+   */
+  stopBackfillRetry() {
+    if (this.backfillRetryInterval) {
+      clearInterval(this.backfillRetryInterval);
+      this.backfillRetryInterval = null;
+    }
+  }
+
+  /**
+   * Handle successful backfill - process through canonical path
+   * @param {Array} candles - Backfilled candles (sorted chronologically)
    */
   handleBackfillSuccess(candles) {
-    this.spliceBackfilledCandles(candles);
-    this.recalculateIndicators();
-    this.isBackfilling = false;
+    console.log(`[GAP-RECOVERY] Processing ${candles.length} backfilled candles`);
 
-    // Resume trading if it was paused for gap
-    if (this.ctx.gapPaused) {
-      console.log('[CandleProcessor] Gap recovered via backfill - resuming');
-      this.ctx.gapPaused = false;
-      stateManager.resumeTrading();
-    }
+    // One canonical path - dedupe + insert + indicators all in one
+    candles.forEach(c => this.processNewCandle(c));
+
+    console.log(`[GAP-RECOVERY] Backfilled ${candles.length} candles via REST`);
   }
 
   /**
    * Handle incoming market data from WebSocket
    * Kraken OHLC format: [channelID, [time, etime, open, high, low, close, vwap, volume, count], channelName, pair]
-   * EXACT COPY from run-empire-v2.js
    */
   handleMarketData(ohlcData) {
 
@@ -190,50 +257,6 @@ class CandleProcessor {
       etime: parseFloat(etime) * 1000  // End time for deduplication
     };
 
-    // GAP RECOVERY: Check for gaps before processing
-    const gap = this.detectGap(candle);
-    if (gap.hasGap && !this.isBackfilling) {
-      console.warn(`⚠️ [Gap Detected] ${gap.gapSize}ms gap (${gap.expectedCandles} candles missing)`);
-
-      // Attempt REST backfill FIRST before halting
-      this.isBackfilling = true;
-      this.backfillService.fill(gap.start, gap.end).then(result => {
-        if (result.success) {
-          console.log(`✅ [Gap Recovery] Backfilled ${result.candles.length} candles via REST API`);
-          this.handleBackfillSuccess(result.candles);
-        } else {
-          console.error(`❌ [Gap Recovery] Backfill failed: ${result.error}`);
-          // THEN halt and start retry loop
-          this.ctx.gapPaused = true;
-          stateManager.pauseTrading(`Data gap: ${gap.expectedCandles} candles missing`);
-          this.backfillService.startRetryLoop(gap, (candles) => {
-            this.handleBackfillSuccess(candles);
-          });
-        }
-        this.isBackfilling = false;
-      }).catch(err => {
-        console.error(`❌ [Gap Recovery] Exception: ${err.message}`);
-        this.isBackfilling = false;
-      });
-    }
-
-    // Track last candle time for gap detection
-    this.lastCandleEtime = candle.etime;
-
-    // Track clean candles for recovery requirement
-    if (this.ctx.gapPaused) {
-      this.cleanCandleCount++;
-      if (this.cleanCandleCount >= this.gapRecoveryRequired) {
-        console.log(`✅ [Gap Recovery] ${this.cleanCandleCount} clean candles received - resuming`);
-        this.ctx.gapPaused = false;
-        this.cleanCandleCount = 0;
-        stateManager.resumeTrading();
-        this.backfillService.stopRetryLoop();
-      }
-    } else {
-      this.cleanCandleCount = 0;
-    }
-
     // Update price history (use etime to detect new minutes, not actual timestamp)
     const lastCandle = this.ctx.priceHistory[this.ctx.priceHistory.length - 1];
     const isNewMinute = !lastCandle || lastCandle.etime !== candle.etime;
@@ -242,6 +265,18 @@ class CandleProcessor {
       // Update existing candle (same minute) - Kraken sends multiple updates per minute
       this.ctx.priceHistory[this.ctx.priceHistory.length - 1] = candle;
       this.ctx._candleStore.addCandle('BTC-USD', '15m', candle);  // REFACTOR: dual-write (update)
+
+      // Feed IndicatorEngine for real-time updates
+      if (this.ctx.indicatorEngine) {
+        this.ctx.indicatorEngine.updateCandle({
+          t: candle.t,
+          o: candle.o,
+          h: candle.h,
+          l: candle.l,
+          c: candle.c,
+          v: candle.v
+        });
+      }
 
       // Debug: Show updates for first few candles
       if (this.ctx.priceHistory.length <= 3) {
@@ -255,37 +290,47 @@ class CandleProcessor {
       }
     } else {
       // New candle (new minute) - etime changed
-      this.ctx.priceHistory.push(candle);
-      this.ctx._candleStore.addCandle('BTC-USD', '15m', candle);  // REFACTOR: dual-write
 
-      // CHANGE 2026-02-10: Feed modular entry system with new candle
-      if (this.ctx.mtfAdapter) this.ctx.mtfAdapter.ingestCandle(candle);
-      if (this.ctx.emaCrossover) this.ctx.emaCrossoverSignal = this.ctx.emaCrossover.update(candle, this.ctx.priceHistory);
-      if (this.ctx.maDynamicSR) this.ctx.maDynamicSRSignal = this.ctx.maDynamicSR.update(candle, this.ctx.priceHistory);
-      if (this.ctx.breakAndRetest) this.ctx.breakRetestSignal = this.ctx.breakAndRetest.update(candle, this.ctx.priceHistory);
-      if (this.ctx.liquiditySweep) this.ctx.liquiditySweepSignal = this.ctx.liquiditySweep.feedCandle(candle);
+      // GAP DETECTION: Check for gaps only on new candles, not in backtest
+      if (lastCandle && !isBacktesting) {
+        const gapMs = candle.etime - lastCandle.etime;
+        const gapThreshold = this.candleIntervalMs * this.gapThresholdMultiplier; // 22.5 min for 15m candles
 
-      // CHANGE 2026-02-23: Update Volume Profile (chop filter for trend strategies)
-      if (this.ctx.volumeProfile) this.ctx.volumeProfile.update(candle, this.ctx.priceHistory);
+        if (gapMs > gapThreshold) {
+          const missingCandles = Math.floor(gapMs / this.candleIntervalMs) - 1;
+          console.warn(`⚠️ [GAP-RECOVERY] Gap detected: ${Math.round(gapMs/60000)} min (${missingCandles} candles missing)`);
 
-
-      // Only log during warmup phase (first 20 candles)
-      if (this.ctx.priceHistory.length <= 20) {
-        const candleTime = new Date(candle.t).toLocaleTimeString();
-        console.log(`✅ Candle #${this.ctx.priceHistory.length}/15 [${candleTime}]`);
+          // Attempt REST backfill BEFORE halting
+          this.attemptBackfill(lastCandle.etime, candle.etime).then(backfilledCandles => {
+            if (backfilledCandles.length > 0) {
+              // Success - splice and replay, don't halt
+              this.handleBackfillSuccess(backfilledCandles);
+              this.cleanCandleCount = 0; // Reset clean candle counter
+            } else {
+              // Fail - NOW halt and start retry
+              console.error('[GAP-RECOVERY] Backfill failed, halting trading');
+              this.ctx.staleFeedPaused = true;
+              stateManager.pauseTrading(`Data gap: ${missingCandles} candles missing, backfill failed`);
+              this.startBackfillRetry(lastCandle.etime, candle.etime);
+            }
+          });
+        }
       }
 
-      // Keep enough history for 200 EMA + swing detection (220 bars minimum)
-      if (this.ctx.priceHistory.length > 250) {
-        this.ctx.priceHistory = this.ctx.priceHistory.slice(-250);
+      // Track clean candles for recovery after gap
+      if (this.ctx.staleFeedPaused && this.backfillRetryInterval) {
+        this.cleanCandleCount++;
+        if (this.cleanCandleCount >= this.cleanCandlesRequired) {
+          console.log(`✅ [GAP-RECOVERY] ${this.cleanCandleCount} clean candles - resuming trading`);
+          this.ctx.staleFeedPaused = false;
+          this.cleanCandleCount = 0;
+          this.stopBackfillRetry();
+          stateManager.resumeTrading();
+        }
       }
 
-      // CHANGE 2026-01-28: Save candles to disk every 5 new candles
-      this.ctx.candleSaveCounter++;
-      if (this.ctx.candleSaveCounter >= 5) {
-        this.ctx.saveCandleHistory();
-        this.ctx.candleSaveCounter = 0;
-      }
+      // ONE CANONICAL PATH - live and backfill use same code
+      this.processNewCandle(candle);
     }
 
     // Store latest market data
@@ -298,16 +343,6 @@ class CandleProcessor {
       high: parseFloat(high),
       low: parseFloat(low)
     };
-
-    // CHANGE 2025-12-23: Feed candle to IndicatorEngine (Empire V2)
-    this.ctx.indicatorEngine.updateCandle({
-      t: parseFloat(time) * 1000,
-      o: parseFloat(open),
-      h: parseFloat(high),
-      l: parseFloat(low),
-      c: parseFloat(close),
-      v: parseFloat(volume) || 0
-    });
 
     // CHANGE 663: Broadcast market data to dashboard
     if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs) {
@@ -361,6 +396,13 @@ class CandleProcessor {
         // Fail silently - don't let dashboard issues affect trading
       }
     }
+  }
+
+  /**
+   * Cleanup on shutdown
+   */
+  cleanup() {
+    this.stopBackfillRetry();
   }
 }
 
