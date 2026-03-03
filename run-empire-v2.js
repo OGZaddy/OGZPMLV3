@@ -253,6 +253,11 @@ const VolumeProfile = require('./core/VolumeProfile');
 const { StrategyOrchestrator } = require('./core/StrategyOrchestrator');
 const { AdaptiveTimeframeSelector } = require('./core/AdaptiveTimeframeSelector');
 
+// PHASE 13A: Position management with immutability guarantees
+const PnLCalculator = require('./core/PnLCalculator');
+const PositionSizer = require('./core/PositionSizer');
+const PositionTracker = require('./core/PositionTracker');
+
 // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking with fees
 const BacktestRecorder = require('./core/BacktestRecorder');
 
@@ -478,6 +483,11 @@ class OGZPrimeV14Bot {
       stateManager: stateManager,
       tierFlags: this.tierFlags
     });
+
+    // PHASE 13A: Position management with immutability guarantees
+    this.pnlCalculator = new PnLCalculator();
+    this.positionSizer = new PositionSizer();
+    this.positionTracker = new PositionTracker();
 
     // Use Browser Claude's merged AdvancedExecutionLayer (Change 513 compliant)
     this.executionLayer = new AdvancedExecutionLayer({

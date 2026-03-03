@@ -567,8 +567,29 @@ class StateManager {
 
   /**
    * Add or update an active trade
+   * PHASE 13A: BYPASS DETECTION - logs violations when called from outside PositionTracker
    */
   updateActiveTrade(orderId, tradeData) {
+    // PHASE 13A: Bypass detection - collect violations before enforcing
+    const stack = new Error().stack;
+    const isFromPositionTracker = stack.includes('PositionTracker');
+    if (!isFromPositionTracker) {
+      // Collect violation but do NOT halt (13A = detection mode)
+      const caller = stack.split('\n')[2]?.trim() || 'unknown';
+      console.warn(`⚠️ [StateManager] BYPASS DETECTED: updateActiveTrade() called from outside PositionTracker`);
+      console.warn(`   Caller: ${caller}`);
+      console.warn(`   OrderId: ${orderId}`);
+      // Store violation for analysis
+      this._bypassViolations = this._bypassViolations || [];
+      this._bypassViolations.push({
+        method: 'updateActiveTrade',
+        orderId,
+        caller,
+        timestamp: Date.now(),
+        stack: stack.split('\n').slice(1, 6).join('\n')
+      });
+    }
+
     console.log(`🔍 [StateManager] updateActiveTrade called with orderId: ${orderId}`);
     console.log(`🔍 [StateManager] this.get exists: ${typeof this.get}`);
     console.log(`🔍 [StateManager] this.set exists: ${typeof this.set}`);
@@ -616,6 +637,22 @@ class StateManager {
       console.error('❌ [StateManager] STATE DESYNC DETECTED:', validation.issues);
     }
     return validation.valid;
+  }
+
+  /**
+   * PHASE 13A: Get bypass violations for analysis
+   * Call this after backtest to see which code paths bypassed PositionTracker
+   * @returns {Array} List of bypass violations
+   */
+  getBypassViolations() {
+    return this._bypassViolations || [];
+  }
+
+  /**
+   * PHASE 13A: Clear bypass violations (for fresh test runs)
+   */
+  clearBypassViolations() {
+    this._bypassViolations = [];
   }
 
   // === CHANGE 2025-12-13: CRITICAL - MAP SERIALIZATION FOR PERSISTENCE ===
