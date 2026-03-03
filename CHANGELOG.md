@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 13A: Position Management with Bypass Detection (2026-03-03)
+
+**Session Focus:** Extract position management modules with immutability prep and bypass detection.
+
+#### New Modules (3)
+
+1. **PnLCalculator** (`core/PnLCalculator.js`)
+   - **File:** `core/PnLCalculator.js` lines 1-141
+   - **Purpose:** Direction-aware P&L calculations
+   - **Features:**
+     - `calculatePnLPercent(entry, current, side)` - Longs: (current-entry)/entry, Shorts: (entry-current)/entry
+     - `calculatePnLDollars(entry, current, size, side)` - USD profit/loss
+     - `calculateNetPnL(entry, current, size, side)` - After 0.52% round-trip fees
+     - `isProfitableAfterFees(pnlPercent)` - Checks 0.35% fee buffer
+
+2. **PositionSizer** (`core/PositionSizer.js`)
+   - **File:** `core/PositionSizer.js` lines 1-177
+   - **Purpose:** Confidence-scaled position sizing
+   - **Features:**
+     - `calculate({balance, price, confidence})` - Returns sizeUSD, sizeBase, multiplier
+     - Confidence multiplier: 50%→0.5x, 75%→1.5x, 90%+→2.5x (cap)
+     - Kelly criterion (optional)
+     - AGGRESSIVE_LEARNING_MODE integration
+
+3. **PositionTracker** (`core/PositionTracker.js`)
+   - **File:** `core/PositionTracker.js` lines 1-437
+   - **Purpose:** Sole writer to trade objects with immutability enforcement
+   - **Features:**
+     - `openPosition({size, price, side, entryStrategy, exitContract})` - Creates trade with WRITE-ONCE identity
+     - `closePosition({price, exitReason, partial})` - Closes with P&L calculation
+     - `patchTrade(orderId, patch, caller)` - ALLOWLIST-based mutable field updates
+     - `getTradeSnapshot(orderId)` - Deep-frozen read-only snapshot
+     - `getActiveTradeSnapshot()` - Current position snapshot
+
+#### Immutability Invariants
+```javascript
+// IMMUTABLE_FIELDS - Set at openPosition(), cannot change
+const IMMUTABLE_FIELDS = ['entryStrategy', 'signalId', 'entryTime',
+  'entryPrice', 'side', 'direction', 'orderId', 'exitContract'];
+
+// MUTABLE_FIELDS - Can be patched via patchTrade()
+const MUTABLE_FIELDS = ['maxProfitPercent', 'currentPnL', 'pnl',
+  'pnlDollars', 'trailingStop', 'partialFills', 'exitReason',
+  'exitTime', 'exitPrice', 'holdDuration', 'maxProfit'];
+```
+
+#### StateManager Bypass Detection
+- **File:** `core/StateManager.js` lines 571-603
+- **Change:** Added stack trace logging when `updateActiveTrade()` called from outside PositionTracker
+- **Mode:** Detection only (no halt yet - violations collected for analysis)
+- **Methods added:**
+  - `getBypassViolations()` - Retrieve collected violations
+  - `clearBypassViolations()` - Clear for fresh test runs
+
+#### Runner Integration
+- **File:** `run-empire-v2.js` lines 255-260, 489-492
+- **Change:** Import and instantiate Phase 13A modules
+- **Before:**
+  ```javascript
+  // (no position management modules)
+  ```
+- **After:**
+  ```javascript
+  const PnLCalculator = require('./core/PnLCalculator');
+  const PositionSizer = require('./core/PositionSizer');
+  const PositionTracker = require('./core/PositionTracker');
+  // ...
+  this.pnlCalculator = new PnLCalculator();
+  this.positionSizer = new PositionSizer();
+  this.positionTracker = new PositionTracker();
+  ```
+
+#### Golden Test
+- **Trades:** 10
+- **Final Balance:** $9559.54
+- **P&L:** -4.40%
+- **Bypass Violations:** 0
+
+#### Commit
+- `e6b6a81` - refactor(phase13a): Extract PositionTracker + PnLCalculator + PositionSizer with bypass detection
+
+---
+
 ### Phase 10: Exit Checkers Extraction (2026-03-03)
 
 **Session Focus:** Extract exit condition checking from ExitContractManager into individual checker modules.
