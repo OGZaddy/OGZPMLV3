@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 13B: Enable StateManager Bypass Halt Switch (2026-03-03)
+
+**Session Focus:** Flip the halt switch so bypass violations trigger entry halt.
+
+#### StateManager Changes
+- **File:** `core/StateManager.js` lines 572-620
+- **Change:** `BYPASS_HALT_ENABLED = true` (was detection-only in 13A)
+- **Before:**
+  ```javascript
+  // Collect violation but do NOT halt (13A = detection mode)
+  console.warn(`⚠️ [StateManager] BYPASS DETECTED...`);
+  ```
+- **After:**
+  ```javascript
+  // PHASE 13B: Trigger halt on bypass
+  if (BYPASS_HALT_ENABLED) {
+    this._haltNewEntries = true;
+    this._haltReason = `Bypass detected: ${caller} called updateActiveTrade() directly`;
+    console.error(`🚨 [StateManager] BYPASS HALT TRIGGERED`);
+    // Alert listeners notified...
+  }
+  ```
+
+#### New Methods Added
+- **File:** `core/StateManager.js` lines 691-720
+- `isHalted()` - Check if new entries are halted
+- `getHaltReason()` - Get reason for halt
+- `resetHalt()` - Reset halt flag (bot restart only)
+- `onAlert(callback)` - Register alert listener for violations
+
+#### Behavior
+- Bypass detected → halt new entries → continue exits until flat
+- Does NOT crash bot (protects open positions)
+- Continues to collect violations for analysis
+
+#### Golden Test
+- **Trades:** 10
+- **Final Balance:** $9559.54
+- **P&L:** -4.40%
+- **Bypass Triggers:** 0 (no offenders in current code)
+
+#### Commit
+- `b64d95f` - refactor(phase13b): Enable StateManager bypass halt switch
+
+---
+
 ### Phase 13A: Position Management with Bypass Detection (2026-03-03)
 
 **Session Focus:** Extract position management modules with immutability prep and bypass detection.
