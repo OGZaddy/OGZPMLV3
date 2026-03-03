@@ -168,6 +168,9 @@ const BacktestRunner = require('./core/BacktestRunner');
 // REFACTOR Phase 19: CandleProcessor - market data handling
 const CandleProcessor = require('./core/CandleProcessor');
 
+// REFACTOR Phase 20: WebSocketManager - dashboard WebSocket handling
+const WebSocketManager = require('./core/WebSocketManager');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -671,6 +674,8 @@ class OGZPrimeV14Bot {
     // Dashboard WebSocket (Change 528) - OPTIONAL for real-time monitoring
     this.dashboardWs = null;
     this.dashboardWsConnected = false;
+    // REFACTOR Phase 20: WebSocketManager - must be instantiated before initializeDashboardWebSocket call
+    this.webSocketManager = new WebSocketManager(this);
     // CHANGE 661: Always connect to dashboard WebSocket (defaults to localhost)
     console.log('ðŸ”Œ Initializing Dashboard WebSocket connection...');
     this.initializeDashboardWebSocket();
@@ -932,292 +937,19 @@ class OGZPrimeV14Bot {
   }
 
   /**
-   * Initialize Dashboard WebSocket connection (Change 528)
-   * OPTIONAL - only connects if WS_HOST is set
+   * Initialize Dashboard WebSocket connection
+   * REFACTOR Phase 20: Thin dispatcher to WebSocketManager
    */
   initializeDashboardWebSocket() {
-    // Bot connects to WebSocket relay on port 3010
-    const wsUrl = process.env.WS_URL || 'ws://localhost:3010/ws';
-
-    console.log(`\nðŸ“Š Connecting to Dashboard WebSocket at ${wsUrl}...`);
-
-    try {
-      this.dashboardWs = new WebSocket(wsUrl);
-
-      this.dashboardWs.on('open', () => {
-        console.log('âœ… Dashboard WebSocket connected!');
-        this.dashboardWsConnected = true;
-        this.lastPongReceived = Date.now(); // CHANGE 2026-01-28: Track pong for heartbeat
-
-        // ðŸ”’ SECURITY (Change 582): Authenticate first before sending any data
-        const authToken = process.env.WEBSOCKET_AUTH_TOKEN || 'CHANGE_ME_IN_PRODUCTION';
-        if (!authToken || authToken === 'CHANGE_ME_IN_PRODUCTION') {
-          console.error('âš ï¸ WEBSOCKET_AUTH_TOKEN not set in .env - using default token');
-        }
-
-        this.dashboardWs.send(JSON.stringify({
-          type: 'auth',
-          token: authToken
-        }));
-        console.log('ðŸ” Sent authentication to dashboard');
-
-        // DON'T send identify here - wait for auth_success message
-      });
-
-      this.dashboardWs.on('error', (error) => {
-        console.error('âš ï¸ Dashboard WebSocket error:', error.message);
-        this.dashboardWsConnected = false;
-      });
-
-      this.dashboardWs.on('close', () => {
-        console.log('âš ï¸ Dashboard WebSocket closed - reconnecting in 2s...');
-        this.dashboardWsConnected = false;
-        // CHANGE 2026-01-31: Clear both intervals on close
-        if (this.heartbeatInterval) {
-          clearInterval(this.heartbeatInterval);
-          this.heartbeatInterval = null;
-        }
-        if (this.dataWatchdogInterval) {
-          clearInterval(this.dataWatchdogInterval);
-          this.dataWatchdogInterval = null;
-        }
-        // Reconnect faster (2s instead of 5s)
-        if (this.isRunning) {
-          setTimeout(() => this.initializeDashboardWebSocket(), 2000);
-        }
-      });
-
-      this.dashboardWs.on('message', (data) => {
-        try {
-          const msg = JSON.parse(data.toString());
-
-          // CHANGE 2026-01-31: Track last message for data watchdog
-          this.lastDashboardMessageReceived = Date.now();
-
-          // Handle authentication success
-          if (msg.type === 'auth_success') {
-            console.log('ðŸ”“ Dashboard authentication successful!');
-
-            // Now send identify message after successful auth
-            this.dashboardWs.send(JSON.stringify({
-              type: 'identify',
-              source: 'trading_bot',
-              bot: 'ogzprime-v14-refactored',
-              version: 'V14-REFACTORED-MERGED',
-              capabilities: ['trading', 'realtime', 'risk-management']
-            }));
-
-            // Connect to AdvancedExecutionLayer for trade broadcasts
-            this.executionLayer.setWebSocketClient(this.dashboardWs);
-
-            // CHANGE 2025-12-11: Connect StateManager to dashboard for accurate post-update state
-            // Dashboard now receives state AFTER changes, never stale data
-            stateManager.setDashboardWs(this.dashboardWs);
-
-            // Connect TRAI for chain-of-thought broadcasts
-            if (this.trai) {
-              this.trai.setWebSocketClient(this.dashboardWs);
-            }
-
-            // CHANGE 2026-01-28: Start heartbeat ping interval after auth
-            this.startHeartbeatPing();
-
-            return;
-          }
-
-          // Handle authentication errors
-          if (msg.type === 'error') {
-            console.error('âŒ Dashboard error:', msg.message);
-            return;
-          }
-
-          // CHANGE 2026-01-28: Handle pong for heartbeat
-          if (msg.type === 'pong') {
-            this.lastPongReceived = Date.now();
-            return;
-          }
-
-          // CHANGE 2026-01-30: Handle timeframe change from dashboard
-          // Fetch REAL historical data from Kraken REST API, not just cached WebSocket data
-          if (msg.type === 'timeframe_change') {
-            const newTimeframe = msg.timeframe || '1m';
-            console.log(`ðŸ“Š Dashboard timeframe changed to: ${newTimeframe}`);
-            this.dashboardTimeframe = newTimeframe;
-
-            // Fetch historical candles from Kraken REST API
-            this.fetchAndSendHistoricalCandles(newTimeframe, 200);
-            return;
-          }
-
-          // CHANGE 2026-01-30: Handle request for historical data
-          if (msg.type === 'request_historical') {
-            const timeframe = msg.timeframe || '1m';
-            const limit = msg.limit || 200;
-
-            // Fetch historical candles from Kraken REST API
-            this.fetchAndSendHistoricalCandles(timeframe, limit);
-            return;
-          }
-
-          // CHANGE 2026-02-10: Handle asset switching from dashboard (Multi-Asset Manager)
-          if (msg.type === 'asset_change') {
-            if (this.assetManager) {
-              this.assetManager.switchAsset(msg.asset);
-            }
-            return;
-          }
-
-          // CHANGE 665: Handle profile switching and dashboard commands
-          if (msg.type === 'command') {
-            console.log('ðŸ“¨ Dashboard command received:', msg.command);
-
-            // Profile switching (manual only - does NOT affect confidence)
-            if (msg.command === 'switch_profile' && msg.profile) {
-              const success = this.profileManager.setActiveProfile(msg.profile);
-              if (success) {
-                // Profile is for reference only - does not override env vars
-                // Send confirmation to dashboard
-                this.dashboardWs.send(JSON.stringify({
-                  type: 'profile_switched',
-                  profile: msg.profile,
-                  settings: this.profileManager.getActiveProfile(),
-                  note: 'Profile for reference only - trading uses env vars'
-                }));
-              }
-            }
-
-            // Get all profiles
-            else if (msg.command === 'get_profiles') {
-              this.dashboardWs.send(JSON.stringify({
-                type: 'profiles_list',
-                profiles: this.profileManager.getAllProfiles(),
-                active: this.profileManager.getActiveProfile().name
-              }));
-            }
-
-            // Dynamic confidence adjustment
-            else if (msg.command === 'set_confidence' && msg.confidence) {
-              this.profileManager.setDynamicConfidence(msg.confidence);
-              this.tradingBrain.updateConfidenceThreshold(msg.confidence / 100);
-            }
-
-            // PAUSE TRADING - Manual safety stop from dashboard
-            else if (msg.command === 'pause_trading') {
-              const reason = msg.reason || 'Manual pause from dashboard';
-              console.log('ðŸ›‘ [Dashboard] Pause command received:', reason);
-              stateManager.pauseTrading(reason);
-              this.dashboardWs.send(JSON.stringify({
-                type: 'pause_confirmed',
-                reason: reason,
-                timestamp: Date.now()
-              }));
-            }
-
-            // RESUME TRADING - Manual resume from dashboard
-            else if (msg.command === 'resume_trading') {
-              console.log('âœ… [Dashboard] Resume command received');
-              stateManager.resumeTrading();
-              this.dashboardWs.send(JSON.stringify({
-                type: 'resume_confirmed',
-                timestamp: Date.now()
-              }));
-            }
-          }
-
-          // TRAI Chat Support - Tech support queries from dashboard
-          if (msg.type === 'trai_query' && this.trai) {
-            console.log('ðŸ§  [TRAI] Received chat query:', msg.query?.substring(0, 50) + '...');
-            this.handleTraiQuery(msg);
-          }
-        } catch (error) {
-          console.error('âŒ Dashboard message parse error:', error.message);
-        }
-      });
-
-    } catch (error) {
-      console.error('âŒ Dashboard WebSocket initialization failed:', error.message);
-      this.dashboardWsConnected = false;
-    }
+    this.webSocketManager.initializeDashboardWebSocket();
   }
 
   /**
-   * CHANGE 2026-01-31: Aggressive heartbeat to prevent silent connection death
-   * - Ping every 15s (more frequent)
-   * - Timeout after 30s (miss 2 pings = dead)
-   * - Data watchdog: reconnect if no messages for 60s
+   * Start heartbeat ping for WebSocket connection
+   * REFACTOR Phase 20: Thin dispatcher to WebSocketManager
    */
   startHeartbeatPing() {
-    // Clear any existing intervals
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
-    if (this.dataWatchdogInterval) {
-      clearInterval(this.dataWatchdogInterval);
-    }
-
-    const PING_INTERVAL = 15000; // 15 seconds (more aggressive)
-    const PONG_TIMEOUT = 30000;  // 30 seconds (miss 2 pings = dead)
-    const DATA_TIMEOUT = 60000;  // 60 seconds no data = force reconnect
-
-    // Track last message received (any type)
-    this.lastDashboardMessageReceived = this.lastDashboardMessageReceived || Date.now();
-
-    // Heartbeat ping/pong check
-    this.heartbeatInterval = setInterval(() => {
-      // Check if socket exists and thinks it's open
-      if (!this.dashboardWs) {
-        console.log('âš ï¸ [Heartbeat] No WebSocket instance - triggering reconnect');
-        this.initializeDashboardWebSocket();
-        return;
-      }
-
-      const state = this.dashboardWs.readyState;
-      if (state !== 1) {
-        console.log(`âš ï¸ [Heartbeat] Socket not open (readyState=${state}) - waiting for reconnect`);
-        return;
-      }
-
-      // Check if last pong is too old
-      const timeSinceLastPong = Date.now() - (this.lastPongReceived || 0);
-      if (timeSinceLastPong > PONG_TIMEOUT) {
-        console.log('ðŸ’” [Heartbeat] TIMEOUT - no pong in ' + Math.round(timeSinceLastPong/1000) + 's - forcing reconnect');
-        try {
-          this.dashboardWs.terminate();
-        } catch (e) {
-          console.error('âŒ [Heartbeat] Terminate failed:', e.message);
-        }
-        return;
-      }
-
-      // Send ping
-      try {
-        this.dashboardWs.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
-      } catch (err) {
-        console.error('âŒ [Heartbeat] Ping failed:', err.message, '- forcing reconnect');
-        try {
-          this.dashboardWs.terminate();
-        } catch (e) {}
-      }
-    }, PING_INTERVAL);
-
-    // Data watchdog - ensure SOME data is flowing
-    this.dataWatchdogInterval = setInterval(() => {
-      if (!this.dashboardWs || this.dashboardWs.readyState !== 1) {
-        return; // Not connected
-      }
-
-      const timeSinceData = Date.now() - (this.lastDashboardMessageReceived || 0);
-      if (timeSinceData > DATA_TIMEOUT) {
-        console.log('ðŸš¨ [Watchdog] NO DATA for ' + Math.round(timeSinceData/1000) + 's - forcing reconnect');
-        try {
-          this.dashboardWs.terminate();
-        } catch (e) {
-          console.error('âŒ [Watchdog] Terminate failed:', e.message);
-        }
-      }
-    }, 30000); // Check every 30s
-
-    console.log('ðŸ’“ Heartbeat started (ping every 15s, pong timeout 30s, data timeout 60s)');
+    this.webSocketManager.startHeartbeatPing();
   }
 
   /**
