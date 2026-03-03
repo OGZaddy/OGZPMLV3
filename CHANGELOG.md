@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Phase 10: Exit Checkers Extraction (2026-03-03)
+
+**Session Focus:** Extract exit condition checking from ExitContractManager into individual checker modules.
+
+#### New Modules (4)
+1. **StopLossChecker** (`core/exit/StopLossChecker.js`)
+   - Universal hard stop (-2%)
+   - Strategy-specific stop loss
+   - Break-even logic (stop moves to entry after 1:1 profit move)
+
+2. **TakeProfitChecker** (`core/exit/TakeProfitChecker.js`)
+   - Strategy take profit target check
+
+3. **TrailingStopChecker** (`core/exit/TrailingStopChecker.js`)
+   - Trailing stop with activation threshold
+   - **OWNS maxProfitPercent updates** (single owner - no split responsibility)
+
+4. **MaxHoldChecker** (`core/exit/MaxHoldChecker.js`)
+   - Universal max hold (360 min)
+   - Strategy-specific max hold
+   - Winner/loser tagging based on NET P&L (after 0.52% round-trip fees)
+
+#### Refactored
+- **ExitContractManager**: Now thin orchestrator delegating to checkers
+- **run-empire-v2.js**: UNCHANGED (same interface)
+
+#### Tests
+- 13/13 unit tests pass
+- Golden test: same exits, same P&L
+
+### Phase 9: Entry Gate Ordering Fix (2026-03-03)
+
+**Session Focus:** Fix critical bug where safety gates ran AFTER order execution.
+
+#### Bug Fixed
+- **Gate Ordering Bug**: Safety gates were checking AFTER `executeTrade()` - orders already on exchange before validation
+- **Fix**: Gates now run BEFORE any order execution via EntryDecider
+
+#### New Modules (2)
+1. **EntryGateChecker** (`core/EntryGateChecker.js`) - Consolidates all pre-entry checks
+2. **EntryDecider** (`core/EntryDecider.js`) - Orchestrates entry decision
+
+### Phase 8: RiskManager Decomposition (2026-03-02)
+
+#### New Modules (2)
+1. **DrawdownTracker** (`core/DrawdownTracker.js`) - Drawdown monitoring, protection multipliers
+2. **PnLTracker** (`core/PnLTracker.js`) - P&L, streaks, daily/weekly/monthly stats
+
+#### Refactored
+- **RiskManager**: 1952 → 227 lines (composes trackers)
+
+### Phase 5-6: OrderRouter + StrategyOrchestrator (2026-03-02)
+
+#### New Module
+- **OrderRouter** (`core/OrderRouter.js`) - Multi-broker order routing
+
+#### Cleanup
+- Removed ~45 lines of duplicate signal building
+- StrategyOrchestrator IS the signal generator - no wrappers needed
+
 ### Modular Architecture Phase 0-3 Corrections (2026-02-27)
 
 **Session Focus:** Applied corrections from Claude Desktop audit. Modules were imported but never instantiated/called. Fixed silent fallbacks and incorrect classification priority.
