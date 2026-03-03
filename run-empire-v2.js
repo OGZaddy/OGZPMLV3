@@ -445,6 +445,9 @@ class OGZPrimeV14Bot {
       tradingBrainConfig
     );
 
+    // Phase 12: Expose module-level tradingOptimizations for EntryDecider
+    this.tradingOptimizations = tradingOptimizations;
+
     // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
     // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
     // Confluence only affects POSITION SIZING, not the entry decision.
@@ -2096,7 +2099,8 @@ class OGZPrimeV14Bot {
     // Fix: Pass tradingDirection so makeTradeDecision respects TradingBrain
     // DEBUG 2026-02-27: Log what's being passed to makeTradeDecision
     console.log(`🔍 PRE-DECISION: tradingDirection=${tradingDirection}, conf=${confidenceData.totalConfidence.toFixed(1)}%`);
-    const decision = this.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection);
+    // Phase 12: Delegate to EntryDecider (merged makeTradeDecision)
+    const decision = this.entryDecider.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection, this);
 
     // CHANGE 2026-02-16: Store for PipelineSnapshot to read
     this.lastConfidence = confidenceData.totalConfidence;
