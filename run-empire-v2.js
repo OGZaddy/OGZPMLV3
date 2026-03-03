@@ -156,6 +156,9 @@ const OrderRouter = require('./core/OrderRouter');
 // REFACTOR Phase 14: OrderExecutor - exact copy of executeTrade() extracted
 const OrderExecutor = require('./core/OrderExecutor');
 
+// REFACTOR Phase 15: TradingLoop - exact copy of analyzeAndTrade() extracted
+const TradingLoop = require('./core/TradingLoop');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -793,6 +796,35 @@ class OGZPrimeV14Bot {
       discordNotifier: discordNotifier,
       tradingOptimizations: tradingOptimizations,
       logTrade: logTrade
+    });
+
+    // REFACTOR Phase 15: TradingLoop - context with all dependencies
+    this.tradingLoop = new TradingLoop({
+      indicatorEngine: indicatorEngine,
+      contractValidator: this.contractValidator,
+      tradingBrain: this.tradingBrain,
+      entryDecider: this.entryDecider,
+      marketDataAggregator: this.marketDataAggregator,
+      patternChecker: this.patternChecker,
+      config: this.config,
+      riskManager: this.riskManager,
+      executionLayer: this.executionLayer,
+      pendingTraiDecisions: this.pendingTraiDecisions,
+      trai: this.trai,
+      backtestRecorder: this.backtestRecorder,
+      orderExecutor: this.orderExecutor,
+      // Additional context for strategy orchestration
+      strategyOrchestrator: this.strategyOrchestrator,
+      emaCrossoverSignal: this.emaCrossoverSignal,
+      maDynamicSRSignal: this.maDynamicSRSignal,
+      breakRetestSignal: this.breakRetestSignal,
+      liquiditySweepSignal: this.liquiditySweepSignal,
+      mtfAdapter: this.mtfAdapter,
+      volumeProfile: this.volumeProfile,
+      ogzTpo: this.ogzTpo,
+      fibonacciDetector: this.fibonacciDetector,
+      timeframeSelector: this.timeframeSelector,
+      runner: this  // Self reference for makeTradeDecision
     });
 
     console.log('âœ… All modules initialized successfully');
@@ -1701,511 +1733,20 @@ class OGZPrimeV14Bot {
   /**
    * Analyze market and execute trades
    * Core trading pipeline orchestration
+   * REFACTOR Phase 15: Thin dispatcher - delegates to TradingLoop
    */
   async analyzeAndTrade() {
-    // PAUSE_001 REVERTED 2026-02-04: The isTrading check was a band-aid
-    // Real fix: WebSocket reconnect (this.connected = true in kraken_adapter_simple.js)
-    // Frozen price/$0 P&L was caused by WebSocket not reconnecting, not missing pause check
-
-    const { price } = this.marketData;
-
-    // CHANGE 2025-12-23: Use IndicatorEngine as single source of truth
-    const engineState = indicatorEngine.getSnapshot();
-
-    // REFACTOR 2026-02-27: IndicatorSnapshot replaces manual reshape
-    // Single transformation point. No fallback paths. Contracts that scream.
-    const _indicatorSnapshot = new IndicatorSnapshot(contractValidator);
-    let indicators;
-    try {
-      indicators = _indicatorSnapshot.create(engineState, price, this.priceHistory);
-    } catch (snapErr) {
-      // During warmup (first ~200 candles), IndicatorEngine may not have all data yet.
-      // RSI needs 14 candles, BB needs 20, EMA200 needs 200.
-      // This is the ONLY acceptable reason for the catch to fire.
-      if (this.priceHistory.length < 50) {
-        console.warn(`⚠️ IndicatorSnapshot warmup (${this.priceHistory.length} candles): ${snapErr.message}`);
-        indicators = {
-          price, rsi: engineState.rsi || 50, rsiNormalized: ((engineState.rsi || 50) / 100),
-          macd: engineState.macd || { macd: 0, signal: 0, histogram: 0 },
-          ema9: price, ema21: price, ema50: price, ema200: price,
-          trend: 'neutral',
-          atr: engineState.atr || (price * 0.005), atrPercent: 0.5, atrNormalized: 0.1,
-          bb: { upper: price * 1.02, middle: price, lower: price * 0.98, bandwidth: 4, percentB: 0.5 },
-          volatilityNormalized: 0.1, volume: 0, vwap: price
-        };
-      } else {
-        // After warmup, a throw means real missing data — this IS the bug
-        console.error(`❌ IndicatorSnapshot FAILED after warmup: ${snapErr.message}`);
-        throw snapErr;
-      }
-    }
-
-    // BACKWARD COMPAT: downstream reads these legacy field names
-    indicators.ema12 = indicators.ema9 || price;
-    indicators.ema26 = indicators.ema21 || price;
-    indicators.volatility = indicators.atr || 0;
-    indicators.bbWidth = indicators.bb?.bandwidth || 0;
-    indicators.bollingerBands = indicators.bb;
-
-    // CHANGE 655: RSI Smoothing - Prevent machine-gun trading without circuit breakers
-    if (!this.rsiHistory) this.rsiHistory = [];
-    this.rsiHistory.push(indicators.rsi);
-    if (this.rsiHistory.length > 3) this.rsiHistory.shift(); // Keep last 3 RSI values
-
-    // Smooth RSI using weighted average to prevent jumps
-    if (this.rsiHistory.length >= 2) {
-      const weights = [0.5, 0.3, 0.2]; // Most recent gets 50% weight
-      let smoothedRSI = 0;
-      for (let i = 0; i < this.rsiHistory.length; i++) {
-        smoothedRSI += this.rsiHistory[this.rsiHistory.length - 1 - i] * (weights[i] || 0.1);
-      }
-
-      // If RSI jumped too much, use smoothed value
-      const lastRSI = this.rsiHistory[this.rsiHistory.length - 2];
-      const rsiJump = Math.abs(indicators.rsi - lastRSI);
-
-      if (rsiJump > 30) {
-        console.log(`ðŸ”„ RSI Smoothing: Jump ${lastRSI.toFixed(1)}â†’${indicators.rsi.toFixed(1)} smoothed to ${smoothedRSI.toFixed(1)}`);
-        indicators.rsi = smoothedRSI;
-      }
-    }
-
-    // Detect patterns
-    const patterns = this.patternChecker.analyzePatterns({
-      candles: this.priceHistory,
-      trend: indicators.trend,
-      macd: indicators.macd?.macd || indicators.macd?.macdLine || 0,
-      macdSignal: indicators.macd?.signal || indicators.macd?.signalLine || 0,
-      rsi: indicators.rsi,
-      volume: this.marketData.volume || 0
-    });
-
-    // CRITICAL FIX: Record patterns immediately when detected for learning
-    // Don't wait for trade completion - patterns need to be recorded NOW
-    if (patterns && patterns.length > 0) {
-      // TELEMETRY: Track pattern detection
-      const telemetry = require('./core/Telemetry').getTelemetry();
-
-      patterns.forEach(pattern => {
-        const signature = pattern.signature || pattern.name || 'unknown_pattern';
-        if (!signature || signature === 'unknown_pattern') {
-          console.warn('âš ï¸ Pattern missing proper signature, using generic fallback:', pattern);
-          // Don't return - still record for statistics even with generic signature
-        }
-
-        // CHANGE 659: Fix pattern recording - pass features array instead of signature string
-        // recordPatternResult expects features array, not signature string
-
-        // DEBUG: Check what we're getting
-        if (!Array.isArray(pattern.features)) {
-          console.error('âŒ Pattern features is not an array:', {
-            type: typeof pattern.features,
-            value: pattern.features,
-            pattern: pattern
-          });
-        }
-
-        // ENSURE we always have an array
-        let featuresForRecording;
-        if (Array.isArray(pattern.features)) {
-          featuresForRecording = pattern.features;
-        } else {
-          // REFACTOR Phase 4: Use FeatureExtractor module for fallback
-          console.warn('[FeatureExtractor] Creating fallback features array');
-          featuresForRecording = FeatureExtractor.extractArray({
-            indicators: indicators,
-            candles: this.priceHistory
-          });
-        }
-
-        // FIX 2026-02-19: Re-enable entry recording with pnl: null (observation-only mode)
-        // Observations increment timesSeen but don't affect wins/losses/totalPnL
-        // Outcomes (at trade EXIT) record actual P&L and update wins/losses
-        if (this.config.tradingMode !== 'TEST' && process.env.TEST_MODE !== 'true') {
-          this.patternChecker.recordPatternResult(featuresForRecording, {
-            pnl: null,  // null = observation only, number = outcome with P&L
-            timestamp: Date.now(),
-            type: 'observation'
-          });
-        }
-
-        // TELEMETRY: Log pattern detection event
-        telemetry.event('pattern_detected', {
-          signature,
-          confidence: pattern.confidence,
-          isNew: pattern.isNew,
-          price: this.marketData.price
-        });
-      });
-
-      // TELEMETRY: Log batch recording
-      telemetry.event('pattern_recorded', {
-        count: patterns.length,
-        memorySize: this.patternChecker.getMemorySize ? this.patternChecker.getMemorySize() : 0
-      });
-
-      console.log(`ðŸ“Š Recorded ${patterns.length} patterns for learning`);
-    }
-
-    // Update OGZ Two-Pole Oscillator with latest candle
-    let tpoResult = null;
-    if (this.ogzTpo && this.priceHistory.length > 0) {
-      const latestCandle = this.priceHistory[this.priceHistory.length - 1];
-      tpoResult = this.ogzTpo.update({
-        o: latestCandle.o,
-        h: latestCandle.h,
-        l: latestCandle.l,
-        c: latestCandle.c,
-        t: latestCandle.time || Date.now()
-      });
-
-      if (tpoResult.signal) {
-        console.log(`\nðŸŽ¯ OGZ TPO Signal: ${tpoResult.signal.action} (${tpoResult.signal.zone})`);
-        console.log(`   Strength: ${(tpoResult.signal.strength * 100).toFixed(2)}%`);
-        console.log(`   High Probability: ${tpoResult.signal.highProbability ? 'â­ YES' : 'NO'}`);
-        if (tpoResult.signal.levels) {
-          console.log(`   SL: $${tpoResult.signal.levels.stopLoss.toFixed(2)}`);
-          console.log(`   TP: $${tpoResult.signal.levels.takeProfit.toFixed(2)}`);
-        }
-      }
-    }
-
-    // NOTE: PreviousDayRangeStrategy removed (was using wrong property names c.high vs c.h)
-    // Will be re-implemented with correct math when user provides specs
-
-    // ðŸ“¡ Broadcast pattern analysis to dashboard
-    this.broadcastPatternAnalysis(patterns, indicators);
-
-    // REFACTOR 2026-02-27: New RegimeDetector replaces 797-line MarketRegimeDetector
-    // Trend takes priority over volatility (BTC trends UP with high vol)
-    const _regimeDetector = new RegimeDetector();
-    const regimeResult = _regimeDetector.detect(indicators, this.priceHistory);
-    const regime = {
-      currentRegime: regimeResult.regime || 'unknown',
-      confidence: regimeResult.confidence || 0,
-      parameters: regimeResult.details || {}
-    };
-    this.marketRegime = regime;  // Store for downstream reads (line 1928+)
-
-    // ════════════════════════════════════════════════════════════════
-    // CHANGE 2026-02-21: STRATEGY ORCHESTRATOR — Isolated per-strategy entry pipeline
-    // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
-    // Confluence only affects POSITION SIZING, not the entry decision.
-    // This REPLACES the soupy pooled confidence from TradingBrain.getDecision()
-    // ════════════════════════════════════════════════════════════════
-
-    // Update Fibonacci levels with current price history (for strategy context)
-    let fibLevels = null;
-    let nearestFibLevel = null;
-    if (this.fibonacciDetector && this.priceHistory.length >= 30) {
-      fibLevels = this.fibonacciDetector.update(this.priceHistory);
-      if (fibLevels) {
-        nearestFibLevel = this.fibonacciDetector.getNearestLevel(price);
-      }
-    }
-
-    // AGGRESSIVE_LEARNING_MODE: Lower the orchestrator threshold if enabled
-    if (flagManager.isEnabled('AGGRESSIVE_LEARNING_MODE')) {
-      const aggressiveThreshold = flagManager.getSetting('AGGRESSIVE_LEARNING_MODE', 'minConfidenceThreshold', 55) / 100;
-      this.strategyOrchestrator.minStrategyConfidence = aggressiveThreshold;
-      if (!this._lastAggLog || Date.now() - this._lastAggLog > 60000) {
-        console.log(`🔥 AGGRESSIVE LEARNING: Orchestrator threshold set to ${(aggressiveThreshold * 100).toFixed(0)}%`);
-        this._lastAggLog = Date.now();
-      }
-    }
-
-    // Run orchestrator: each strategy evaluates independently, highest confidence wins
-    const orchResult = this.strategyOrchestrator.evaluate(
-      indicators,
-      patterns,
-      regime,
-      this.priceHistory,
-      {
-        emaCrossoverSignal: this.emaCrossoverSignal,
-        maDynamicSRSignal: this.maDynamicSRSignal,
-        breakRetestSignal: this.breakRetestSignal,
-        liquiditySweepSignal: this.liquiditySweepSignal,
-        mtfAdapter: this.mtfAdapter,
-        tpoResult: tpoResult,
-        price: price,
-        fibLevels: fibLevels,
-        nearestFibLevel: nearestFibLevel,
-        // CHANGE 2026-02-23: Volume Profile for chop filter
-        volumeProfile: this.volumeProfile,
-      }
-    );
-
-    // Map orchestrator output to existing variable names so downstream code doesn't break
-    const brainDecision = {
-      direction: orchResult.direction,
-      confidence: orchResult.confidence / 100,  // Downstream expects 0-1 decimal
-      reasons: orchResult.reasons,
-      signalBreakdown: orchResult.signalBreakdown,
-      action: orchResult.action,
-      exitContract: orchResult.exitContract,
-      sizingMultiplier: orchResult.sizingMultiplier,
-      winnerStrategy: orchResult.winnerStrategy,
-    };
-
-    // CHANGE 625: Fix directional confusion - TradingBrain doesn't know about positions
-    // CHANGE 2026-01-29: Updated comment - "shorts forbidden" was misleading
-    // On SPOT market, you can only SELL what you OWN - no shorting possible
-    // So 'sell' with no position = nothing to sell = HOLD
-    // 'sell' with position = close position (sell our coins)
-    let tradingDirection = brainDecision.direction; // 'buy', 'sell', or 'hold'
-
-    // CHANGE 2025-12-11: Use StateManager for position reads
-    const currentPosition = stateManager.get('position');
-    if (tradingDirection === 'sell' && currentPosition === 0) {
-      // SPOT MARKET: Can only sell what we own - no position means nothing to sell
-      console.log('ðŸš« TradingBrain said SELL but no position to sell (SPOT market) - converting to HOLD');
-      tradingDirection = 'hold';
-    } else if (tradingDirection === 'sell' && currentPosition > 0) {
-      // CHANGE 638: Allow SELL to proceed when we have a position
-      // MaxProfitManager was never being checked due to this conversion to HOLD
-      console.log('ðŸ“Š TradingBrain bearish - executing SELL of position');
-      // Let the SELL proceed instead of converting to HOLD
-    }
-
-    // TEST MODE: Use patterns for decisions but DON'T save new patterns
-    let rawConfidence = brainDecision.confidence;
-    if (this.config.tradingMode === 'TEST') {
-      console.log(`ðŸ§ª TEST MODE: Using EXISTING patterns (${patterns.length} found) but NOT saving new ones`);
-      if (process.env.TEST_CONFIDENCE) {
-        const testConfidence = parseFloat(process.env.TEST_CONFIDENCE);
-        rawConfidence = testConfidence / 100;
-        console.log(`ðŸ§ª Override confidence: ${testConfidence}% (was ${(brainDecision.confidence * 100).toFixed(1)}%)`);
-      }
-    }
-
-    const confidenceData = {
-      totalConfidence: rawConfidence * 100
-    };
-
-    // ═══════════════════════════════════════════════════════════════════
-    // BROADCAST SIGNAL DATA TO DASHBOARD
-    // REFACTOR Phase 6: Use StrategyOrchestrator.allResults directly
-    // Removed 45 lines of duplicate signal building - orchestrator already has this
-    // ═══════════════════════════════════════════════════════════════════
-    if (this.dashboardWs && this.dashboardWs.readyState === 1) {
-      try {
-        // Use orchestrator's signalBreakdown directly (already formatted)
-        const strategySignals = orchResult?.signalBreakdown?.signals || [];
-        const bullishCount = strategySignals.filter(s => s.direction === 'buy').length;
-        const bearishCount = strategySignals.filter(s => s.direction === 'sell').length;
-
-        this.dashboardWs.send(JSON.stringify({
-          type: 'signal_analysis',
-          timestamp: Date.now(),
-          signal: {
-            direction: tradingDirection,
-            confidence: rawConfidence,
-            reasons: brainDecision.reasons || [],
-            meta: {
-              signalsFired: strategySignals.length,
-              bullishCount,
-              bearishCount,
-            },
-            signals: strategySignals,
-          },
-          modules: {
-            emaCrossover: this.emaCrossoverSignal ? {
-              active: this.emaCrossoverSignal.direction !== 'neutral',
-              direction: this.emaCrossoverSignal.direction,
-              confidence: this.emaCrossoverSignal.confidence || 0,
-            } : { active: false },
-            liquiditySweep: this.liquiditySweepSignal ? {
-              active: this.liquiditySweepSignal.hasSignal || false,
-              direction: this.liquiditySweepSignal.direction,
-              confidence: this.liquiditySweepSignal.confidence || 0,
-            } : { active: false },
-            maDynamicSR: this.maDynamicSRSignal ? {
-              active: this.maDynamicSRSignal.direction !== 'neutral',
-              direction: this.maDynamicSRSignal.direction,
-              confidence: this.maDynamicSRSignal.confidence || 0,
-            } : { active: false },
-            tpo: this.ogzTpo ? { active: true } : { active: false },
-            regime: {
-              regime: regime?.currentRegime || regime?.regime || 'unknown',
-              confidence: regime?.confidence || 0,
-            },
-            patterns: patterns.slice(0, 5).map(p => ({
-              name: p.name || p.type,
-              direction: p.direction,
-              confidence: p.confidence,
-            })),
-            // Orchestrator chain-of-thought (uses allResults, not strategyResults)
-            orchestrator: orchResult ? {
-              winner: orchResult.winnerStrategy,
-              direction: orchResult.direction,
-              confidence: orchResult.confidence,
-              confluence: orchResult.confluence,
-              sizingMultiplier: orchResult.sizingMultiplier,
-              exitContract: orchResult.exitContract,
-              strategies: (orchResult.allResults || []).map(s => ({
-                name: s.strategyName,
-                direction: s.direction,
-                confidence: s.confidence,
-                reason: s.reason,
-              })),
-            } : null,
-            timeframeSelector: this.timeframeSelector?.getState(),
-          },
-        }));
-      } catch (e) {
-        // Fail silently — never let dashboard issues affect trading
-      }
-    }
-
-    // 🤖 STEP 5: TRAI DECISION PROCESSING (IN THE HOT PATH - Change 574)
-    let finalConfidence = confidenceData.totalConfidence;
-    let traiDecision = null;
-
-    // Change 590: Check TRAI bypass flag for fast backtesting
-    const skipTRAI = this.config.enableBacktestMode && process.env.TRAI_ENABLE_BACKTEST === 'false';
-
-    if (this.trai && !skipTRAI) {
-      try {
-        // Prepare signal for TRAI (Change 596: Use TradingBrain's direction, not trend)
-        const signal = {
-          action: tradingDirection.toUpperCase(), // 'buy' â†’ 'BUY', 'sell' â†’ 'SELL', 'hold' â†’ 'HOLD'
-          confidence: rawConfidence,
-          patterns: patterns,
-          indicators: indicators,
-          price: price,
-          timestamp: Date.now()
-        };
-
-        // Prepare context for TRAI
-        const context = {
-          volatility: indicators.volatility,
-          trend: indicators.trend,
-          volume: this.marketData.volume || 'normal',
-          regime: regime.currentRegime || 'unknown',
-          indicators: indicators,
-          positionSize: stateManager.get('balance') * 0.01,
-          currentPosition: stateManager.get('position')
-        };
-
-        // FIX 2026-02-14: TRAI ASYNC OBSERVER — learns from trades, doesn't touch confidence
-        // Observes every decision async, stores for learning feedback at trade close,
-        // feeds dashboard widget, builds PatternMemoryBank for promotion/quarantine.
-        // finalConfidence is NEVER modified — pure math stays in control.
-        this.trai.processDecision(signal, context)
-          .then(decision => {
-            if (decision && decision.id) {
-              this._lastTraiDecision = decision;  // Hold until executeTrade gives us orderId
-            }
-          })
-          .catch(err => {
-            console.warn('⚠️ [TRAI Async] Error (non-blocking):', err.message);
-          });
-
-        // CRITICAL: Do NOT wait for TRAI - use mathematical confidence immediately
-        // finalConfidence stays at rawConfidence - TRAI no longer affects real-time decisions
-      } catch (error) {
-        console.error('âš ï¸ TRAI processing error:', error.message);
-        // Continue with original confidence
-      }
-    }
-
-    // Log clean analysis summary
-    const bestPattern = patterns.length > 0 ? patterns[0].name : 'none';
-    // CHANGE 634: Clean human-readable output
-    const cleanPrice = Math.round(price).toLocaleString();
-    console.log(`\nðŸ“Š $${cleanPrice} | Conf: ${confidenceData.totalConfidence.toFixed(0)}% | RSI: ${Math.round(indicators.rsi)} | ${indicators.trend} | ${regime.currentRegime || 'analyzing'}`);
-
-    // CHECK FOR STRONG INDICATOR SIGNALS (TPO) THAT CAN OVERRIDE
-    let overrideSignal = null;
-    let signalSource = null;
-
-    // Check if TPO has a high-probability signal
-    if (tpoResult && tpoResult.signal && tpoResult.signal.highProbability) {
-      console.log(`\nâš¡ TPO Override: High probability ${tpoResult.signal.zone} signal`);
-
-      if (tpoResult.signal.strength > 0.03) {
-        overrideSignal = tpoResult.signal;
-        signalSource = 'TPO';
-        tradingDirection = tpoResult.signal.action === 'BUY' ? 'buy' : 'sell';
-      }
-    }
-
-    // CHANGE 639: Pass TradingBrain's direction to makeTradeDecision
-    // Bug: When TRAI disabled, TradingBrain's 'sell' signal was ignored
-    // Fix: Pass tradingDirection so makeTradeDecision respects TradingBrain
-    // DEBUG 2026-02-27: Log what's being passed to makeTradeDecision
-    console.log(`🔍 PRE-DECISION: tradingDirection=${tradingDirection}, conf=${confidenceData.totalConfidence.toFixed(1)}%`);
-    // Phase 12: Delegate to EntryDecider (merged makeTradeDecision)
-    const decision = this.entryDecider.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection, this);
-
-    // CHANGE 2026-02-16: Store for PipelineSnapshot to read
-    this.lastConfidence = confidenceData.totalConfidence;
-    this.lastDirection = tradingDirection;
-
-    // Add override signal info to decision
-    if (overrideSignal && decision.action !== 'HOLD') {
-      decision.signalSource = signalSource;
-      decision.overrideSignal = overrideSignal;
-
-      // Use dynamic SL/TP from signals if available
-      if (overrideSignal.levels) {
-        decision.suggestedStopLoss = overrideSignal.levels.stopLoss || overrideSignal.stop;
-        decision.suggestedTakeProfit = overrideSignal.levels.takeProfit || overrideSignal.target1;
-        console.log(`   ðŸ“ Using ${signalSource} levels: SL=$${decision.suggestedStopLoss?.toFixed(2)}, TP=$${decision.suggestedTakeProfit?.toFixed(2)}`);
-      } else if (overrideSignal.stop && overrideSignal.target1) {
-        decision.suggestedStopLoss = overrideSignal.stop;
-        decision.suggestedTakeProfit = overrideSignal.target1;
-        console.log(`   ðŸ“ Using ${signalSource} levels: SL=$${decision.suggestedStopLoss.toFixed(2)}, TP=$${decision.suggestedTakeProfit.toFixed(2)}`);
-      }
-    }
-
-    // V2 ARCHITECTURE: Broadcast TRAI chain-of-thought to dashboard
-    // CHANGE 2026-01-29: Use 'bot_thinking' type to match dashboard handler
-    if (this.dashboardWsConnected && this.dashboardWs && decision.decisionContext) {
-      // CHANGE 2026-01-29: Structure matches dashboard handler expectations
-      const reasoning = decision.action === 'HOLD' ?
-        `Waiting: Confidence ${decision.confidence?.toFixed(1) || 0}% < ${this.config.minTradeConfidence * 100}% minimum` :
-        `${decision.action}: Confidence ${decision.confidence?.toFixed(1)}% | ${decision.decisionContext.module} strategy`;
-
-      const chainOfThought = {
-        type: 'bot_thinking',
-        timestamp: Date.now(),
-        message: reasoning,
-        confidence: decision.confidence,
-        data: {
-          reasoning: reasoning,
-          pattern: decision.decisionContext.patterns?.[0] || 'Scanning...',
-          rsi: indicators.rsi,
-          trend: indicators.trend,
-          riskScore: (isNaN(decision.decisionContext.riskScore) ? 0 : decision.decisionContext.riskScore) || 0,
-          recommendation: decision.action,
-          finalConfidence: decision.confidence,
-          price: decision.decisionContext.price,
-          regime: decision.decisionContext.regime,
-          module: decision.decisionContext.module,
-          volatility: indicators.volatility
-        }
-      };
-
-      // Auto-draw technical levels when taking a trade - DISABLED: causing crashes
-      // if (decision.action !== 'HOLD' && this.priceHistory && Array.isArray(this.priceHistory) && this.priceHistory.length > 50) {
-      //   const autoDrawLevels = this.calculateAutoDrawLevels(price, this.priceHistory);
-      //   chainOfThought.autoDrawLevels = autoDrawLevels;
-      // }
-
-      try {
-        this.dashboardWs.send(JSON.stringify(chainOfThought));
-        console.log(`ðŸ§  [TRAI] Chain-of-thought sent to dashboard: ${decision.action}`);
-      } catch (err) {
-        console.error('Failed to send TRAI reasoning to dashboard:', err.message);
-      }
-    }
-
-    if (decision.action !== 'HOLD') {
-      // FIX 2026-02-17: Pass brainDecision to executeTrade (was undefined causing ReferenceError)
-      await this.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, brainDecision);
-    }
+    // Update context with current instance state before delegating
+    this.tradingLoop.ctx.marketData = this.marketData;
+    this.tradingLoop.ctx.priceHistory = this.priceHistory;
+    this.tradingLoop.ctx.dashboardWs = this.dashboardWs;
+    this.tradingLoop.ctx.dashboardWsConnected = this.dashboardWsConnected;
+    this.tradingLoop.ctx._lastTraiDecision = this._lastTraiDecision;
+    this.tradingLoop.ctx.executeTrade = this.executeTrade.bind(this);
+    this.tradingLoop.ctx.broadcastPatternAnalysis = this.broadcastPatternAnalysis.bind(this);
+    return this.tradingLoop.analyzeAndTrade();
   }
+
 
   // REMOVED 2026-02-01: calculateAutoDrawLevels() - Dead code (call was commented out)
   // ~275 lines removed - was never invoked, only definition existed
