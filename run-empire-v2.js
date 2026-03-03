@@ -165,6 +165,9 @@ const DashboardBroadcaster = require('./core/DashboardBroadcaster');
 // REFACTOR Phase 18: BacktestRunner - backtest simulation logic
 const BacktestRunner = require('./core/BacktestRunner');
 
+// REFACTOR Phase 19: CandleProcessor - market data handling
+const CandleProcessor = require('./core/CandleProcessor');
+
 const flagManager = FeatureFlagManager.getInstance();
 
 // Legacy compatibility: Keep featureFlags object for existing code
@@ -847,6 +850,11 @@ class OGZPrimeV14Bot {
       backtestRecorder: this.backtestRecorder
     });
 
+    // REFACTOR Phase 19: CandleProcessor - context with runner self-reference
+    // Attach indicatorEngine to this so CandleProcessor can access via ctx
+    this.indicatorEngine = indicatorEngine;
+    this.candleProcessor = new CandleProcessor(this);
+
     console.log('âœ… All modules initialized successfully');
     console.log(`   Risk Management: ENABLED`);
     console.log(`   Change 513 Compliance: âœ…\n`);
@@ -1384,196 +1392,10 @@ class OGZPrimeV14Bot {
 
   /**
    * Handle incoming market data from WebSocket
-   * Kraken OHLC format: [channelID, [time, etime, open, high, low, close, vwap, volume, count], channelName, pair]
+   * REFACTOR Phase 19: Thin dispatcher to CandleProcessor
    */
   handleMarketData(ohlcData) {
-
-    // OHLC data is array: [time, etime, open, high, low, close, vwap, volume, count]
-    if (!Array.isArray(ohlcData) || ohlcData.length < 8) {
-      console.warn('âš ï¸ Invalid OHLC data format:', ohlcData);
-      return;
-    }
-
-    const [time, etime, open, high, low, close, vwap, volume, count] = ohlcData;
-
-    // CHANGE 2026-01-16: Track when we last received ANY data (for liveness watchdog)
-    this.lastDataReceived = Date.now();
-
-    // STALE DATA DETECTION: Check if DATA ITSELF is old (not arrival time)
-    // FIX BACKTEST_001: Skip stale check in backtest mode - historical data is intentionally old
-    const isBacktesting = process.env.BACKTEST_MODE === 'true' || this.config?.enableBacktestMode;
-    const now = Date.now();
-    const dataAge = now - (etime * 1000); // etime is in SECONDS, convert to milliseconds
-
-    // If data is more than 2 minutes old, it's stale (but NOT during backtesting!)
-    if (dataAge > 120000 && !isBacktesting) {
-      console.error('ðŸš¨ STALE DATA:', Math.round(dataAge / 1000), 'seconds old');
-
-      // AUTO-PAUSE TRADING
-      if (!this.staleFeedPaused) {
-        console.error('â¸ï¸ PAUSING NEW ENTRIES DUE TO STALE DATA');
-        this.staleFeedPaused = true;
-
-        // Notify StateManager to pause
-        try {
-          const { getInstance: getStateManager } = require('./core/StateManager');
-          const stateManager = getStateManager();
-          stateManager.pauseTrading(`Stale data: ${Math.round(dataAge / 1000)}s old`);
-        } catch (error) {
-          console.error('Failed to pause via StateManager:', error.message);
-        }
-      }
-    } else if (this.staleFeedPaused && dataAge < 30000) {
-      // Data is fresh again - resume
-      console.log('âœ… Fresh data restored, resuming');
-      this.staleFeedPaused = false;
-      this.feedRecoveryCandles = 0;
-      stateManager.resumeTrading();
-    }
-
-    let price = parseFloat(close);
-    if (!price || isNaN(price)) return;
-
-    // Test code removed - running on REAL market data
-
-    // Build proper OHLCV candle structure from Kraken OHLC stream
-    const candle = {
-      o: parseFloat(open),
-      h: parseFloat(high),
-      l: parseFloat(low),
-      c: parseFloat(close),
-      v: parseFloat(volume),
-      t: parseFloat(time) * 1000,  // Actual timestamp for display
-      etime: parseFloat(etime) * 1000  // End time for deduplication
-    };
-
-    // Update price history (use etime to detect new minutes, not actual timestamp)
-    const lastCandle = this.priceHistory[this.priceHistory.length - 1];
-    const isNewMinute = !lastCandle || lastCandle.etime !== candle.etime;
-
-    if (!isNewMinute) {
-      // Update existing candle (same minute) - Kraken sends multiple updates per minute
-      this.priceHistory[this.priceHistory.length - 1] = candle;
-      this._candleStore.addCandle('BTC-USD', '15m', candle);  // REFACTOR: dual-write (update)
-
-      // Debug: Show updates for first few candles
-      if (this.priceHistory.length <= 3) {
-        const candleTime = new Date(candle.t).toLocaleTimeString();
-        // CHANGE 634: Clean output for humans (no more decimal headaches!)
-        const open = Math.round(_o(candle));
-        const high = Math.round(_h(candle));
-        const low = Math.round(_l(candle));
-        const close = Math.round(_c(candle));
-        console.log(`ðŸ•¯ï¸ Candle #${this.priceHistory.length} [${candleTime}]: $${close.toLocaleString()} (H:${high.toLocaleString()} L:${low.toLocaleString()})`);
-      }
-    } else {
-      // New candle (new minute) - etime changed
-      this.priceHistory.push(candle);
-      this._candleStore.addCandle('BTC-USD', '15m', candle);  // REFACTOR: dual-write
-
-      // CHANGE 2026-02-10: Feed modular entry system with new candle
-      if (this.mtfAdapter) this.mtfAdapter.ingestCandle(candle);
-      if (this.emaCrossover) this.emaCrossoverSignal = this.emaCrossover.update(candle, this.priceHistory);
-      if (this.maDynamicSR) this.maDynamicSRSignal = this.maDynamicSR.update(candle, this.priceHistory);
-      if (this.breakAndRetest) this.breakRetestSignal = this.breakAndRetest.update(candle, this.priceHistory);
-      if (this.liquiditySweep) this.liquiditySweepSignal = this.liquiditySweep.feedCandle(candle);
-
-      // CHANGE 2026-02-23: Update Volume Profile (chop filter for trend strategies)
-      if (this.volumeProfile) this.volumeProfile.update(candle, this.priceHistory);
-
-
-      // Only log during warmup phase (first 20 candles)
-      if (this.priceHistory.length <= 20) {
-        const candleTime = new Date(candle.t).toLocaleTimeString();
-        console.log(`âœ… Candle #${this.priceHistory.length}/15 [${candleTime}]`);
-      }
-
-      // Keep enough history for 200 EMA + swing detection (220 bars minimum)
-      if (this.priceHistory.length > 250) {
-        this.priceHistory = this.priceHistory.slice(-250);
-      }
-
-      // CHANGE 2026-01-28: Save candles to disk every 5 new candles
-      this.candleSaveCounter++;
-      if (this.candleSaveCounter >= 5) {
-        this.saveCandleHistory();
-        this.candleSaveCounter = 0;
-      }
-    }
-
-    // Store latest market data
-    this.marketData = {
-      price,
-      timestamp: parseFloat(time) * 1000,  // Use candle's actual timestamp
-      systemTime: Date.now(),  // Keep system time separately if needed
-      volume: parseFloat(volume) || 0,
-      open: parseFloat(open),
-      high: parseFloat(high),
-      low: parseFloat(low)
-    };
-
-    // CHANGE 2025-12-23: Feed candle to IndicatorEngine (Empire V2)
-    indicatorEngine.updateCandle({
-      t: parseFloat(time) * 1000,
-      o: parseFloat(open),
-      h: parseFloat(high),
-      l: parseFloat(low),
-      c: parseFloat(close),
-      v: parseFloat(volume) || 0
-    });
-
-    // CHANGE 663: Broadcast market data to dashboard
-    if (this.dashboardWsConnected && this.dashboardWs) {
-      try {
-        // CHANGE 2025-12-23: Use IndicatorEngine render packet for dashboard
-        const renderPacket = indicatorEngine.getRenderPacket({ maxPoints: 200 });
-
-        // CHANGE 2026-01-23: Calculate performance stats for dashboard
-        // BUGFIX 2026-01-23: Include position value in P&L calculation!
-        const currentBalance = stateManager.get('balance');
-        const currentPosition = stateManager.get('position') || 0;
-        const positionValue = currentPosition * price;  // Current market value of position
-        const totalAccountValue = currentBalance + positionValue;
-        // FIX 2026-02-26: Use StateManager instead of hardcoded value
-        const initialBalance = stateManager.get('initialBalance') || parseFloat(process.env.INITIAL_BALANCE) || 10000;
-        const totalPnL = totalAccountValue - initialBalance;  // Correct: includes open position
-        const trades = this.executionLayer?.trades || [];
-        const closedTrades = trades.filter(t => t.pnl !== undefined);
-        const winningTrades = closedTrades.filter(t => t.pnl > 0).length;
-        const winRate = closedTrades.length > 0 ? (winningTrades / closedTrades.length) * 100 : 0;
-
-        this.dashboardWs.send(JSON.stringify({
-          type: 'price',  // CHANGE 2025-12-11: Match frontend expected message type
-          data: {
-            price: price,
-            candle: {
-              open: parseFloat(open),
-              high: parseFloat(high),
-              low: parseFloat(low),
-              close: price,
-              volume: parseFloat(volume),
-              timestamp: Date.now()
-            },
-            indicators: renderPacket.indicators,  // Use IndicatorEngine output
-            // CHANGE 2026-01-29: Send candles for dashboard's selected timeframe
-            candles: this.getCandlesForTimeframe(this.dashboardTimeframe).slice(-50),
-            timeframe: this.dashboardTimeframe,  // Tell dashboard what timeframe this is
-            overlays: renderPacket.overlays,  // FIX: Should be 'overlays' not 'series'!
-            balance: currentBalance,
-            position: stateManager.get('position'),
-            totalTrades: this.executionLayer?.totalTrades || 0,
-            // CHANGE 2026-01-23: Include performance stats
-            totalPnL: totalPnL,
-            winRate: winRate
-          }
-        }));
-
-        // Broadcast edge analytics data
-        this.broadcastEdgeAnalytics(price, parseFloat(volume), candle);
-      } catch (error) {
-        // Fail silently - don't let dashboard issues affect trading
-      }
-    }
+    this.candleProcessor.handleMarketData(ohlcData);
   }
 
   /**
