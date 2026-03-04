@@ -207,10 +207,7 @@ console.log('[CHECKPOINT-003] ModuleAutoLoader ready');
 loader.loadAll();
 console.log('[CHECKPOINT-004] All modules loaded');
 
-// CHANGE 2025-12-11: Trading optimizations for visibility and pattern-based sizing
-const { TradingOptimizations, PatternStatsManager } = require('./core/TradingOptimizations');
-const patternStatsManager = new PatternStatsManager();
-const tradingOptimizations = new TradingOptimizations(patternStatsManager, console);
+// Phase 2 REWRITE: TradingOptimizations deleted - PatternStatsManager unused
 
 // CHANGE 2025-12-11: StateManager - Single source of truth for position/balance
 const { getInstance: getStateManager } = require('./core/StateManager');
@@ -316,21 +313,16 @@ const EnhancedPatternRecognition = loader.get('core', 'EnhancedPatternRecognitio
 console.log('  EnhancedPatternRecognition:', !!EnhancedPatternRecognition);
 const { EnhancedPatternChecker } = EnhancedPatternRecognition || {};
 
-const OptimizedTradingBrainModule = loader.get('core', 'OptimizedTradingBrain');
-console.log('  OptimizedTradingBrain:', !!OptimizedTradingBrainModule);
-const { OptimizedTradingBrain } = OptimizedTradingBrainModule || {};
+// Phase 2 REWRITE: OptimizedTradingBrain deleted - orchestrator replaced it
 
 const RiskManager = loader.get('core', 'RiskManager');
 console.log('  RiskManager:', !!RiskManager);
-const EntryDecider = loader.get('core', 'EntryDecider');
-console.log('  EntryDecider:', !!EntryDecider);
+// Phase 3 REWRITE: EntryDecider deleted - logic inlined to TradingLoop
 // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
 // const ExecutionRateLimiter = loader.get('core', 'ExecutionRateLimiter');
-const AdvancedExecutionLayer = loader.get('core', 'AdvancedExecutionLayer-439-MERGED');
-console.log('  AdvancedExecutionLayer:', !!AdvancedExecutionLayer);
+// Phase 2 REWRITE: AdvancedExecutionLayer deleted - OrderRouter+OrderExecutor replaced it
 const PerformanceAnalyzer = loader.get('core', 'PerformanceAnalyzer');
-const TradingProfileManager = loader.get('core', 'TradingProfileManager');
-const GridTradingStrategy = loader.get('core', 'GridTradingStrategy');
+// Phase 2 REWRITE: TradingProfileManager, GridTradingStrategy deleted
 
 // Change 587: Wire SafetyNet and TradeLogger into live loop
 // Both removed - SafetyNet too restrictive, TradeLogger doesn't exist
@@ -414,29 +406,10 @@ class OGZPrimeV14Bot {
 
     // CHANGE 665: Initialize TradingProfileManager for manual profile switching
     // AUTO-SWITCHING DISABLED - profiles are user-controlled only
-    this.profileManager = new TradingProfileManager({
-      defaultProfile: process.env.TRADING_PROFILE || 'balanced',
-      autoSwitch: false  // DISABLED - user must manually switch profiles
-    });
-
-    // Set initial profile based on environment or default
+    // Phase 2 REWRITE: TradingProfileManager, OptimizedTradingBrain, tradingOptimizations deleted
+    // Profiles now in TradingConfig, orchestrator replaced brain, PatternStatsManager unused
     const initialProfile = process.env.TRADING_PROFILE || 'balanced';
-    this.profileManager.setActiveProfile(initialProfile);
-    console.log(`ðŸ“Š Trading Profile: ${initialProfile.toUpperCase()} (manual switching only)`);
-
-    // REFACTOR Phase 21: Use ModuleInitializer for TradingBrain config
-    const tradingBrainConfig = this.moduleInitializer.createTradingBrainConfig(
-      { ...this.tierFlags, tier: this.tier },
-      featureFlags
-    );
-
-    this.tradingBrain = new OptimizedTradingBrain(
-      parseFloat(process.env.INITIAL_BALANCE) || 10000,
-      tradingBrainConfig
-    );
-
-    // Phase 12: Expose module-level tradingOptimizations for EntryDecider
-    this.tradingOptimizations = tradingOptimizations;
+    console.log(`📊 Trading Profile: ${initialProfile.toUpperCase()} (from TradingConfig)`);
 
     // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
     // Each strategy evaluates independently. Highest confidence WINS and OWNS the trade.
@@ -461,29 +434,15 @@ class OGZPrimeV14Bot {
       maxDrawdown: TradingConfig.get('risk.maxDrawdown')
     });
 
-    // Phase 9: EntryDecider - gate checks BEFORE execution (fixes bug where gates ran after)
-    this.entryDecider = new EntryDecider({
-      riskManager: this.riskManager,
-      tradingBrain: this.tradingBrain,
-      stateManager: stateManager,
-      tierFlags: this.tierFlags
-    });
+    // Phase 3 REWRITE: EntryDecider deleted - decision logic inlined to TradingLoop
+    // Gate checks and exit logic now in TradingLoop + ExitContractManager
 
     // PHASE 13A: Position management with immutability guarantees
     this.pnlCalculator = new PnLCalculator();
     this.positionSizer = new PositionSizer();
     this.positionTracker = new PositionTracker();
 
-    // Use Browser Claude's merged AdvancedExecutionLayer (Change 513 compliant)
-    this.executionLayer = new AdvancedExecutionLayer({
-      bot: this,
-      botTier: this.tier,
-      sandboxMode: process.env.LIVE_TRADING !== 'true',
-      enableRiskManagement: true,
-      initialBalance: parseFloat(process.env.INITIAL_BALANCE) || 10000,
-      paperTrading: featureFlags.features.PAPER_TRADING?.enabled || false,
-      featureFlags: featureFlags.features || {}
-    });
+    // Phase 2 REWRITE: AdvancedExecutionLayer deleted - OrderRouter+OrderExecutor handle execution
 
     this.performanceAnalyzer = new PerformanceAnalyzer();
 
@@ -559,17 +518,7 @@ class OGZPrimeV14Bot {
     this.activeExitSystem = process.env.EXIT_SYSTEM || featureFlags.features?.EXIT_SYSTEM?.settings?.activeSystem || 'maxprofit';
     console.log(`ðŸšª Active Exit System: ${this.activeExitSystem.toUpperCase()} (set EXIT_SYSTEM env to change)`);
 
-    // CHANGE 670: Initialize Grid Trading Strategy
-    this.gridStrategy = null; // Initialize on demand based on strategy mode
-    if (process.env.ENABLE_GRID_BOT === 'true') {
-      this.gridStrategy = new GridTradingStrategy({
-        gridLevels: parseInt(process.env.GRID_LEVELS) || 10,
-        gridSpacing: parseFloat(process.env.GRID_SPACING) || 0.002,  // 0.2% default
-        orderSize: parseFloat(process.env.GRID_ORDER_SIZE) || 100,
-        autoRange: process.env.GRID_AUTO_RANGE !== 'false'
-      });
-      console.log('ðŸŽ¯ Grid Trading Mode ENABLED');
-    }
+    // Phase 2 REWRITE: GridTradingStrategy deleted - different trading style, feature-flagged off
 
     // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
     // Rate limiting now handled by MIN_TRADE_CONFIDENCE threshold + position sizing
@@ -592,9 +541,7 @@ class OGZPrimeV14Bot {
       console.log('âš¡ TRAI disabled for fast backtest mode');
     }
 
-    // ðŸ”¥ CRITICAL FIX (Change 547): Connect modules to TradingBrain
-    // Without these connections, confidence calculation fails (stuck at 10-35%)
-    this.tradingBrain.patternRecognition = this.patternChecker;
+    // Phase 2 REWRITE: tradingBrain deleted - orchestrator handles confidence
 
     // Change 587: SafetyNet and TradeLogger removed
     // SafetyNet was too restrictive, blocking legitimate trades
@@ -615,14 +562,12 @@ class OGZPrimeV14Bot {
     console.log('ðŸ­ [EMPIRE V2] Created Kraken adapter via BrokerFactory');
     console.log('ðŸ” [DEBUG] Kraken adapter type:', this.kraken.constructor.name);
 
-    // Connect execution layer to Kraken (legacy path)
-    this.executionLayer.setKrakenAdapter(this.kraken);
+    // Phase 2 REWRITE: executionLayer deleted - OrderRouter handles routing directly
 
     // REFACTOR Phase 5: OrderRouter for multi-broker routing
     // Future: Add more brokers with orderRouter.registerBroker(adapter, symbols)
     this.orderRouter = new OrderRouter();
     this.orderRouter.registerBroker(this.kraken, ['BTC/USD', 'XBT/USD', 'ETH/USD', 'SOL/USD']);
-    this.executionLayer.setOrderRouter(this.orderRouter);
     console.log('[EMPIRE V2] OrderRouter initialized - multi-broker ready');
 
     // RECONCILER REMOVED - was causing more problems than it solved
@@ -757,10 +702,9 @@ class OGZPrimeV14Bot {
     console.log(`ðŸŽ¯ Trading Mode: ${tradingMode}`);
 
     // REFACTOR Phase 14: OrderExecutor - context with all dependencies
+    // Phase 2 REWRITE: executionLayer, tradingBrain, tradingOptimizations deleted
+    // Phase 3 REWRITE: entryDecider deleted - gate checks in TradingLoop
     this.orderExecutor = new OrderExecutor({
-      executionLayer: this.executionLayer,
-      entryDecider: this.entryDecider,
-      tradingBrain: this.tradingBrain,
       performanceAnalyzer: this.performanceAnalyzer,
       patternChecker: this.patternChecker,
       patternExitModel: this.patternExitModel,
@@ -775,21 +719,19 @@ class OGZPrimeV14Bot {
       notifyTrade: notifyTrade,
       notifyTradeClose: notifyTradeClose,
       discordNotifier: discordNotifier,
-      tradingOptimizations: tradingOptimizations,
       logTrade: logTrade
     });
 
     // REFACTOR Phase 15: TradingLoop - context with all dependencies
+    // Phase 2 REWRITE: tradingBrain, executionLayer deleted - orchestrator handles decisions
+    // Phase 3 REWRITE: entryDecider deleted - decision logic inlined here
     this.tradingLoop = new TradingLoop({
       indicatorEngine: indicatorEngine,
       contractValidator: this.contractValidator,
-      tradingBrain: this.tradingBrain,
-      entryDecider: this.entryDecider,
       marketDataAggregator: this.marketDataAggregator,
       patternChecker: this.patternChecker,
       config: this.config,
       riskManager: this.riskManager,
-      executionLayer: this.executionLayer,
       pendingTraiDecisions: this.pendingTraiDecisions,
       trai: this.trai,
       backtestRecorder: this.backtestRecorder,
@@ -814,10 +756,10 @@ class OGZPrimeV14Bot {
     });
 
     // REFACTOR Phase 18: BacktestRunner - context with dependencies
+    // Phase 2 REWRITE: executionLayer removed from BacktestRunner
     this.backtestRunner = new BacktestRunner({
       __dirname: __dirname,
       patternChecker: this.patternChecker,
-      executionLayer: this.executionLayer,
       trai: this.trai,
       backtestRecorder: this.backtestRecorder
     });
@@ -1323,14 +1265,15 @@ class OGZPrimeV14Bot {
   // ~275 lines removed - was never invoked, only definition existed
 
   // REMOVED Phase 16: makeTradeDecision() - Dead code (~400 lines)
-  // Logic already exists in core/EntryDecider.js, TradingLoop calls entryDecider.makeTradeDecision()
+  // Phase 3 REWRITE: EntryDecider deleted, logic inlined to TradingLoop
 
 
   /**
    * Execute a trade - PHASE 14 THIN DISPATCHER
    * Original logic moved to core/OrderExecutor.js
+   * Phase 3 REWRITE: Renamed brainDecision → orchResult (orchestrator result)
    */
-  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, brainDecision = null) {
+  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, orchResult = null) {
     // Update context with current runtime values
     this.orderExecutor.ctx.marketData = this.marketData;
     this.orderExecutor.ctx.dashboardWs = this.dashboardWs;
@@ -1338,7 +1281,7 @@ class OGZPrimeV14Bot {
     this.orderExecutor.ctx._lastTraiDecision = this._lastTraiDecision;
 
     // Delegate to OrderExecutor (exact copy of original logic)
-    return this.orderExecutor.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, brainDecision);
+    return this.orderExecutor.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, orchResult);
   }
 
   // REMOVED 2026-03-03: Original executeTrade() body (~810 lines) moved to core/OrderExecutor.js
@@ -1355,8 +1298,8 @@ class OGZPrimeV14Bot {
         // Format patterns for display
         const primaryPattern = patterns && patterns.length > 0 ? patterns[0] : null;
 
-        // CHANGE 665: Include active trading profile in dashboard updates
-        const activeProfile = this.profileManager.getActiveProfile();
+        // Phase 2 REWRITE: profileManager deleted - profiles now in TradingConfig
+        const activeProfile = process.env.TRADING_PROFILE || 'balanced';
 
         // CHANGE 2.0.12: Include pattern memory stats in dashboard
         const patternMemoryCount = this.patternChecker?.memory?.patternCount || 0;
@@ -1811,9 +1754,10 @@ class OGZPrimeV14Bot {
       const webContext = await this.fetchWebMarketContext(query);
 
       // Build live market context for TRAI
+      // Phase 2 REWRITE: executionLayer deleted - use stateManager for position info
       const lastCandle = this.priceHistory[this.priceHistory.length - 1];
-      const stats = this.executionLayer?.getStats() || {};
-      const position = this.executionLayer?.getPositions()?.find(p => !p.closed);
+      const stats = {};
+      const position = stateManager.getPosition();
 
       const marketContext = {
         source: 'dashboard_chat',

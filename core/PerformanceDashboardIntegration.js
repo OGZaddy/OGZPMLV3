@@ -11,7 +11,7 @@ const path = require('path');
 // Import all the hidden performance modules
 const PerformanceVisualizer = require('./PerformanceVisualizer');
 const PerformanceValidator = require('./PerformanceValidator');
-const TradingProfileManager = require('./TradingProfileManager');
+// Phase 2 REWRITE: TradingProfileManager deleted - profiles now in TradingConfig
 // CHANGE 2025-12-11: TradingSafetyNet commented out - module doesn't exist
 
 class PerformanceDashboardIntegration extends EventEmitter {
@@ -34,11 +34,10 @@ class PerformanceDashboardIntegration extends EventEmitter {
     });
     
     this.validator = new PerformanceValidator();
-    
-    this.profileManager = new TradingProfileManager({
-      profilesPath: path.join(process.cwd(), 'profiles', 'trading')
-    });
-    
+
+    // Phase 2 REWRITE: TradingProfileManager deleted - profiles now in TradingConfig
+    this.profileManager = null;
+
     // CHANGE 2025-12-11: TradingSafetyNet commented out - module doesn't exist
     // this.safetyNet = new TradingSafetyNet({
     //   maxDailyLoss: 0.05,

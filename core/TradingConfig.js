@@ -200,6 +200,37 @@ const BASE_CONFIG = {
   },
 
   // =========================================================================
+  // STRATEGY-SPECIFIC PARAMETERS
+  // =========================================================================
+  strategies: {
+    MADynamicSR: {
+      lookback: 20,                                              // MA lookback period
+      srTolerance: 0.002,                                        // 0.2% tolerance for S/R levels
+      minTouches: 2,                                             // minimum touches for valid S/R
+      enabled: true,
+    },
+    EMASMACrossover: {
+      fastPeriod: 9,                                             // fast EMA period
+      slowPeriod: 20,                                            // slow SMA period
+      signalConfirmBars: 2,                                      // bars to confirm crossover
+      enabled: true,
+    },
+    LiquiditySweep: {
+      sweepThreshold: 0.003,                                     // 0.3% beyond level = sweep
+      recoveryBars: 3,                                           // bars to recover for valid sweep
+      minVolumeSpike: 1.5,                                       // 1.5x avg volume required
+      enabled: true,
+    },
+    RSI: {
+      period: 14,                                                // RSI period
+      overbought: 70,                                            // overbought threshold
+      oversold: 30,                                              // oversold threshold
+      divergenceEnabled: true,                                   // check for divergences
+      enabled: true,
+    },
+  },
+
+  // =========================================================================
   // UNIVERSAL CIRCUIT BREAKERS (override strategy contracts)
   // =========================================================================
   universalLimits: {
@@ -228,10 +259,10 @@ const BASE_CONFIG = {
   // FEE CONFIGURATION
   // =========================================================================
   fees: {
-    makerFee: env('FEE_MAKER', 0.0010),                          // 0.10% maker
-    takerFee: env('FEE_TAKER', 0.0015),                          // 0.15% taker
+    makerFee: env('FEE_MAKER', 0.0025),                          // 0.25% maker (Kraken actual)
+    takerFee: env('FEE_TAKER', 0.0040),                          // 0.40% taker (Kraken actual)
     slippage: env('FEE_SLIPPAGE', 0.0005),                       // 0.05% slippage
-    totalRoundTrip: env('FEE_TOTAL_ROUNDTRIP', 0.0035),          // 0.35% total
+    totalRoundTrip: env('FEE_TOTAL_ROUNDTRIP', 0.0050),          // 0.50% total (maker entry + taker exit)
     safetyBuffer: env('FEE_SAFETY_BUFFER', 0.001),               // 0.10% buffer
 
     // Computed: minimum profit to be a "winner" after fees
