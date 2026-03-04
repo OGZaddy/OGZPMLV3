@@ -2563,13 +2563,13 @@
             <div class="chart-container">
                 <!-- TradingView Chart -->
                 <div id="tvChartContainer"></div>
-                
-                <!-- Dynamic Indicator Overlay -->
-                <div class="indicator-overlay" id="indicatorOverlay">
-                    <h4>📊 Indicators</h4>
 
-                    <!-- Core Indicators -->
-                    <div class="indicators-panel core-indicators">
+                <!-- Trade Tooltip (hover on markers) -->
+                <div id="tradeTooltip" style="display:none; position:absolute; background:rgba(0,0,0,0.95); border:1px solid #444; border-radius:6px; padding:10px 12px; font-size:11px; font-family:monospace; z-index:1000; pointer-events:none; min-width:180px;">
+                    <div id="tooltipContent"></div>
+                </div>
+
+                <!-- Dynamic Indicator Overlay - MOVED to Trade Log panel for readability -->
                         <div class="indicator-item">
                             <span class="indicator-label">RSI (14):</span>
                             <span class="indicator-value" id="rsiCore">50</span>
@@ -2771,6 +2771,9 @@
         let tradesExecuted = 0;
         let lastPrice = 0;
         let currentChartType = 'candlestick';
+
+        // Trade history for tooltip display (stores full trade data keyed by time)
+        const tradeHistory = new Map();
         
         // Chart series
         let candleSeries = null;
@@ -3235,10 +3238,14 @@
             window.tvChart = tvChart;
             window.candleSeries = candleSeries;
 
-            // Add crosshair move handler for OHLC display
+            // Add crosshair move handler for OHLC display + trade tooltips
+            const tooltip = document.getElementById('tradeTooltip');
+            const tooltipContent = document.getElementById('tooltipContent');
+
             tvChart.subscribeCrosshairMove((param) => {
                 if (!param || !param.seriesData || !param.time) {
                     document.getElementById('currentPrice').textContent = '$0.00';
+                    tooltip.style.display = 'none';
                     return;
                 }
 
@@ -3253,6 +3260,42 @@
                         displayText = `$${data.value.toFixed(2)}`;
                     }
                     document.getElementById('currentPrice').textContent = displayText;
+                }
+
+                // Check for trade at this time
+                const tradeData = tradeHistory.get(param.time);
+                if (tradeData && param.point) {
+                    const color = tradeData.type === 'BUY' ? '#00ff88' : '#ff3366';
+                    const pnlText = tradeData.pnl !== null
+                        ? `<div style="color:${tradeData.pnl >= 0 ? '#00ff88' : '#ff3366'}; font-weight:bold;">P&L: ${tradeData.pnl >= 0 ? '+' : ''}$${parseFloat(tradeData.pnl).toFixed(2)}</div>`
+                        : '';
+
+                    tooltipContent.innerHTML = `
+                        <div style="color:${color}; font-weight:bold; font-size:13px; margin-bottom:6px;">${tradeData.type}</div>
+                        <div><span style="color:#888;">Price:</span> $${parseFloat(tradeData.price).toLocaleString()}</div>
+                        <div><span style="color:#888;">Time:</span> ${tradeData.time}</div>
+                        <div><span style="color:#888;">Date:</span> ${tradeData.date}</div>
+                        ${tradeData.size ? `<div><span style="color:#888;">Size:</span> $${parseFloat(tradeData.size).toFixed(2)}</div>` : ''}
+                        <div><span style="color:#888;">Reason:</span> ${tradeData.reason}</div>
+                        ${tradeData.confidence ? `<div><span style="color:#888;">Confidence:</span> ${tradeData.confidence}%</div>` : ''}
+                        ${pnlText}
+                    `;
+
+                    // Position tooltip near cursor
+                    const chartRect = container.getBoundingClientRect();
+                    let left = param.point.x + 15;
+                    let top = param.point.y - 80;
+
+                    // Keep tooltip in bounds
+                    if (left + 200 > chartRect.width) left = param.point.x - 200;
+                    if (top < 0) top = param.point.y + 15;
+
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.top = top + 'px';
+                    tooltip.style.display = 'block';
+                    tooltip.style.borderColor = color;
+                } else {
+                    tooltip.style.display = 'none';
                 }
             });
 
@@ -4462,8 +4505,21 @@
                 position: isLong ? 'belowBar' : 'aboveBar',
                 color: isLong ? '#00ff88' : '#ff3366',
                 shape: isLong ? 'arrowUp' : 'arrowDown',
-                text: `${isLong ? '▲ BUY' : '▼ SELL'} $${(trade.price || lastPrice).toLocaleString()}`
+                text: `${isLong ? 'BUY' : 'SELL'} $${(trade.price || lastPrice).toLocaleString()}`
             };
+
+            // Store full trade data for tooltip display
+            const tradeData = {
+                type: isLong ? 'BUY' : 'SELL',
+                price: trade.price || lastPrice,
+                time: new Date(trade.timestamp || Date.now()).toLocaleTimeString(),
+                date: new Date(trade.timestamp || Date.now()).toLocaleDateString(),
+                reason: trade.reason || trade.signal || 'Signal',
+                confidence: trade.confidence || 0,
+                pnl: trade.pnl || trade.profit || null,
+                size: trade.size || trade.value_usd || null
+            };
+            tradeHistory.set(tradeTime, tradeData);
 
             // Get existing markers, add new, sort by time (required by lightweight charts)
             const existingMarkers = candleSeries.markers() || [];
