@@ -1,0 +1,13 @@
+{
+  "created": "2026-03-03T20:50:00Z",
+  "commitHash": "bbf8321",
+  "results": {
+    "seg_16_uptrend": { "pnlPercent": -2.25 },
+    "seg_5_range": { "pnlPercent": -3.39 },
+    "seg_1_range": { "pnlPercent": -3.61 }
+  },
+  "composite": {
+    "avgPnl": -3.08,
+    "worstPnl": -3.61
+  }
+}

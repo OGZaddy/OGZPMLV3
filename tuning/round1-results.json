@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-03-03T22:30:00.000Z",
+  "description": "Round 1 Exit Threshold Tuning Results (standalone tuning-backtest.js)",
+  "configs": {
+    "A": { "SL": 1.5, "TP": 2.0, "TIER1": 0.005, "TIER2": 0.008, "TIER3": 0.012, "desc": "Tighter tiers, same SL" },
+    "B": { "SL": 1.0, "TP": 2.0, "TIER1": 0.005, "TIER2": 0.008, "TIER3": 0.012, "desc": "Tighter everything" },
+    "C": { "SL": 0.8, "TP": 1.5, "TIER1": 0.003, "TIER2": 0.006, "TIER3": 0.010, "desc": "Scalper-tight" },
+    "D": { "SL": 2.0, "TP": 2.5, "TIER1": 0.007, "TIER2": 0.010, "TIER3": 0.015, "desc": "Wider SL - WINNER" },
+    "E": { "SL": 1.5, "TP": 3.0, "TIER1": 0.005, "TIER2": 0.010, "TIER3": 0.020, "desc": "Wide tiers" }
+  },
+  "results": {
+    "A": {
+      "seg_16_uptrend": { "return": 0.14, "trades": 18, "winRate": 77.8, "avgMFE": 0.53, "avgMAE": -0.36 },
+      "seg_5_range": { "return": -0.13, "trades": 25, "winRate": 64.0, "avgMFE": 0.49, "avgMAE": -0.86 },
+      "seg_1_range": { "return": -0.16, "trades": 24, "winRate": 66.7, "avgMFE": 0.55, "avgMAE": -0.84 },
+      "avg": -0.05
+    },
+    "B": {
+      "seg_16_uptrend": { "return": 0.25, "trades": 20, "winRate": 80.0, "avgMFE": 0.57, "avgMAE": -0.30 },
+      "seg_5_range": { "return": -0.16, "trades": 33, "winRate": 66.7, "avgMFE": 0.42, "avgMAE": -0.66 },
+      "seg_1_range": { "return": -0.11, "trades": 27, "winRate": 63.0, "avgMFE": 0.51, "avgMAE": -0.71 },
+      "avg": -0.01
+    },
+    "C": {
+      "seg_16_uptrend": { "return": 0.24, "trades": 22, "winRate": 81.8, "avgMFE": 0.48, "avgMAE": -0.23 },
+      "seg_5_range": { "return": -0.26, "trades": 39, "winRate": 66.7, "avgMFE": 0.34, "avgMAE": -0.58 },
+      "seg_1_range": { "return": -0.11, "trades": 30, "winRate": 63.3, "avgMFE": 0.43, "avgMAE": -0.61 },
+      "avg": -0.04
+    },
+    "D": {
+      "seg_16_uptrend": { "return": 0.24, "trades": 17, "winRate": 76.5, "avgMFE": 0.73, "avgMAE": -0.41 },
+      "seg_5_range": { "return": -0.13, "trades": 21, "winRate": 66.7, "avgMFE": 0.58, "avgMAE": -1.00 },
+      "seg_1_range": { "return": 0.05, "trades": 19, "winRate": 73.7, "avgMFE": 0.72, "avgMAE": -1.02, "givebackRate": 5.3 },
+      "avg": 0.05,
+      "winner": true
+    },
+    "E": {
+      "seg_16_uptrend": { "return": 0.14, "trades": 18, "winRate": 77.8, "avgMFE": 0.53, "avgMAE": -0.36 },
+      "seg_5_range": { "return": -0.13, "trades": 25, "winRate": 64.0, "avgMFE": 0.49, "avgMAE": -0.86 },
+      "seg_1_range": { "return": -0.16, "trades": 24, "winRate": 66.7, "avgMFE": 0.55, "avgMAE": -0.84 },
+      "avg": -0.05
+    }
+  },
+  "summary": {
+    "winner": "D",
+    "winnerConfig": { "SL": 2.0, "TP": 2.5, "TIER1": 0.007, "TIER2": 0.010, "TIER3": 0.015 },
+    "keyInsights": [
+      "Wider 2.0% SL gives trades room to breathe",
+      "D is only config with positive average P&L (+0.05%)",
+      "All configs profitable on uptrend segment",
+      "Tighter configs generate more trades but don't improve P&L",
+      "D has highest MFE across segments (0.73% on uptrend)"
+    ]
+  }
+}
