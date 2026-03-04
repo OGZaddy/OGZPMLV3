@@ -80,27 +80,7 @@ class TradingLoop {
     indicators.bbWidth = indicators.bb?.bandwidth || 0;
     indicators.bollingerBands = indicators.bb;
 
-    // CHANGE 655: RSI Smoothing - Prevent machine-gun trading without circuit breakers
-    this.rsiHistory.push(indicators.rsi);
-    if (this.rsiHistory.length > 3) this.rsiHistory.shift(); // Keep last 3 RSI values
-
-    // Smooth RSI using weighted average to prevent jumps
-    if (this.rsiHistory.length >= 2) {
-      const weights = [0.5, 0.3, 0.2]; // Most recent gets 50% weight
-      let smoothedRSI = 0;
-      for (let i = 0; i < this.rsiHistory.length; i++) {
-        smoothedRSI += this.rsiHistory[this.rsiHistory.length - 1 - i] * (weights[i] || 0.1);
-      }
-
-      // If RSI jumped too much, use smoothed value
-      const lastRSI = this.rsiHistory[this.rsiHistory.length - 2];
-      const rsiJump = Math.abs(indicators.rsi - lastRSI);
-
-      if (rsiJump > 30) {
-        console.log(`🔄 RSI Smoothing: Jump ${lastRSI.toFixed(1)}→${indicators.rsi.toFixed(1)} smoothed to ${smoothedRSI.toFixed(1)}`);
-        indicators.rsi = smoothedRSI;
-      }
-    }
+    // Phase 3 REWRITE: RSI smoothing deleted - IndicatorEngine owns RSI calculation
 
     // Detect patterns
     const patterns = this.ctx.patternChecker.analyzePatterns({
@@ -210,15 +190,7 @@ class TradingLoop {
       }
     }
 
-    // AGGRESSIVE_LEARNING_MODE: Lower the orchestrator threshold if enabled
-    if (flagManager.isEnabled('AGGRESSIVE_LEARNING_MODE')) {
-      const aggressiveThreshold = flagManager.getSetting('AGGRESSIVE_LEARNING_MODE', 'minConfidenceThreshold', 55) / 100;
-      this.ctx.strategyOrchestrator.minStrategyConfidence = aggressiveThreshold;
-      if (!this._lastAggLog || Date.now() - this._lastAggLog > 60000) {
-        console.log(`🔥 AGGRESSIVE LEARNING: Orchestrator threshold set to ${(aggressiveThreshold * 100).toFixed(0)}%`);
-        this._lastAggLog = Date.now();
-      }
-    }
+    // Phase 3 REWRITE: AGGRESSIVE_LEARNING_MODE deleted - use TradingConfig thresholds
 
     // Run orchestrator: each strategy evaluates independently, highest confidence wins
     const orchResult = this.ctx.strategyOrchestrator.evaluate(
@@ -240,41 +212,23 @@ class TradingLoop {
       }
     );
 
-    // Map orchestrator output to existing variable names
-    const brainDecision = {
-      direction: orchResult.direction,
-      confidence: orchResult.confidence / 100,  // Downstream expects 0-1 decimal
-      reasons: orchResult.reasons,
-      signalBreakdown: orchResult.signalBreakdown,
-      action: orchResult.action,
-      exitContract: orchResult.exitContract,
-      sizingMultiplier: orchResult.sizingMultiplier,
-      winnerStrategy: orchResult.winnerStrategy,
-    };
+    // Phase 3 REWRITE: Use orchResult directly, no brainDecision mapping
+    // Normalize confidence to 0-1 decimal (downstream expects this)
+    const normalizedConfidence = orchResult.confidence / 100;
 
     // SPOT market direction handling
-    let tradingDirection = brainDecision.direction;
+    let tradingDirection = orchResult.direction;
     const currentPosition = stateManager.get('position');
     if (tradingDirection === 'sell' && currentPosition === 0) {
-      console.log('🚫 TradingBrain said SELL but no position to sell (SPOT market) - converting to HOLD');
+      console.log('🚫 Orchestrator said SELL but no position to sell (SPOT market) - converting to HOLD');
       tradingDirection = 'hold';
     } else if (tradingDirection === 'sell' && currentPosition > 0) {
-      console.log('📊 TradingBrain bearish - executing SELL of position');
+      console.log('📊 Orchestrator bearish - executing SELL of position');
     }
 
-    // TEST MODE handling
-    let rawConfidence = brainDecision.confidence;
-    if (this.ctx.config.tradingMode === 'TEST') {
-      console.log(`🧪 TEST MODE: Using EXISTING patterns (${patterns.length} found) but NOT saving new ones`);
-      if (process.env.TEST_CONFIDENCE) {
-        const testConfidence = parseFloat(process.env.TEST_CONFIDENCE);
-        rawConfidence = testConfidence / 100;
-        console.log(`🧪 Override confidence: ${testConfidence}% (was ${(brainDecision.confidence * 100).toFixed(1)}%)`);
-      }
-    }
-
+    // Phase 3 REWRITE: TEST_CONFIDENCE override deleted - use TradingConfig
     const confidenceData = {
-      totalConfidence: rawConfidence * 100
+      totalConfidence: orchResult.confidence
     };
 
     // BROADCAST SIGNAL DATA TO DASHBOARD
@@ -289,8 +243,8 @@ class TradingLoop {
           timestamp: Date.now(),
           signal: {
             direction: tradingDirection,
-            confidence: rawConfidence,
-            reasons: brainDecision.reasons || [],
+            confidence: orchResult.confidence,
+            reasons: orchResult.reasons || [],
             meta: {
               signalsFired: strategySignals.length,
               bullishCount,
@@ -355,7 +309,7 @@ class TradingLoop {
       try {
         const signal = {
           action: tradingDirection.toUpperCase(),
-          confidence: rawConfidence,
+          confidence: orchResult.confidence,
           patterns: patterns,
           indicators: indicators,
           price: price,
@@ -465,7 +419,7 @@ class TradingLoop {
     }
 
     if (decision.action !== 'HOLD') {
-      await this.ctx.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, brainDecision);
+      await this.ctx.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, orchResult);
     }
   }
 }

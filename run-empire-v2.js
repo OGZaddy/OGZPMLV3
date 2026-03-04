@@ -1277,8 +1277,9 @@ class OGZPrimeV14Bot {
   /**
    * Execute a trade - PHASE 14 THIN DISPATCHER
    * Original logic moved to core/OrderExecutor.js
+   * Phase 3 REWRITE: Renamed brainDecision → orchResult (orchestrator result)
    */
-  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, brainDecision = null) {
+  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, orchResult = null) {
     // Update context with current runtime values
     this.orderExecutor.ctx.marketData = this.marketData;
     this.orderExecutor.ctx.dashboardWs = this.dashboardWs;
@@ -1286,7 +1287,7 @@ class OGZPrimeV14Bot {
     this.orderExecutor.ctx._lastTraiDecision = this._lastTraiDecision;
 
     // Delegate to OrderExecutor (exact copy of original logic)
-    return this.orderExecutor.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, brainDecision);
+    return this.orderExecutor.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, orchResult);
   }
 
   // REMOVED 2026-03-03: Original executeTrade() body (~810 lines) moved to core/OrderExecutor.js

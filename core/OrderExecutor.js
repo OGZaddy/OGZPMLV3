@@ -38,7 +38,8 @@ class OrderExecutor {
   /**
    * Execute a trade - EXACT COPY from run-empire-v2.js executeTrade()
    */
-  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, brainDecision = null) {
+  // Phase 3 REWRITE: Renamed brainDecision → orchResult (orchestrator result)
+  async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, orchResult = null) {
     // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
     // Rate limiting now handled by MIN_TRADE_CONFIDENCE threshold + position sizing
 
@@ -253,14 +254,15 @@ class OrderExecutor {
 
           // CHANGE 2026-02-21: Use orchestrator's winning strategy and exit contract
           // The StrategyOrchestrator already determined the winner and created the exit contract
-          const entryStrategy = brainDecision.winnerStrategy || 'default';
-          const sizingMultiplier = brainDecision.sizingMultiplier || 1.0;
+          // Phase 3 REWRITE: orchResult is now passed directly from TradingLoop
+          const entryStrategy = orchResult?.winnerStrategy || 'default';
+          const sizingMultiplier = orchResult?.sizingMultiplier || 1.0;
 
           // Use orchestrator's exit contract if provided, otherwise create fallback
-          const exitContract = brainDecision.exitContract
+          const exitContract = orchResult?.exitContract
             || exitContractManager.createExitContract(
                 entryStrategy,
-                { confidence: brainDecision.confidence },
+                { confidence: orchResult?.confidence || 0 },
                 { volatility: indicators.volatility || 0 }
               );
 
@@ -275,10 +277,10 @@ class OrderExecutor {
             patterns: patterns || [],  // Attach detected patterns for outcome learning
             entryIndicators: indicators,  // Attach indicators for feature vector reconstruction
             entryTime: this.ctx.marketData?.timestamp || Date.now(),  // FIX 2026-02-05: Use candle time in backtest
-            signalBreakdown: brainDecision?.signalBreakdown || null,  // Full decision reasoning
-            bullishScore: brainDecision?.bullishScore || 0,
-            bearishScore: brainDecision?.bearishScore || 0,
-            reasoning: brainDecision?.reasoning || '',
+            signalBreakdown: orchResult?.signalBreakdown || null,  // Full decision reasoning
+            bullishScore: orchResult?.bullishScore || 0,
+            bearishScore: orchResult?.bearishScore || 0,
+            reasoning: orchResult?.reasoning || '',
             // FIX 2026-02-17: Strategy-owned exit conditions
             entryStrategy: entryStrategy,
             exitContract: exitContract
