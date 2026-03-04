@@ -2564,58 +2564,7 @@
                 <!-- TradingView Chart -->
                 <div id="tvChartContainer"></div>
                 
-                <!-- Dynamic Indicator Overlay -->
-                <div class="indicator-overlay" id="indicatorOverlay">
-                    <h4>📊 Indicators</h4>
-
-                    <!-- Core Indicators -->
-                    <div class="indicators-panel core-indicators">
-                        <div class="indicator-item">
-                            <span class="indicator-label">RSI (14):</span>
-                            <span class="indicator-value" id="rsiCore">50</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">MACD (12/26):</span>
-                            <span class="indicator-value" id="macdCore">0.00</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Pattern:</span>
-                            <span class="indicator-value" id="patternCore">None</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Volume:</span>
-                            <span class="indicator-value" id="volumeCore">0</span>
-                        </div>
-                    </div>
-
-                    <!-- ML Indicators (Full suite) -->
-                    <div class="indicators-panel ml-indicators">
-                        <div class="indicator-item">
-                            <span class="indicator-label">RSI (14):</span>
-                            <span class="indicator-value" id="rsiML">50</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">MACD (12/26):</span>
-                            <span class="indicator-value" id="macdML">0.00</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Pattern:</span>
-                            <span class="indicator-value" id="patternML">None</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Volume:</span>
-                            <span class="indicator-value" id="volumeML">0</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">ATR:</span>
-                            <span class="indicator-value" id="atrML">0.00</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Confidence:</span>
-                            <span class="indicator-value" id="confidenceML">0%</span>
-                        </div>
-                    </div>
-                </div>
+                <!-- Dynamic Indicator Overlay - MOVED to Trade Log panel for readability -->
 
                 <!-- Signal Pipeline Panel - HIDDEN: Clutters the chart, info available in Edge Analytics -->
                 <div class="signal-overlay" id="signalOverlay" style="display:none !important; position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:10px; min-width:220px; z-index:100; font-family:monospace;">
@@ -2689,6 +2638,17 @@
                         <div class="stat-label">Confidence</div>
                         <div class="stat-value" id="confidence">0%</div>
                     </div>
+                </div>
+
+                <!-- Indicators (moved from chart overlay) -->
+                <div class="panel-title">📊 Indicators</div>
+                <div class="indicator-bar" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:4px; font-size:11px;">
+                    <span><b>RSI:</b> <span id="rsiCore">50</span></span>
+                    <span><b>MACD:</b> <span id="macdCore">0.00</span></span>
+                    <span><b>Pattern:</b> <span id="patternCore">None</span></span>
+                    <span><b>Vol:</b> <span id="volumeCore">0</span></span>
+                    <span><b>ATR:</b> <span id="atrML">0.00</span></span>
+                    <span><b>Conf:</b> <span id="confidenceML">0%</span></span>
                 </div>
 
                 <!-- Trade Log -->

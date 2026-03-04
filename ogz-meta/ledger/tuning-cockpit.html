@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OGZPrime Tuning Cockpit</title>
+<link href="https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #9d71c7;
+  --primary-dark: #7d51a7;
+  --bg: #0f0f0f;
+  --card: #1a1a1a;
+  --card-alt: #222;
+  --text: #fff;
+  --muted: #aaa;
+  --success: #00ff00;
+  --error: #ff3333;
+  --warning: #ffff00;
+  --accent: #00bfff;
+  --glow: rgba(157,113,199,0.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Maven Pro', sans-serif;
+  background: radial-gradient(circle at center, #151515 0%, var(--bg) 100%);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Layout */
+.cockpit { padding: 20px 24px; max-width: 1800px; margin: 0 auto; }
+
+/* Header */
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; background: var(--card); border-radius: 8px;
+  margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,.1);
+}
+.logo { font-size: 24px; font-weight: 800; color: var(--primary); text-shadow: 0 0 10px var(--glow); }
+.logo span { font-size: 16px; opacity: .7; font-weight: 400; }
+.subtitle { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; border-left: 1px solid #333; padding-left: 12px; margin-left: 12px; }
+
+/* Panels Toggle */
+.toggle-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.toggle-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-right: 4px; }
+.toggle-btn {
+  background: var(--card); border: 1px solid #333; border-radius: 6px;
+  padding: 6px 14px; color: var(--muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .2s; font-family: 'Maven Pro', sans-serif; letter-spacing: .5px;
+}
+.toggle-btn.active { background: rgba(157,113,199,.2); border-color: var(--primary); color: var(--primary); box-shadow: 0 0 8px var(--glow); }
+.toggle-btn:hover { border-color: var(--primary); }
+.divider { border-left: 1px solid #333; height: 20px; margin: 0 6px; }
+.btn-all { background: none; border: 1px solid; border-radius: 4px; padding: 4px 10px; font-size: 10px; font-weight: 700; cursor: pointer; letter-spacing: 1px; font-family: 'Maven Pro', sans-serif; }
+.btn-on { color: var(--success); border-color: var(--success); }
+.btn-off { color: var(--error); border-color: var(--error); }
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed #333; border-radius: 8px; padding: 40px; text-align: center;
+  margin-bottom: 20px; transition: all .3s; cursor: pointer; background: rgba(15,15,15,.5);
+}
+.drop-zone.active { border-color: var(--primary); background: rgba(157,113,199,.05); box-shadow: 0 0 20px var(--glow); }
+.drop-zone h3 { color: var(--primary); margin-bottom: 8px; font-size: 16px; }
+.drop-zone p { color: var(--muted); font-size: 12px; }
+.drop-zone input { display: none; }
+
+/* Run cards */
+.runs-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.run-card {
+  background: var(--card); border: 1px solid #333; border-radius: 8px;
+  padding: 12px 16px; min-width: 200px; flex: 1 1 200px; cursor: pointer; transition: all .2s;
+}
+.run-card:hover { border-color: var(--primary); }
+.run-card.selected { border-color: var(--primary); box-shadow: 0 0 12px var(--glow); }
+.run-name { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.run-meta { font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+.run-pnl { font-size: 18px; font-weight: 800; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+/* Comparison table */
+.compare-table {
+  width: 100%; border-collapse: collapse; background: var(--card);
+  border-radius: 8px; overflow: hidden; margin-bottom: 20px;
+}
+.compare-table th {
+  padding: 10px 12px; text-align: left; font-size: 10px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #333;
+  background: var(--card-alt); font-weight: 600;
+}
+.compare-table td {
+  padding: 8px 12px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
+  border-bottom: 1px solid #222;
+}
+.compare-table tr:hover td { background: rgba(157,113,199,.04); }
+.compare-table .best { color: var(--success); font-weight: 700; }
+.compare-table .worst { color: var(--error); }
+.compare-table .baseline-row { background: rgba(157,113,199,.08); }
+
+/* Stats cards */
+.stats-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--card-alt); border-radius: 8px;
+  padding: 14px 18px; min-width: 140px; flex: 1 1 140px;
+}
+.stat-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.stat-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.stat-sub { font-size: 11px; color: #666; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+/* Chart area */
+.chart-container {
+  background: var(--card); border: 1px solid var(--card-alt); border-radius: 8px;
+  padding: 16px; margin-bottom: 16px; box-shadow: 0 0 15px var(--glow);
+}
+.chart-title { font-size: 12px; color: var(--primary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+canvas { width: 100% !important; }
+
+/* Trade table */
+.trade-table { width: 100%; border-collapse: collapse; }
+.trade-table th {
+  padding: 8px 6px; text-align: left; font-size: 10px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #333;
+  cursor: pointer; user-select: none; font-weight: 600;
+}
+.trade-table td {
+  padding: 7px 6px; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+  border-bottom: 1px solid #222;
+}
+.trade-table tr:hover td { background: rgba(157,113,199,.08); }
+
+/* Strategy breakdown */
+.strat-card {
+  flex: 1 1 180px; background: var(--card-alt); border-radius: 6px;
+  padding: 14px; border: 1px solid #333;
+}
+.strat-name { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+.strat-bar { height: 4px; background: #333; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.strat-fill { height: 100%; border-radius: 2px; }
+
+/* Section container */
+.section { background: var(--card); border: 1px solid var(--card-alt); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.section-title { font-size: 12px; color: var(--primary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+
+/* Empty state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; }
+.empty-icon { font-size: 48px; color: var(--primary); text-shadow: 0 0 20px var(--glow); opacity: .5; margin-bottom: 12px; }
+.empty-title { font-weight: 700; color: var(--muted); font-size: 16px; margin-bottom: 4px; }
+.empty-sub { font-size: 12px; color: #555; }
+
+/* Footer */
+.footer { text-align: center; margin-top: 28px; font-size: 10px; color: #333; letter-spacing: 2px; text-transform: uppercase; }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes glow { 0%,100% { box-shadow: 0 0 10px var(--glow); } 50% { box-shadow: 0 0 20px var(--glow), 0 0 30px var(--glow); } }
+.fade-in { animation: fadeIn .4s ease-out; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header { flex-direction: column; gap: 10px; }
+  .stats-grid { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div class="cockpit" id="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="logo">OGZ Prime <span>v2</span></div>
+      <div class="subtitle">TUNING COCKPIT</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted)" class="mono" id="runCount">0 runs loaded</div>
+  </div>
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <h3>Drop backtest-report JSON files here</h3>
+    <p>Or click to browse. Load multiple to compare side-by-side.</p>
+    <input type="file" id="fileInput" multiple accept=".json">
+  </div>
+
+  <!-- Run Cards -->
+  <div class="runs-grid" id="runsGrid" style="display:none"></div>
+
+  <!-- Panel Toggles -->
+  <div class="toggle-bar" id="toggleBar" style="display:none">
+    <span class="toggle-label">PANELS:</span>
+    <button class="toggle-btn" data-panel="comparison" onclick="togglePanel('comparison')">Comparison</button>
+    <button class="toggle-btn" data-panel="summary" onclick="togglePanel('summary')">Summary</button>
+    <button class="toggle-btn" data-panel="equity" onclick="togglePanel('equity')">Equity Curve</button>
+    <button class="toggle-btn" data-panel="trades" onclick="togglePanel('trades')">Trade Log</button>
+    <button class="toggle-btn" data-panel="strategy" onclick="togglePanel('strategy')">Strategy</button>
+    <button class="toggle-btn" data-panel="exits" onclick="togglePanel('exits')">Exit Reasons</button>
+    <span class="divider"></span>
+    <button class="btn-all btn-on" onclick="allPanels(true)">ALL ON</button>
+    <button class="btn-all btn-off" onclick="allPanels(false)">ALL OFF</button>
+  </div>
+
+  <!-- Panels Container -->
+  <div id="panels"></div>
+
+  <div class="footer">OGZ Prime Valhalla Edition · Tuning Cockpit · 2026</div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+const runs = [];
+let selectedRun = null;
+let activePanels = new Set();
+
+// ── FILE LOADING ─────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('active'); }));
+['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('active'); }));
+dropZone.addEventListener('drop', ev => handleFiles(ev.dataTransfer.files));
+fileInput.addEventListener('change', ev => handleFiles(ev.target.files));
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const run = processReport(data, file.name);
+        runs.push(run);
+        renderRuns();
+        if (runs.length === 1) selectRun(0);
+      } catch(err) { console.error('Failed to parse', file.name, err); }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function processReport(data, filename) {
+  const trades = data.trades || [];
+  const summary = data.summary || {};
+  const metrics = data.metrics || {};
+  const initialBalance = summary.initialBalance || 10000;
+  const finalBalance = summary.finalBalance || initialBalance;
+
+  // Compute full stats
+  const wins = trades.filter(t => (t.pnl || 0) > 0);
+  const losses = trades.filter(t => (t.pnl || 0) <= 0);
+  const totalPnlUsd = trades.reduce((s, t) => s + (t.pnl || 0), 0);
+  const pnlPercent = ((finalBalance - initialBalance) / initialBalance) * 100;
+
+  // Equity curve
+  let equity = initialBalance, peak = initialBalance, maxDD = 0;
+  const equityCurve = [initialBalance];
+  trades.forEach(t => {
+    equity += (t.pnl || 0);
+    peak = Math.max(peak, equity);
+    maxDD = Math.max(maxDD, ((peak - equity) / peak) * 100);
+    equityCurve.push(equity);
+  });
+
+  // Sharpe
+  const returns = trades.map(t => ((t.pnl || 0) / initialBalance) * 100);
+  const meanRet = returns.length ? returns.reduce((s,r) => s+r, 0) / returns.length : 0;
+  const stdRet = returns.length > 1 ? Math.sqrt(returns.reduce((s,r) => s + (r-meanRet)**2, 0) / returns.length) : 0;
+  const sharpe = stdRet > 0 ? (meanRet / stdRet) * Math.sqrt(252) : 0;
+
+  // Profit factor
+  const grossProfit = wins.reduce((s,t) => s + (t.pnl||0), 0);
+  const grossLoss = Math.abs(losses.reduce((s,t) => s + (t.pnl||0), 0));
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : Infinity;
+
+  // Time in market (approximate from trade durations)
+  let totalTimeInMarket = 0;
+  trades.forEach(t => {
+    if (t.entryTime && t.exitTime) totalTimeInMarket += (t.exitTime - t.entryTime);
+    else if (t.duration) totalTimeInMarket += t.duration;
+  });
+  const firstTime = trades.length ? (trades[0].entryTime || trades[0].timestamp || 0) : 0;
+  const lastTime = trades.length ? (trades[trades.length-1].exitTime || trades[trades.length-1].closeTime || Date.now()) : 0;
+  const totalPeriod = lastTime - firstTime || 1;
+  const timeInMarketPct = (totalTimeInMarket / totalPeriod) * 100;
+
+  // Exposure-adjusted return
+  const exposureAdjReturn = timeInMarketPct > 0 ? pnlPercent / (timeInMarketPct / 100) : 0;
+
+  // Strategy breakdown
+  const strategyBreakdown = {};
+  trades.forEach(t => {
+    const strat = t.entryStrategy || t.strategy || 'unknown';
+    if (!strategyBreakdown[strat]) strategyBreakdown[strat] = { wins: 0, losses: 0, pnl: 0 };
+    if ((t.pnl||0) > 0) strategyBreakdown[strat].wins++; else strategyBreakdown[strat].losses++;
+    strategyBreakdown[strat].pnl += (t.pnl || 0);
+  });
+
+  // Exit breakdown
+  const exitBreakdown = {};
+  trades.forEach(t => {
+    const reason = t.exitReason || t.reason || 'unknown';
+    if (!exitBreakdown[reason]) exitBreakdown[reason] = { count: 0, pnl: 0 };
+    exitBreakdown[reason].count++;
+    exitBreakdown[reason].pnl += (t.pnl || 0);
+  });
+
+  return {
+    name: filename.replace('.json','').replace('backtest-report-',''),
+    filename,
+    trades,
+    stats: {
+      totalTrades: trades.length,
+      wins: wins.length,
+      losses: losses.length,
+      winRate: trades.length ? (wins.length / trades.length) * 100 : 0,
+      pnlPercent,
+      totalPnlUsd,
+      finalBalance,
+      maxDrawdown: maxDD,
+      sharpe,
+      profitFactor,
+      timeInMarketPct,
+      exposureAdjReturn,
+      avgWin: wins.length ? wins.reduce((s,t) => s + (t.pnl||0), 0) / wins.length : 0,
+      avgLoss: losses.length ? losses.reduce((s,t) => s + (t.pnl||0), 0) / losses.length : 0,
+    },
+    equityCurve,
+    strategyBreakdown,
+    exitBreakdown,
+    config: data.config || {},
+    timestamp: data.timestamp || new Date().toISOString(),
+  };
+}
+
+// ── RENDERING ────────────────────────────────────────────────────────────────
+
+function renderRuns() {
+  const grid = document.getElementById('runsGrid');
+  const toggleBar = document.getElementById('toggleBar');
+  grid.style.display = runs.length ? 'flex' : 'none';
+  toggleBar.style.display = runs.length ? 'flex' : 'none';
+  document.getElementById('runCount').textContent = runs.length + ' run' + (runs.length !== 1 ? 's' : '') + ' loaded';
+
+  grid.innerHTML = runs.map((r, i) => {
+    const color = r.stats.pnlPercent >= 0 ? 'var(--success)' : 'var(--error)';
+    return `<div class="run-card ${selectedRun === i ? 'selected' : ''}" onclick="selectRun(${i})">
+      <div class="run-name">${r.name}</div>
+      <div class="run-meta">${r.stats.totalTrades} trades · ${r.stats.winRate.toFixed(1)}% WR</div>
+      <div class="run-pnl" style="color:${color}">${r.stats.pnlPercent >= 0 ? '+' : ''}${r.stats.pnlPercent.toFixed(2)}%</div>
+      <div class="run-meta">Sharpe: ${r.stats.sharpe.toFixed(2)} · DD: ${r.stats.maxDrawdown.toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+}
+
+function selectRun(idx) {
+  selectedRun = idx;
+  renderRuns();
+  renderPanels();
+}
+
+function togglePanel(name) {
+  if (activePanels.has(name)) activePanels.delete(name);
+  else activePanels.add(name);
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', activePanels.has(btn.dataset.panel));
+  });
+  renderPanels();
+}
+
+function allPanels(on) {
+  const names = ['comparison','summary','equity','trades','strategy','exits'];
+  if (on) names.forEach(n => activePanels.add(n));
+  else activePanels.clear();
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', activePanels.has(btn.dataset.panel));
+  });
+  renderPanels();
+}
+
+function renderPanels() {
+  const container = document.getElementById('panels');
+  if (!runs.length || activePanels.size === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">◇</div><div class="empty-title">${runs.length ? 'No panels active' : 'Drop backtest reports to begin'}</div><div class="empty-sub">${runs.length ? 'Toggle panels above' : 'Supports backtest-report-*.json files'}</div></div>`;
+    return;
+  }
+
+  let html = '';
+  if (activePanels.has('comparison') && runs.length > 0) html += renderComparison();
+  if (activePanels.has('summary') && selectedRun !== null) html += renderSummary(runs[selectedRun]);
+  if (activePanels.has('equity') && selectedRun !== null) html += renderEquity(runs[selectedRun]);
+  if (activePanels.has('strategy') && selectedRun !== null) html += renderStrategy(runs[selectedRun]);
+  if (activePanels.has('exits') && selectedRun !== null) html += renderExits(runs[selectedRun]);
+  if (activePanels.has('trades') && selectedRun !== null) html += renderTrades(runs[selectedRun]);
+  container.innerHTML = html;
+
+  // Draw equity charts
+  if (activePanels.has('equity') && selectedRun !== null) drawEquityChart(runs[selectedRun]);
+  if (activePanels.has('exits') && selectedRun !== null) drawExitChart(runs[selectedRun]);
+}
+
+function renderComparison() {
+  const metrics = [
+    { key: 'totalTrades', label: 'Trades', fmt: v => v, better: 'high' },
+    { key: 'winRate', label: 'Win Rate', fmt: v => v.toFixed(1)+'%', better: 'high' },
+    { key: 'pnlPercent', label: 'P&L %', fmt: v => (v>=0?'+':'')+v.toFixed(2)+'%', better: 'high' },
+    { key: 'sharpe', label: 'Sharpe', fmt: v => v.toFixed(2), better: 'high' },
+    { key: 'maxDrawdown', label: 'Max DD', fmt: v => v.toFixed(1)+'%', better: 'low' },
+    { key: 'profitFactor', label: 'Profit Factor', fmt: v => v === Infinity ? '∞' : v.toFixed(2), better: 'high' },
+    { key: 'timeInMarketPct', label: 'Time in Mkt', fmt: v => v.toFixed(1)+'%', better: 'info' },
+    { key: 'exposureAdjReturn', label: 'Exp-Adj Return', fmt: v => (v>=0?'+':'')+v.toFixed(2)+'%', better: 'high' },
+  ];
+
+  let rows = metrics.map(m => {
+    const values = runs.map(r => r.stats[m.key]);
+    const best = m.better === 'high' ? Math.max(...values) : m.better === 'low' ? Math.min(...values) : null;
+    const worst = m.better === 'high' ? Math.min(...values) : m.better === 'low' ? Math.max(...values) : null;
+
+    const cells = runs.map((r, i) => {
+      const v = r.stats[m.key];
+      let cls = '';
+      if (best !== null && v === best && runs.length > 1) cls = 'best';
+      else if (worst !== null && v === worst && runs.length > 1) cls = 'worst';
+      // Flag drawdown ceiling breach
+      if (m.key === 'maxDrawdown' && v > 10) cls = 'worst';
+      return `<td class="${cls}">${m.fmt(v)}</td>`;
+    }).join('');
+
+    return `<tr><td style="color:var(--muted);font-family:'Maven Pro',sans-serif;font-weight:600">${m.label}</td>${cells}</tr>`;
+  }).join('');
+
+  const headers = runs.map((r, i) =>
+    `<th style="color:var(--accent);min-width:120px;cursor:pointer" onclick="selectRun(${i})">${r.name}${selectedRun === i ? ' ●' : ''}</th>`
+  ).join('');
+
+  return `<div class="section fade-in">
+    <div class="section-title">COMPARISON · ${runs.length} RUNS</div>
+    <div style="overflow-x:auto">
+      <table class="compare-table">
+        <thead><tr><th style="min-width:130px">Metric</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:#555;margin-top:8px">Green = best across runs · Red = worst · DD > 10% = auto-flagged</div>
+  </div>`;
+}
+
+function renderSummary(run) {
+  const s = run.stats;
+  const cards = [
+    { label: 'Total P&L', value: `${s.pnlPercent>=0?'+':''}${s.pnlPercent.toFixed(2)}%`, sub: `$${s.totalPnlUsd.toFixed(2)}`, color: s.pnlPercent>=0?'var(--success)':'var(--error)' },
+    { label: 'Win Rate', value: `${s.winRate.toFixed(1)}%`, sub: `${s.wins}W / ${s.losses}L`, color: s.winRate>=50?'var(--success)':'var(--error)' },
+    { label: 'Trades', value: s.totalTrades, sub: `Final: $${s.finalBalance.toFixed(2)}` },
+    { label: 'Max Drawdown', value: `${s.maxDrawdown.toFixed(2)}%`, color: s.maxDrawdown>10?'var(--error)':s.maxDrawdown>5?'var(--warning)':'var(--success)' },
+    { label: 'Sharpe', value: s.sharpe.toFixed(2), color: s.sharpe>1?'var(--success)':s.sharpe>0?'var(--warning)':'var(--error)' },
+    { label: 'Profit Factor', value: s.profitFactor===Infinity?'∞':s.profitFactor.toFixed(2), color: s.profitFactor>1?'var(--success)':'var(--error)' },
+    { label: 'Time in Market', value: `${s.timeInMarketPct.toFixed(1)}%`, color: 'var(--accent)' },
+    { label: 'Exp-Adj Return', value: `${s.exposureAdjReturn>=0?'+':''}${s.exposureAdjReturn.toFixed(2)}%`, color: s.exposureAdjReturn>=0?'var(--success)':'var(--error)' },
+  ];
+
+  return `<div class="stats-grid fade-in">${cards.map(c => `
+    <div class="stat-card">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-value" style="color:${c.color||'var(--text)'}">${c.value}</div>
+      ${c.sub ? `<div class="stat-sub">${c.sub}</div>` : ''}
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderEquity(run) {
+  return `<div class="chart-container fade-in">
+    <div class="chart-title">EQUITY CURVE · ${run.name}</div>
+    <canvas id="equityCanvas" height="260"></canvas>
+  </div>`;
+}
+
+function drawEquityChart(run) {
+  const canvas = document.getElementById('equityCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const data = run.equityCurve;
+  const W = canvas.parentElement.clientWidth - 32;
+  const H = 260;
+  canvas.width = W; canvas.height = H;
+
+  const min = Math.min(...data), max = Math.max(...data);
+  const pad = (max - min) * .15 || 50;
+  const yMin = min - pad, yMax = max + pad;
+
+  const toX = (i) => (i / (data.length - 1)) * (W - 60) + 40;
+  const toY = (v) => H - 20 - ((v - yMin) / (yMax - yMin)) * (H - 40);
+
+  // Grid
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const y = 20 + i * (H - 40) / 4;
+    ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(W, y); ctx.stroke();
+    const val = yMax - (i / 4) * (yMax - yMin);
+    ctx.fillStyle = '#555'; ctx.font = '10px JetBrains Mono'; ctx.fillText('$' + val.toFixed(0), 0, y + 4);
+  }
+
+  // Initial balance reference
+  const initY = toY(data[0]);
+  ctx.strokeStyle = '#444'; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(40, initY); ctx.lineTo(W, initY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(toX(0), H - 20);
+  data.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(data.length - 1), H - 20);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(157,113,199,0.3)');
+  grad.addColorStop(1, 'rgba(157,113,199,0)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => { if (i===0) ctx.moveTo(toX(i), toY(v)); else ctx.lineTo(toX(i), toY(v)); });
+  ctx.strokeStyle = '#9d71c7'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Dots
+  data.forEach((v, i) => {
+    ctx.beginPath(); ctx.arc(toX(i), toY(v), 3, 0, Math.PI*2);
+    ctx.fillStyle = '#9d71c7'; ctx.fill();
+    ctx.strokeStyle = '#0f0f0f'; ctx.lineWidth = 2; ctx.stroke();
+  });
+}
+
+function renderStrategy(run) {
+  const strats = Object.entries(run.strategyBreakdown);
+  if (!strats.length) return '';
+  return `<div class="section fade-in">
+    <div class="section-title">STRATEGY BREAKDOWN</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px">${strats.map(([name, d]) => {
+      const total = d.wins + d.losses;
+      const wr = total > 0 ? (d.wins/total)*100 : 0;
+      const color = wr >= 50 ? 'var(--success)' : 'var(--error)';
+      return `<div class="strat-card">
+        <div class="strat-name">${name.replace(/_/g,' ')}</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">
+          <div>Win Rate: <span style="color:${color};font-weight:700">${wr.toFixed(0)}%</span></div>
+          <div>${d.wins}W / ${d.losses}L</div>
+          <div>P&L: <span style="color:${d.pnl>=0?'var(--success)':'var(--error)';font-weight:700}">$${d.pnl.toFixed(2)}</span></div>
+        </div>
+        <div class="strat-bar"><div class="strat-fill" style="width:${wr}%;background:${color};box-shadow:0 0 6px ${color}"></div></div>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+}
+
+function renderExits(run) {
+  const exits = Object.entries(run.exitBreakdown);
+  if (!exits.length) return '';
+  return `<div class="section fade-in">
+    <div class="section-title">EXIT REASON BREAKDOWN</div>
+    <canvas id="exitCanvas" height="180"></canvas>
+  </div>`;
+}
+
+function drawExitChart(run) {
+  const canvas = document.getElementById('exitCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const exits = Object.entries(run.exitBreakdown);
+  const W = canvas.parentElement.clientWidth - 32;
+  const H = 180;
+  canvas.width = W; canvas.height = H;
+
+  const maxVal = Math.max(...exits.map(([,d]) => Math.abs(d.pnl)), 1);
+  const barW = Math.min(60, (W - 80) / exits.length - 10);
+
+  exits.forEach(([reason, d], i) => {
+    const x = 50 + i * ((W - 80) / exits.length);
+    const barH = (Math.abs(d.pnl) / maxVal) * (H - 60);
+    const y = d.pnl >= 0 ? (H - 30 - barH) : (H - 30);
+    const color = d.pnl >= 0 ? '#00ff00' : '#ff3333';
+
+    ctx.fillStyle = color; ctx.globalAlpha = .8;
+    ctx.beginPath();
+    const r = 4;
+    ctx.moveTo(x+r, y); ctx.lineTo(x+barW-r, y); ctx.quadraticCurveTo(x+barW, y, x+barW, y+r);
+    ctx.lineTo(x+barW, y+barH); ctx.lineTo(x, y+barH); ctx.lineTo(x, y+r);
+    ctx.quadraticCurveTo(x, y, x+r, y); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#aaa'; ctx.font = '10px Maven Pro';
+    ctx.textAlign = 'center';
+    ctx.fillText(reason.replace(/_/g,' '), x + barW/2, H - 10);
+    ctx.fillStyle = color; ctx.font = '11px JetBrains Mono';
+    ctx.fillText('$' + d.pnl.toFixed(0), x + barW/2, y - 6);
+  });
+}
+
+function renderTrades(run) {
+  if (!run.trades.length) return '';
+  const cols = [
+    { key: 'id', label: '#' },
+    { key: 'action', label: 'Side', alias: 'type' },
+    { key: 'entryStrategy', label: 'Strategy', alias: 'strategy' },
+    { key: 'entryPrice', label: 'Entry', alias: 'price' },
+    { key: 'exitPrice', label: 'Exit', alias: 'closePrice' },
+    { key: 'exitReason', label: 'Exit Reason', alias: 'reason' },
+    { key: 'pnl', label: 'P&L $' },
+  ];
+
+  const headers = cols.map(c => `<th>${c.label}</th>`).join('');
+  const rows = run.trades.map((t, i) => {
+    const get = (c) => t[c.key] !== undefined ? t[c.key] : (c.alias ? t[c.alias] : '—');
+    const pnl = t.pnl || 0;
+    return `<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="color:${(get(cols[1])||'').toString().toUpperCase().includes('BUY')?'var(--success)':'var(--error)';font-weight:700}">${get(cols[1])}</td>
+      <td style="color:var(--accent)">${get(cols[2])}</td>
+      <td>$${Number(get(cols[3])||0).toFixed(2)}</td>
+      <td>$${Number(get(cols[4])||0).toFixed(2)}</td>
+      <td style="color:${(get(cols[5])||'').toString().includes('profit')?'var(--success)':((get(cols[5])||'').toString().includes('stop')?'var(--error)':'var(--accent)')}">${get(cols[5])}</td>
+      <td style="color:${pnl>=0?'var(--success)':'var(--error)';font-weight:700}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="section fade-in">
+    <div class="section-title">TRADE LOG · ${run.trades.length} TRADES</div>
+    <div style="overflow-x:auto">
+      <table class="trade-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>
