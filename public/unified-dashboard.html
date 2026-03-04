@@ -2570,55 +2570,9 @@
                 </div>
 
                 <!-- Dynamic Indicator Overlay - MOVED to Trade Log panel for readability -->
-                        <div class="indicator-item">
-                            <span class="indicator-label">RSI (14):</span>
-                            <span class="indicator-value" id="rsiCore">50</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">MACD (12/26):</span>
-                            <span class="indicator-value" id="macdCore">0.00</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Pattern:</span>
-                            <span class="indicator-value" id="patternCore">None</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Volume:</span>
-                            <span class="indicator-value" id="volumeCore">0</span>
-                        </div>
-                    </div>
 
-                    <!-- ML Indicators (Full suite) -->
-                    <div class="indicators-panel ml-indicators">
-                        <div class="indicator-item">
-                            <span class="indicator-label">RSI (14):</span>
-                            <span class="indicator-value" id="rsiML">50</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">MACD (12/26):</span>
-                            <span class="indicator-value" id="macdML">0.00</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Pattern:</span>
-                            <span class="indicator-value" id="patternML">None</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Volume:</span>
-                            <span class="indicator-value" id="volumeML">0</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">ATR:</span>
-                            <span class="indicator-value" id="atrML">0.00</span>
-                        </div>
-                        <div class="indicator-item">
-                            <span class="indicator-label">Confidence:</span>
-                            <span class="indicator-value" id="confidenceML">0%</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Signal Pipeline Panel -->
-                <div class="signal-overlay" id="signalOverlay" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:10px; min-width:220px; z-index:100; font-family:monospace; display:none;">
+                <!-- Signal Pipeline Panel - HIDDEN: Clutters the chart, info available in Edge Analytics -->
+                <div class="signal-overlay" id="signalOverlay" style="display:none !important; position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:10px; min-width:220px; z-index:100; font-family:monospace;">
                     <h4 style="margin:0 0 6px 0; font-size:12px; color:#888;">📡 SIGNAL PIPELINE</h4>
                     <div id="signalDirection" style="font-size:15px; font-weight:bold; color:#888;">WAITING...</div>
                     <div id="signalConfidence" style="font-size:11px; color:#aaa; margin-bottom:6px;"></div>
@@ -2666,15 +2620,6 @@
                             <p class="pattern-info">Pattern detection active. When a pattern is identified, its visual representation and explanation will appear here.</p>
                         </div>
                     </div>
-
-                    <!-- Signal Pipeline Panel (restored 2026-02-18) -->
-                    <div id="signalPipelineInline" style="background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:10px; margin-top:12px; font-family:monospace;">
-                        <h4 style="margin:0 0 6px 0; font-size:12px; color:#888;">📡 SIGNAL PIPELINE</h4>
-                        <div id="signalDirectionInline" style="font-size:15px; font-weight:bold; color:#888;">WAITING...</div>
-                        <div id="signalConfidenceInline" style="font-size:11px; color:#aaa; margin-bottom:6px;"></div>
-                        <div id="signalListInline" style="font-size:10px; max-height:120px; overflow-y:auto;"></div>
-                        <div id="moduleStatusInline" style="font-size:9px; color:#666; margin-top:6px; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;"></div>
-                    </div>
                 </div>
             </div>
             
@@ -2698,6 +2643,17 @@
                         <div class="stat-label">Confidence</div>
                         <div class="stat-value" id="confidence">0%</div>
                     </div>
+                </div>
+
+                <!-- Indicators (moved from chart overlay) -->
+                <div class="panel-title">📊 Indicators</div>
+                <div class="indicator-bar" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:4px; font-size:11px;">
+                    <span><b>RSI:</b> <span id="rsiCore">50</span></span>
+                    <span><b>MACD:</b> <span id="macdCore">0.00</span></span>
+                    <span><b>Pattern:</b> <span id="patternCore">None</span></span>
+                    <span><b>Vol:</b> <span id="volumeCore">0</span></span>
+                    <span><b>ATR:</b> <span id="atrML">0.00</span></span>
+                    <span><b>Conf:</b> <span id="confidenceML">0%</span></span>
                 </div>
 
                 <!-- Trade Log -->
@@ -2803,6 +2759,7 @@
         let ichimokuSenkouASeries = null;
         let ichimokuSenkouBSeries = null;
         let srPriceLines = [];            // Support/resistance as horizontal price lines
+        let fibPriceLines = [];           // Fibonacci retracement levels
         
         // Active indicator overlays (all OFF by default - user preference)
         let activeOverlays = [];
@@ -3131,18 +3088,27 @@
                 color: COLORS.ema20,
                 lineWidth: 1,
                 visible: activeOverlays.includes('ema'),
+                title: 'EMA20',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             ema50Series = tvChart.addLineSeries({
                 color: COLORS.ema50,
                 lineWidth: 1,
                 visible: activeOverlays.includes('ema'),
+                title: 'EMA50',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             ema200Series = tvChart.addLineSeries({
                 color: COLORS.ema200,
                 lineWidth: 2,
                 visible: activeOverlays.includes('ema'),
+                title: 'EMA200',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             
             // Bollinger Bands
@@ -3151,39 +3117,49 @@
                 lineWidth: 1,
                 visible: activeOverlays.includes('bollinger'),
                 lineStyle: 2,
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             bbMiddleSeries = tvChart.addLineSeries({
                 color: COLORS.bbMiddle,
                 lineWidth: 1,
                 visible: activeOverlays.includes('bollinger'),
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             bbLowerSeries = tvChart.addLineSeries({
                 color: COLORS.bbLower,
                 lineWidth: 1,
                 visible: activeOverlays.includes('bollinger'),
                 lineStyle: 2,
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             // VWAP
             vwapSeries = tvChart.addLineSeries({
                 color: COLORS.vwap,
                 lineWidth: 2,
                 visible: activeOverlays.includes('vwap'),
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             // SuperTrend
             superTrendSeries = tvChart.addLineSeries({
                 color: COLORS.superTrendUp,
                 lineWidth: 2,
                 visible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
 
             // 2026-02-12: SMA lines
-            sma20Series = tvChart.addLineSeries({ color: '#00ccff', lineWidth: 1, visible: false, title: 'SMA20' });
-            sma50Series = tvChart.addLineSeries({ color: '#0088ff', lineWidth: 1, visible: false, title: 'SMA50' });
-            sma200Series = tvChart.addLineSeries({ color: '#0044cc', lineWidth: 2, visible: false, title: 'SMA200' });
+            sma20Series = tvChart.addLineSeries({ color: '#00ccff', lineWidth: 1, visible: false, title: 'SMA20', lastValueVisible: false, priceLineVisible: false });
+            sma50Series = tvChart.addLineSeries({ color: '#0088ff', lineWidth: 1, visible: false, title: 'SMA50', lastValueVisible: false, priceLineVisible: false });
+            sma200Series = tvChart.addLineSeries({ color: '#0044cc', lineWidth: 2, visible: false, title: 'SMA200', lastValueVisible: false, priceLineVisible: false });
 
             // 2026-02-12: Indicator sub-panes — stacked ABOVE volume bars (volume is 85-100%)
             // RSI pane: 62-78% of chart (above volume)
@@ -3191,6 +3167,8 @@
                 color: '#ff0066', lineWidth: 1.5, visible: false, title: 'RSI',
                 priceScaleId: 'rsi',
                 priceFormat: { type: 'custom', formatter: v => v.toFixed(0) },
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             tvChart.priceScale('rsi').applyOptions({
                 scaleMargins: { top: 0.62, bottom: 0.22 },
@@ -3201,10 +3179,14 @@
             macdLineSeries = tvChart.addLineSeries({
                 color: '#6600ff', lineWidth: 1.5, visible: false, title: 'MACD',
                 priceScaleId: 'macd',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             macdSignalSeries = tvChart.addLineSeries({
                 color: '#ff6600', lineWidth: 1, visible: false, title: 'Signal',
                 priceScaleId: 'macd',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             tvChart.priceScale('macd').applyOptions({
                 scaleMargins: { top: 0.62, bottom: 0.22 },
@@ -3215,6 +3197,8 @@
             atrSeries = tvChart.addLineSeries({
                 color: '#ff9800', lineWidth: 1, visible: false, title: 'ATR',
                 priceScaleId: 'atr',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             tvChart.priceScale('atr').applyOptions({
                 scaleMargins: { top: 0.62, bottom: 0.22 },
@@ -3222,10 +3206,10 @@
             });
 
             // Ichimoku Cloud lines (on main price scale)
-            ichimokuTenkanSeries = tvChart.addLineSeries({ color: '#00bcd4', lineWidth: 1, visible: false, title: 'Tenkan' });
-            ichimokuKijunSeries = tvChart.addLineSeries({ color: '#ff5722', lineWidth: 1, visible: false, title: 'Kijun' });
-            ichimokuSenkouASeries = tvChart.addLineSeries({ color: '#4caf50', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouA' });
-            ichimokuSenkouBSeries = tvChart.addLineSeries({ color: '#f44336', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouB' });
+            ichimokuTenkanSeries = tvChart.addLineSeries({ color: '#00bcd4', lineWidth: 1, visible: false, title: 'Tenkan', lastValueVisible: false, priceLineVisible: false });
+            ichimokuKijunSeries = tvChart.addLineSeries({ color: '#ff5722', lineWidth: 1, visible: false, title: 'Kijun', lastValueVisible: false, priceLineVisible: false });
+            ichimokuSenkouASeries = tvChart.addLineSeries({ color: '#4caf50', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouA', lastValueVisible: false, priceLineVisible: false });
+            ichimokuSenkouBSeries = tvChart.addLineSeries({ color: '#f44336', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouB', lastValueVisible: false, priceLineVisible: false });
             
             // Resize handler
             window.addEventListener('resize', () => {
@@ -4008,10 +3992,11 @@
                 // Build pattern info display
                 let descHTML = '';
 
-                // Primary pattern confidence (real number now, not always 0.1%)
-                const conf = parseFloat(pattern.confidence) || 0;
+                // Primary pattern confidence - normalize to percentage (handle both 0-1 and 0-100 formats)
+                let conf = parseFloat(pattern.confidence) || 0;
+                if (conf > 0 && conf <= 1) conf = conf * 100;  // Convert decimal to percentage
                 const confColor = conf >= 60 ? '#00ff88' : conf >= 40 ? '#ffd700' : '#ff6b6b';
-                descHTML += `<p class="pattern-info"><strong>Confidence:</strong> <span style="color:${confColor};font-size:15px;font-weight:700">${conf}%</span></p>`;
+                descHTML += `<p class="pattern-info"><strong>Confidence:</strong> <span style="color:${confColor};font-size:15px;font-weight:700">${conf.toFixed(0)}%</span></p>`;
 
                 // Direction badge
                 if (pattern.direction && pattern.direction !== 'neutral') {
@@ -4051,7 +4036,7 @@
 
                 // Update confidence display in ML panel
                 const confML = document.getElementById('confidenceML');
-                if (confML) confML.textContent = `${conf}%`;
+                if (confML) confML.textContent = `${conf.toFixed(0)}%`;
 
                 // 2026-02-12: Cross-update the INDICATORS overlay box with real pattern name
                 const patternName = patternInfo.name || 'None';
@@ -4079,13 +4064,15 @@
                 const panel = document.getElementById('signalOverlay');
                 if (panel) panel.style.display = 'block';
 
-                // Direction with color
+                // Direction with color - normalize confidence to percentage
                 const dirEl = document.getElementById('signalDirection');
                 if (dirEl) {
                     const colors = { buy: '#00e676', sell: '#ff5252', hold: '#888' };
                     const icons = { buy: '📈', sell: '📉', hold: '⏸️' };
+                    let sigConf = parseFloat(sig.confidence) || 0;
+                    if (sigConf > 0 && sigConf <= 1) sigConf = sigConf * 100;  // Convert decimal to percentage
                     dirEl.style.color = colors[sig.direction] || '#888';
-                    dirEl.textContent = `${icons[sig.direction] || ''} ${sig.direction.toUpperCase()} @ ${(sig.confidence * 100).toFixed(0)}%`;
+                    dirEl.textContent = `${icons[sig.direction] || ''} ${sig.direction.toUpperCase()} @ ${sigConf.toFixed(0)}%`;
                 }
 
                 // Signal count
@@ -4107,8 +4094,7 @@
 
                 // Module status strip
                 const modEl = document.getElementById('moduleStatus');
-                const moduleHtml = (() => {
-                    if (!mods) return '';
+                if (modEl && mods) {
                     const m = [];
                     m.push(mods.emaCrossover?.active ? '<span style="color:#00bcd4">EMA✓</span>' : '<span style="color:#333">EMA✗</span>');
                     m.push(mods.liquiditySweep?.active ? '<span style="color:#ff9800">SWEEP✓</span>' : '<span style="color:#333">SWEEP✗</span>');
@@ -4116,36 +4102,12 @@
                     m.push(mods.tpo?.active ? '<span style="color:#ffeb3b">TPO✓</span>' : '<span style="color:#333">TPO✗</span>');
                     if (mods.regime?.regime && mods.regime.regime !== 'unknown') m.push(`<span style="color:#4caf50">${mods.regime.regime}</span>`);
                     if (mods.patterns?.length > 0) m.push(`<span style="color:#e91e63">${mods.patterns.length}pat</span>`);
-                    return m.join(' │ ');
-                })();
-                if (modEl) modEl.innerHTML = moduleHtml;
-
-                // Build signals HTML once for reuse
-                const signalsHtml = sig.signals ? sig.signals.map(s => {
-                    const color = s.direction === 'buy' ? '#00e676' : s.direction === 'sell' ? '#ff5252' : '#666';
-                    const icon = s.direction === 'buy' ? '▲' : s.direction === 'sell' ? '▼' : '─';
-                    const bar = '█'.repeat(Math.round((s.strength || 0.5) * 8));
-                    return `<div style="color:${color}; margin:1px 0;">${icon} ${s.name} <span style="opacity:0.4">${bar}</span></div>`;
-                }).join('') : '';
-
-                // Also update INLINE panel in pattern section (restored 2026-02-18)
-                const dirInline = document.getElementById('signalDirectionInline');
-                if (dirInline) {
-                    const colors = { buy: '#00e676', sell: '#ff5252', hold: '#888' };
-                    const icons = { buy: '📈', sell: '📉', hold: '⏸️' };
-                    dirInline.style.color = colors[sig.direction] || '#888';
-                    dirInline.textContent = `${icons[sig.direction] || ''} ${sig.direction.toUpperCase()} @ ${(sig.confidence * 100).toFixed(0)}%`;
+                    modEl.innerHTML = m.join(' │ ');
                 }
-                const confInline = document.getElementById('signalConfidenceInline');
-                if (confInline) confInline.textContent = `${sig.meta?.signalsFired || 0} signals | Bull: ${sig.meta?.bullishCount || 0} Bear: ${sig.meta?.bearishCount || 0}`;
-                const listInline = document.getElementById('signalListInline');
-                if (listInline) listInline.innerHTML = signalsHtml;
-                const modInline = document.getElementById('moduleStatusInline');
-                if (modInline) modInline.innerHTML = moduleHtml;
 
-                // Also update the Confidence indicator in ML panel
+                // Also update the Confidence indicator in ML panel (sigConf already normalized above)
                 const confML = document.getElementById('confidenceML');
-                if (confML) confML.textContent = `${(sig.confidence * 100).toFixed(0)}%`;
+                if (confML) confML.textContent = `${sigConf.toFixed(0)}%`;
             }
 
             // Neural votes
@@ -4759,6 +4721,46 @@
                 });
             } else {
                 srPriceLines = [];
+            }
+
+            // Fibonacci - auto-calculate from recent price range
+            const showFib = activeOverlays.includes('fibonacci');
+            fibPriceLines.forEach(line => {
+                try { candleSeries.removePriceLine(line); } catch(e) {}
+            });
+            if (showFib && candleSeries) {
+                const data = candleSeries.data ? candleSeries.data() : [];
+                if (data.length >= 20) {
+                    // Get recent 50 candles for high/low
+                    const recent = data.slice(-50);
+                    const high = Math.max(...recent.map(c => c.high));
+                    const low = Math.min(...recent.map(c => c.low));
+                    const range = high - low;
+
+                    // Fibonacci levels: 0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%
+                    const fibLevels = [
+                        { level: 0, label: '0%', color: '#888' },
+                        { level: 0.236, label: '23.6%', color: '#4CAF50' },
+                        { level: 0.382, label: '38.2%', color: '#8BC34A' },
+                        { level: 0.5, label: '50%', color: '#FFC107' },
+                        { level: 0.618, label: '61.8%', color: '#FF9800' },
+                        { level: 0.786, label: '78.6%', color: '#FF5722' },
+                        { level: 1, label: '100%', color: '#888' }
+                    ];
+
+                    fibPriceLines = fibLevels.map(f => {
+                        return candleSeries.createPriceLine({
+                            price: high - (range * f.level),
+                            color: f.color,
+                            lineWidth: 1,
+                            lineStyle: 2,
+                            axisLabelVisible: true,
+                            title: `Fib ${f.label}`,
+                        });
+                    });
+                }
+            } else {
+                fibPriceLines = [];
             }
 
             if (ws && ws.readyState === WebSocket.OPEN) {

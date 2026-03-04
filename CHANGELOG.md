@@ -7,6 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Critical Fix: MADynamicSR 123 Pattern - Sliding Window Index Bug (2026-03-04)
+
+**Session Focus:** Fix MADynamicSR detecting only 82 swings out of 45,743 candles due to sliding window index collision.
+
+#### Bug Fix #1: Swing Detection Using Global Bar Counter
+- **File:** `modules/MADynamicSR.js` lines 312-323, 335-346
+- **Change:** Use global bar counter instead of array index for swing deduplication
+- **Before:**
+  ```javascript
+  if (isSwingHigh) {
+    const existing = this.swings.find(s => s.bar === midBar);
+    if (!existing) {
+      this.swings.push({
+        type: 'high',
+        price: c(midCandle),
+        wick: midHigh,
+        bar: midBar  // BUG: Array index recycles after shift()
+      });
+  ```
+- **After:**
+  ```javascript
+  if (isSwingHigh) {
+    const globalBar = this.barCount - lookback;  // Global bar number, not array index
+    const existing = this.swings.find(s => s.bar === globalBar);
+    if (!existing) {
+      this.swings.push({
+        type: 'high',
+        price: c(midCandle),
+        wick: midHigh,
+        bar: globalBar
+      });
+  ```
+- **Impact:** Swing detection went from 82 to 8,909 swings (108x increase)
+- **Root Cause:** priceHistory.shift() causes indices to recycle, causing false `existing` matches
+
+#### Bug Fix #2: 123 Pattern Independent Swing Filtering
+- **File:** `modules/MADynamicSR.js` lines 404-411
+- **Change:** Filter highs and lows independently from full swings array
+- **Before:**
+  ```javascript
+  const recent = this.swings.slice(-6);
+  const highs = recent.filter(s => s.type === 'high').slice(-3);
+  const lows = recent.filter(s => s.type === 'low').slice(-3);
+  ```
+- **After:**
+  ```javascript
+  const highs = this.swings.filter(s => s.type === 'high').slice(-2);
+  const lows = this.swings.filter(s => s.type === 'low').slice(-2);
+  ```
+- **Impact:** In strong trends, slice(-6) had <2 of one type, always returning cached pattern
+
+#### Bug Fix #3: Remove Sticky Pattern Persistence
+- **File:** `modules/MADynamicSR.js` lines 420-427
+- **Change:** Remove caching logic that created ratchet effect
+- **Before:**
+  ```javascript
+  // Pattern PERSISTS until broken
+  if (this.pattern123 === 'uptrend' && lowerLow) return null;
+  if (this.pattern123 === 'downtrend' && higherHigh) return null;
+  return this.pattern123;  // Keep cached
+  ```
+- **After:**
+  ```javascript
+  if (higherHigh && higherLow) return 'uptrend';
+  if (lowerHigh && lowerLow) return 'downtrend';
+  return null;  // Mixed structure = no clear trend
+  ```
+- **Impact:** Pattern now determined fresh each bar, not sticky
+
+#### Tuning: Faster EMA Parameters
+- **File:** `tuning/tuning-backtest-full.js` line 92
+- **Change:** Use 20/50 EMA instead of 50/200 for more responsive signals
+- **Before:**
+  ```javascript
+  const maDynamicSR = new MADynamicSR();
+  ```
+- **After:**
+  ```javascript
+  const maDynamicSR = new MADynamicSR({ emaPeriod: 20, trendEmaPeriod: 50 });
+  ```
+- **Impact:** Matches actual chart bounces on 20 EMA
+
+#### Diagnostic Counters Added
+- **File:** `modules/MADynamicSR.js` lines 52-63, 606-617
+- **Change:** Added swingHighs, swingLows, patternNull counters + updated printDiagnostics()
+- **Impact:** Can now see full condition funnel in backtest output
+
+#### Results Before/After
+| Metric | Before | After |
+|--------|--------|-------|
+| Swings detected | 40 highs, 42 lows | 4,511 highs, 4,398 lows |
+| 123 pattern | 167 up, 45358 down | 14,268 up, 12,873 down |
+| ALL ALIGNED | 5 long, 583 short | 266 long, 215 short |
+| MADynamicSR P&L | +7.51% | **+11.69%** |
+
+MADynamicSR is now the TOP strategy, beating RSI.
+
+---
+
 ### Phase 13B: Enable StateManager Bypass Halt Switch (2026-03-03)
 
 **Session Focus:** Flip the halt switch so bypass violations trigger entry halt.

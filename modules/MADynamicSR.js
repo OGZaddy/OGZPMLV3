@@ -54,6 +54,9 @@ class MADynamicSR {
       trendBearish: 0,
       patternUptrend: 0,
       patternDowntrend: 0,
+      patternNull: 0,
+      swingHighs: 0,
+      swingLows: 0,
       emaTouches: 0,
       srAligned: 0,
       confirmBullish: 0,
@@ -103,11 +106,12 @@ class MADynamicSR {
     // Step 2: Build S/R levels from swings
     this._updateSRLevels();
 
-    // Step 3: Check for 123 pattern (now cached in _detect123Pattern)
+    // Step 3: Check for 123 pattern
     const pattern = this._detect123Pattern();
-    this.pattern123 = pattern;  // Cache for next call
+    this.pattern123 = pattern;
     if (pattern === 'uptrend') this.diag.patternUptrend++;
-    if (pattern === 'downtrend') this.diag.patternDowntrend++;
+    else if (pattern === 'downtrend') this.diag.patternDowntrend++;
+    else this.diag.patternNull++;
 
     // Step 4: Check if price is touching 50 EMA
     const touchingEMA = this._isTouchingEMA(price, ema50);
@@ -306,14 +310,16 @@ class MADynamicSR {
     }
 
     if (isSwingHigh) {
-      const existing = this.swings.find(s => s.bar === midBar);
+      const globalBar = this.barCount - lookback;  // Global bar number, not array index
+      const existing = this.swings.find(s => s.bar === globalBar);
       if (!existing) {
         this.swings.push({
           type: 'high',
           price: c(midCandle),
           wick: midHigh,  // Use wick per Trader DNA
-          bar: midBar
+          bar: globalBar
         });
+        this.diag.swingHighs++;
       }
     }
 
@@ -328,14 +334,16 @@ class MADynamicSR {
     }
 
     if (isSwingLow) {
-      const existing = this.swings.find(s => s.bar === midBar);
+      const globalBar = this.barCount - lookback;  // Global bar number, not array index
+      const existing = this.swings.find(s => s.bar === globalBar);
       if (!existing) {
         this.swings.push({
           type: 'low',
           price: c(midCandle),
           wick: midLow,  // Use wick per Trader DNA
-          bar: midBar
+          bar: globalBar
         });
+        this.diag.swingLows++;
       }
     }
 
@@ -402,45 +410,31 @@ class MADynamicSR {
    * Downtrend stays until we get a Higher High
    */
   _detect123Pattern() {
-    if (this.swings.length < 4) return this.pattern123;  // Return cached
-
-    const recent = this.swings.slice(-6);
-    const highs = recent.filter(s => s.type === 'high').slice(-3);
-    const lows = recent.filter(s => s.type === 'low').slice(-3);
+    // FIX: Get last 2 swing highs and last 2 swing lows INDEPENDENTLY
+    // Old bug: slice(-6) then filter meant strong trends had <2 of one type
+    const highs = this.swings.filter(s => s.type === 'high').slice(-2);
+    const lows = this.swings.filter(s => s.type === 'low').slice(-2);
 
     if (highs.length < 2 || lows.length < 2) return this.pattern123;
 
-    const lastHigh = highs[highs.length - 1];
-    const prevHigh = highs[highs.length - 2];
-    const lastLow = lows[lows.length - 1];
-    const prevLow = lows[lows.length - 2];
+    const [prevHigh, lastHigh] = highs;
+    const [prevLow, lastLow] = lows;
 
     const higherHigh = lastHigh.wick > prevHigh.wick;
     const higherLow = lastLow.wick > prevLow.wick;
     const lowerHigh = lastHigh.wick < prevHigh.wick;
     const lowerLow = lastLow.wick < prevLow.wick;
 
-    // New uptrend confirmation
+    // Uptrend: Higher High + Higher Low (bullish structure)
     if (higherHigh && higherLow) {
       return 'uptrend';
     }
-    // New downtrend confirmation
+    // Downtrend: Lower High + Lower Low (bearish structure)
     if (lowerHigh && lowerLow) {
       return 'downtrend';
     }
-
-    // FIX: Pattern PERSISTS until broken
-    // Uptrend breaks on Lower Low
-    if (this.pattern123 === 'uptrend' && lowerLow) {
-      return null;  // Structure broken
-    }
-    // Downtrend breaks on Higher High
-    if (this.pattern123 === 'downtrend' && higherHigh) {
-      return null;  // Structure broken
-    }
-
-    // Keep existing pattern if not broken
-    return this.pattern123;
+    // Mixed structure (HH+LL or LH+HL) = no clear trend
+    return null;
   }
 
   /**
@@ -615,12 +609,13 @@ class MADynamicSR {
     const d = this.diag;
     console.log('\n===== MADynamicSR DIAGNOSTICS =====');
     console.log(`Total bars processed: ${this.barCount}`);
-    console.log(`200 EMA trend: ${d.trendBullish} bullish, ${d.trendBearish} bearish`);
-    console.log(`123 pattern:   ${d.patternUptrend} uptrend, ${d.patternDowntrend} downtrend`);
-    console.log(`50 EMA touch:  ${d.emaTouches} times`);
-    console.log(`S/R aligned:   ${d.srAligned} times`);
+    console.log(`Swings detected: ${d.swingHighs} highs, ${d.swingLows} lows`);
+    console.log(`Trend EMA: ${d.trendBullish} bullish, ${d.trendBearish} bearish`);
+    console.log(`123 pattern: ${d.patternUptrend} up, ${d.patternDowntrend} down, ${d.patternNull} null`);
+    console.log(`Entry EMA touch: ${d.emaTouches} times`);
+    console.log(`S/R aligned: ${d.srAligned} times`);
     console.log(`Confirm candle: ${d.confirmBullish} bullish, ${d.confirmBearish} bearish`);
-    console.log(`ALL ALIGNED:   ${d.allAlignedLong} long, ${d.allAlignedShort} short`);
+    console.log(`ALL ALIGNED: ${d.allAlignedLong} long, ${d.allAlignedShort} short`);
     console.log('====================================\n');
   }
 
