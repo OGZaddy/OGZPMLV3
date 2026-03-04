@@ -1,0 +1,557 @@
+{
+  "config": {
+    "candleFile": "tuning/seg_16_uptrend.json",
+    "minConfidence": 25,
+    "stopLossPct": 1.5,
+    "takeProfitPct": 2,
+    "tier1": 0.005,
+    "tier2": 0.008,
+    "tier3": 0.012,
+    "initialBalance": 10000,
+    "positionSizePct": 4
+  },
+  "summary": {
+    "initialBalance": 10000,
+    "finalBalance": 10014.259825013036,
+    "totalReturn": 0.1425982501303588,
+    "candlesProcessed": 2000,
+    "duration": "1.8"
+  },
+  "metrics": {
+    "totalTrades": 18,
+    "wins": 14,
+    "losses": 4,
+    "winRate": 77.77777777777779,
+    "avgPnL": 0.19805809917379022,
+    "maxDrawdown": 0.14573346269339768,
+    "avgMFE": 0.534230090721669,
+    "avgMAE": -0.36463242408528623,
+    "givebackRate": 0,
+    "givebackCount": 0
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "price": 75907.455,
+      "amount": 0.005269574641910996,
+      "confidence": 59.058768361536565,
+      "time": 1731171600000,
+      "balance": 9600,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 76348.9615,
+      "entryPrice": 75907.455,
+      "pnlPercent": 0.5816378641597233,
+      "pnlDollars": 2.3265514566389243,
+      "reason": "profit_tier_1",
+      "time": 1731176100000,
+      "balance": 10002.32655145664,
+      "holdDuration": 4500000,
+      "mfe": 0.5816378641597233,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 86407.9,
+      "amount": 0.004630283365968454,
+      "confidence": 43.132026070031074,
+      "time": 1731407400000,
+      "balance": 9602.233489398373,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 86886.0495,
+      "entryPrice": 86407.9,
+      "pnlPercent": 0.5533631762836495,
+      "pnlDollars": 2.213967676296136,
+      "reason": "profit_tier_1",
+      "time": 1731408300000,
+      "balance": 10004.540519132936,
+      "holdDuration": 900000,
+      "mfe": 0.5533631762836495,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 88784.27,
+      "amount": 0.004507348213431472,
+      "confidence": 46.54110709696461,
+      "time": 1731595500000,
+      "balance": 9604.358898367618,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 89434.197,
+      "entryPrice": 88784.27,
+      "pnlPercent": 0.732029446207077,
+      "pnlDollars": 2.929447302310905,
+      "reason": "profit_tier_1",
+      "time": 1731596400000,
+      "balance": 10007.469966435247,
+      "holdDuration": 900000,
+      "mfe": 0.732029446207077,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 87989.3,
+      "amount": 0.004549403150808221,
+      "confidence": 47.031166853561146,
+      "time": 1731599100000,
+      "balance": 9607.171167777837,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 88851.82,
+      "entryPrice": 87989.3,
+      "pnlPercent": 0.9802555538002963,
+      "pnlDollars": 3.923951205635092,
+      "reason": "profit_tier_1",
+      "time": 1731601800000,
+      "balance": 10011.393917640882,
+      "holdDuration": 2700000,
+      "mfe": 0.9802555538002963,
+      "mae": -0.2621023238052843
+    },
+    {
+      "type": "BUY",
+      "price": 89542.4325,
+      "amount": 0.004472245677552208,
+      "confidence": 54.76727842297319,
+      "time": 1731808800000,
+      "balance": 9610.938160935248,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 90076.2075,
+      "entryPrice": 89542.4325,
+      "pnlPercent": 0.5961140267213634,
+      "pnlDollars": 2.387172936535478,
+      "reason": "profit_tier_1",
+      "time": 1731811500000,
+      "balance": 10013.781090577419,
+      "holdDuration": 2700000,
+      "mfe": 0.5961140267213634,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 89128.255,
+      "amount": 0.004494099470735703,
+      "confidence": 42.672265279546494,
+      "time": 1731879900000,
+      "balance": 9613.229846954322,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 89688.25,
+      "entryPrice": 89128.255,
+      "pnlPercent": 0.6283024389964723,
+      "pnlDollars": 2.516673233114659,
+      "reason": "profit_tier_1",
+      "time": 1731885300000,
+      "balance": 10016.297763810533,
+      "holdDuration": 5400000,
+      "mfe": 0.6283024389964723,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 89780.6245,
+      "amount": 0.0044625654230375875,
+      "confidence": 43.43957993953579,
+      "time": 1731934800000,
+      "balance": 9615.645853258111,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 90412.5295,
+      "entryPrice": 89780.6245,
+      "pnlPercent": 0.7038322617147743,
+      "pnlDollars": 2.819917403644581,
+      "reason": "profit_tier_1",
+      "time": 1731939300000,
+      "balance": 10019.117681214177,
+      "holdDuration": 4500000,
+      "mfe": 0.7038322617147743,
+      "mae": -0.2925180142849255
+    },
+    {
+      "type": "BUY",
+      "price": 96215.35,
+      "amount": 0.004165288670140129,
+      "confidence": 40.2085848952171,
+      "time": 1732202100000,
+      "balance": 9618.35297396561,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 96743.73,
+      "entryPrice": 96215.35,
+      "pnlPercent": 0.549163932782025,
+      "pnlDollars": 2.2008552275286206,
+      "reason": "profit_tier_1",
+      "time": 1732203900000,
+      "balance": 10021.318536441706,
+      "holdDuration": 1800000,
+      "mfe": 0.549163932782025,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 97800.674689826,
+      "amount": 0.004098670512539604,
+      "confidence": 48.18593246793051,
+      "time": 1732281300000,
+      "balance": 9620.465794984038,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 98427.85,
+      "entryPrice": 97800.674689826,
+      "pnlPercent": 0.6412791242627767,
+      "pnlDollars": 2.570584950003081,
+      "reason": "profit_tier_1",
+      "time": 1732288500000,
+      "balance": 10023.88912139171,
+      "holdDuration": 7200000,
+      "mfe": 0.6412791242627767,
+      "mae": -0.4230049446366866
+    },
+    {
+      "type": "BUY",
+      "price": 97993.764,
+      "amount": 0.004091643676996308,
+      "confidence": 49.915748703662715,
+      "time": 1732378500000,
+      "balance": 9622.933556536042,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 97343.5767320095,
+      "entryPrice": 97993.764,
+      "pnlPercent": -0.6634986160859091,
+      "pnlDollars": -2.6603346239368193,
+      "reason": "max_hold",
+      "time": 1732392900000,
+      "balance": 10021.228786767773,
+      "holdDuration": 14400000,
+      "mfe": 0.26628735273400356,
+      "mae": -0.6634986160859091
+    },
+    {
+      "type": "BUY",
+      "price": 97343.5767320095,
+      "amount": 0.004117879832731682,
+      "confidence": 43.005007642502434,
+      "time": 1732392900000,
+      "balance": 9620.379635297062,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 97846.5535,
+      "entryPrice": 97343.5767320095,
+      "pnlPercent": 0.5167025754305337,
+      "pnlDollars": 2.0711978892406364,
+      "reason": "profit_tier_1",
+      "time": 1732394700000,
+      "balance": 10023.299984657013,
+      "holdDuration": 1800000,
+      "mfe": 0.5167025754305337,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 97437.239,
+      "amount": 0.004114771759760973,
+      "confidence": 40.21264029534643,
+      "time": 1732448700000,
+      "balance": 9622.367985270732,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 96020.915,
+      "entryPrice": 97437.239,
+      "pnlPercent": -1.4535756703861527,
+      "pnlDollars": -5.827849997871738,
+      "reason": "max_hold",
+      "time": 1732463100000,
+      "balance": 10017.472134659141,
+      "holdDuration": 14400000,
+      "mfe": 0.1798480763602111,
+      "mae": -1.4535756703861527
+    },
+    {
+      "type": "BUY",
+      "price": 96020.915,
+      "amount": 0.00417303756568416,
+      "confidence": 45.812265743959514,
+      "time": 1732463100000,
+      "balance": 9616.773249272776,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 96556.165,
+      "entryPrice": 96020.915,
+      "pnlPercent": 0.5574306389394437,
+      "pnlDollars": 2.2336183570324124,
+      "reason": "profit_tier_1",
+      "time": 1732464900000,
+      "balance": 10019.705753016173,
+      "holdDuration": 1800000,
+      "mfe": 0.5574306389394437,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 96648.35,
+      "amount": 0.004146870899716828,
+      "confidence": 56.977440427827474,
+      "time": 1732545000000,
+      "balance": 9618.917522895526,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 95114.1885,
+      "entryPrice": 96648.35,
+      "pnlPercent": -1.5873643988748922,
+      "pnlDollars": -6.361969679815957,
+      "reason": "stop_loss",
+      "time": 1732554000000,
+      "balance": 10013.343783336357,
+      "holdDuration": 9000000,
+      "mfe": 0,
+      "mae": -1.5873643988748922
+    },
+    {
+      "type": "BUY",
+      "price": 95114.1885,
+      "amount": 0.004211083095488475,
+      "confidence": 52.38951631908941,
+      "time": 1732554000000,
+      "balance": 9612.810032002903,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 95607.79,
+      "entryPrice": 95114.1885,
+      "pnlPercent": 0.5189567484981378,
+      "pnlDollars": 2.07859693255773,
+      "reason": "profit_tier_1",
+      "time": 1732557600000,
+      "balance": 10015.422380268914,
+      "holdDuration": 3600000,
+      "mfe": 0.5189567484981378,
+      "mae": -0.106806882970986
+    },
+    {
+      "type": "BUY",
+      "price": 94665.8735,
+      "amount": 0.004231904068478875,
+      "confidence": 42.068457429102864,
+      "time": 1732563900000,
+      "balance": 9614.805485058158,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 93214.6545,
+      "entryPrice": 94665.8735,
+      "pnlPercent": -1.5329906610960466,
+      "pnlDollars": -6.141419590353792,
+      "reason": "stop_loss",
+      "time": 1732577400000,
+      "balance": 10009.28096067856,
+      "holdDuration": 13500000,
+      "mfe": 0.36753107232460214,
+      "mae": -1.5329906610960466
+    },
+    {
+      "type": "BUY",
+      "price": 92565.7595,
+      "amount": 0.00432526282493412,
+      "confidence": 55.92321383869377,
+      "time": 1732608900000,
+      "balance": 9608.909722251417,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 93146.1605,
+      "entryPrice": 92565.7595,
+      "pnlPercent": 0.627014787255106,
+      "pnlDollars": 2.510386868854539,
+      "reason": "profit_tier_1",
+      "time": 1732610700000,
+      "balance": 10011.791347547414,
+      "holdDuration": 1800000,
+      "mfe": 0.627014787255106,
+      "mae": 0
+    },
+    {
+      "type": "BUY",
+      "price": 91777.7955,
+      "amount": 0.004363491754406943,
+      "confidence": 46.11794436778705,
+      "time": 1732619700000,
+      "balance": 9611.319693645517,
+      "exitContract": {
+        "stopLossPercent": -1.5,
+        "takeProfitPercent": 2,
+        "trailingStopPercent": 0.6,
+        "trailingActivation": 0.8,
+        "invalidationConditions": [],
+        "maxHoldTimeMinutes": 240
+      }
+    },
+    {
+      "type": "SELL",
+      "price": 92343.507,
+      "entryPrice": 91777.7955,
+      "pnlPercent": 0.6163925565198447,
+      "pnlDollars": 2.4684774656232094,
+      "reason": "profit_tier_1",
+      "time": 1732621500000,
+      "balance": 10014.259825013036,
+      "holdDuration": 1800000,
+      "mfe": 0.6163925565198447,
+      "mae": -0.24152212139426912
+    }
+  ],
+  "timestamp": "2026-03-03T21:35:35.868Z"
+}

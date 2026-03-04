@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-03-03T23:00:00.000Z",
+  "description": "Exit Tuning Summary - VALIDATED",
+
+  "winner": {
+    "exit": {
+      "stopLossPercent": 2.0,
+      "takeProfitPercent": 2.5,
+      "tier1": 0.007,
+      "tier2": 0.010,
+      "tier3": 0.015,
+      "source": "Config D - Round 1 winner"
+    },
+    "entry": {
+      "minConfidence": 50,
+      "source": "Round 2 winner"
+    }
+  },
+
+  "validation": {
+    "status": "PASSED",
+    "results": {
+      "training_2024": {
+        "candles": 6000,
+        "trades": 41,
+        "return": 0.09,
+        "winRate": 73.7,
+        "maxDrawdown": 0.22
+      },
+      "out_of_sample_2023": {
+        "candles": 4000,
+        "trades": 23,
+        "return": 0.05,
+        "winRate": 69.6,
+        "maxDrawdown": 0.11,
+        "priceRange": "$16,510 → $41,514",
+        "note": "Completely unseen data, different regime - config generalized"
+      },
+      "full_stress_test": {
+        "candles": 45812,
+        "trades": 289,
+        "return": 0.73,
+        "winRate": 63.7,
+        "maxDrawdown": 0.92,
+        "avgPnLPerTrade": 0.06,
+        "givebackRate": 3.8
+      }
+    },
+    "conclusion": "Config validated across 3 datasets. Not overfit. Ready for production testing."
+  },
+
+  "round1_exit_tuning": {
+    "winner": "D",
+    "configs_tested": ["A", "B", "C", "D", "E", "F"],
+    "key_finding": "Wider 2.0% SL lets trades breathe; tighter tiers (F) cut winners short",
+    "results": {
+      "D": { "avg": 0.05, "seg_16": 0.24, "seg_5": -0.13, "seg_1": 0.05 },
+      "F": { "avg": -0.07, "seg_16": 0.09, "seg_5": -0.30, "seg_1": 0.01, "note": "Tighter tiers hurt" }
+    }
+  },
+
+  "round2_confidence_tuning": {
+    "winner": "50%",
+    "thresholds_tested": [25, 30, 40, 50, 60],
+    "key_finding": "50% filters garbage entries without starving; 60% kills too many uptrend trades",
+    "results": {
+      "25%": { "trades": 57, "avg": 0.05 },
+      "50%": { "trades": 41, "avg": 0.09, "winner": true },
+      "60%": { "trades": 23, "avg": 0.01, "starved": true }
+    },
+    "note": "30% and 40% identical to 25% due to signal generator confidence floor at 40%"
+  },
+
+  "performance_improvement": {
+    "baseline": "-3.61%",
+    "tuned": "+0.73% (full 45K test)",
+    "direction_change": true,
+    "trade_quality": "28% fewer trades, higher win rate, lower drawdown"
+  },
+
+  "production_config": {
+    "STOP_LOSS_PERCENT": 2.0,
+    "TAKE_PROFIT_PERCENT": 2.5,
+    "TIER1_TARGET": 0.007,
+    "TIER2_TARGET": 0.010,
+    "TIER3_TARGET": 0.015,
+    "MIN_TRADE_CONFIDENCE": 0.50
+  }
+}
