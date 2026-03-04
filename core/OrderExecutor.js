@@ -14,8 +14,7 @@
 const { getInstance: getStateManager } = require('./StateManager');
 const TradingConfig = require('./TradingConfig');
 const exitContractManager = require('./ExitContractManager');
-const FeatureFlagManager = require('./FeatureFlagManager');
-const flagManager = FeatureFlagManager.getInstance();
+// Phase 4 REWRITE: FeatureFlagManager removed - AGGRESSIVE_LEARNING_MODE deleted
 const { TradingProofLogger } = require('../ogz-meta/claudito-logger');
 
 const stateManager = getStateManager();
@@ -39,34 +38,9 @@ class OrderExecutor {
    * Execute a trade - EXACT COPY from run-empire-v2.js executeTrade()
    */
   // Phase 3 REWRITE: Renamed brainDecision → orchResult (orchestrator result)
+  // Phase 4 REWRITE: Removed duplicate BUY/SELL gates - TradingLoop + ExitContractManager handle all gating
   async executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision = null, orchResult = null) {
-    // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
-    // Rate limiting now handled by MIN_TRADE_CONFIDENCE threshold + position sizing
-
-    // FIX 2026-02-28: Hard gate for BUY confidence - catches any leaky entry paths
-    // This should NEVER trigger if makeTradeDecision is working correctly
-    const MIN_BUY_CONFIDENCE = this.ctx.config.minTradeConfidence * 100; // 50% default
-    if (decision.action === 'BUY' && decision.confidence < MIN_BUY_CONFIDENCE) {
-      console.log(`🚨 [BUY BLOCKED] Confidence ${decision.confidence.toFixed(1)}% < ${MIN_BUY_CONFIDENCE}% threshold (LEAKY ENTRY PATH DETECTED!)`);
-      return;
-    }
-
-    // FIX 2026-02-17: Dont exit on "no signal" (low confidence)
-    // SELL requires: (1) high confidence SELL signal, (2) stop loss, or (3) profit target
-    const MIN_SELL_CONFIDENCE = 30;
-    const isStopLossExit = decision.exitReason === "stop_loss" || decision.exitReason === "trailing_stop" || decision.exitReason === "invalidation";
-    // FIX 2026-02-23: Use startsWith for profit_tier (MaxProfitManager returns "profit_tier_1", "profit_tier_2", etc.)
-    const isProfitExit = decision.exitReason?.startsWith("profit_tier") || decision.exitReason === "take_profit";
-    const isEmergencyExit = decision.exitReason === "hard_stop" || decision.exitReason === "account_drawdown" || decision.confidence >= 70;
-    const isTimeoutExit = decision.exitReason === "max_hold" || decision.exitReason === "max_hold_universal";
-    if (decision.action === "SELL" && decision.confidence < MIN_SELL_CONFIDENCE) {
-      if (!isStopLossExit && !isProfitExit && !isEmergencyExit && !isTimeoutExit) {
-        console.log("[EXIT BLOCKED] Confidence " + decision.confidence.toFixed(1) + "% < " + MIN_SELL_CONFIDENCE + "% minimum");
-        return;
-      }
-    }
-
-    // Log allowed trade
+    // Log trade execution
     console.log("*** EXECUTE_TRADE_REACHED ***");
     console.log(`\n🎯 ${decision.action} SIGNAL @ $${price.toFixed(2)} | Confidence: ${decision.confidence.toFixed(1)}%`);
 
@@ -91,13 +65,7 @@ class OrderExecutor {
     basePositionPercent = basePositionPercent * confidenceMultiplier;
     console.log(`📏 Confidence sizing: ${(tradeConfidence * 100).toFixed(0)}% → ${confidenceMultiplier.toFixed(1)}x → ${(basePositionPercent * 100).toFixed(2)}% of balance`);
 
-    // FIX 2026-02-02: AGGRESSIVE_LEARNING_MODE boosts position size while pattern bank builds
-    const aggressiveLearning = flagManager.isEnabled('AGGRESSIVE_LEARNING_MODE');
-    if (aggressiveLearning) {
-      const multiplier = flagManager.getSetting('AGGRESSIVE_LEARNING_MODE', 'positionSizeMultiplier', 2.0);
-      basePositionPercent = basePositionPercent * multiplier;
-      console.log(`🔥 AGGRESSIVE LEARNING: Position size ${multiplier}x → ${(basePositionPercent * 100).toFixed(1)}%`);
-    }
+    // Phase 4 REWRITE: AGGRESSIVE_LEARNING_MODE removed - use TradingConfig for all sizing
     const baseSizeUSD = currentBalance * basePositionPercent;
 
     // FIX 2025-12-27: Convert USD to BTC amount (was treating $500 as 500 BTC!)
@@ -129,17 +97,7 @@ class OrderExecutor {
       const usdAmount = positionSize * price;
       console.log(`📍 CP3: Calling ExecutionLayer.executeTrade with USD=$${usdAmount.toFixed(2)} (${positionSize.toFixed(8)} BTC)`);
 
-      // Circuit breaker check before execution
-      if (this.ctx.tradingBrain?.errorHandler?.isCircuitBreakerActive('ExecutionLayer')) {
-        console.log('🚨 CIRCUIT BREAKER: Execution blocked due to repeated failures');
-        console.log('   Error count:', this.ctx.tradingBrain.errorHandler.getErrorStatus());
-        // Don't return - let's see what error occurs
-        // return;
-      }
-
-      // Phase 3 REWRITE: Gate checks moved to TradingLoop (single location)
-      // BUY confidence threshold checked before executeTrade is called
-      // No duplicate gate checking here
+      // Phase 4 REWRITE: Circuit breaker removed (tradingBrain deleted in Phase 2)
 
       // Generate decisionId for pattern attribution (join key to trai-decisions.log)
       const decisionId = decision.decisionId || `dec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
