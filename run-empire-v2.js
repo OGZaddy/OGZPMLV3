@@ -317,8 +317,7 @@ const { EnhancedPatternChecker } = EnhancedPatternRecognition || {};
 
 const RiskManager = loader.get('core', 'RiskManager');
 console.log('  RiskManager:', !!RiskManager);
-const EntryDecider = loader.get('core', 'EntryDecider');
-console.log('  EntryDecider:', !!EntryDecider);
+// Phase 3 REWRITE: EntryDecider deleted - logic inlined to TradingLoop
 // REMOVED 2026-02-20: ExecutionRateLimiter was blocking 95% of trades in backtest
 // const ExecutionRateLimiter = loader.get('core', 'ExecutionRateLimiter');
 // Phase 2 REWRITE: AdvancedExecutionLayer deleted - OrderRouter+OrderExecutor replaced it
@@ -435,13 +434,8 @@ class OGZPrimeV14Bot {
       maxDrawdown: TradingConfig.get('risk.maxDrawdown')
     });
 
-    // Phase 9: EntryDecider - gate checks BEFORE execution (fixes bug where gates ran after)
-    // Phase 2 REWRITE: tradingBrain removed - orchestrator handles decisions
-    this.entryDecider = new EntryDecider({
-      riskManager: this.riskManager,
-      stateManager: stateManager,
-      tierFlags: this.tierFlags
-    });
+    // Phase 3 REWRITE: EntryDecider deleted - decision logic inlined to TradingLoop
+    // Gate checks and exit logic now in TradingLoop + ExitContractManager
 
     // PHASE 13A: Position management with immutability guarantees
     this.pnlCalculator = new PnLCalculator();
@@ -709,8 +703,8 @@ class OGZPrimeV14Bot {
 
     // REFACTOR Phase 14: OrderExecutor - context with all dependencies
     // Phase 2 REWRITE: executionLayer, tradingBrain, tradingOptimizations deleted
+    // Phase 3 REWRITE: entryDecider deleted - gate checks in TradingLoop
     this.orderExecutor = new OrderExecutor({
-      entryDecider: this.entryDecider,
       performanceAnalyzer: this.performanceAnalyzer,
       patternChecker: this.patternChecker,
       patternExitModel: this.patternExitModel,
@@ -730,10 +724,10 @@ class OGZPrimeV14Bot {
 
     // REFACTOR Phase 15: TradingLoop - context with all dependencies
     // Phase 2 REWRITE: tradingBrain, executionLayer deleted - orchestrator handles decisions
+    // Phase 3 REWRITE: entryDecider deleted - decision logic inlined here
     this.tradingLoop = new TradingLoop({
       indicatorEngine: indicatorEngine,
       contractValidator: this.contractValidator,
-      entryDecider: this.entryDecider,
       marketDataAggregator: this.marketDataAggregator,
       patternChecker: this.patternChecker,
       config: this.config,
@@ -1271,7 +1265,7 @@ class OGZPrimeV14Bot {
   // ~275 lines removed - was never invoked, only definition existed
 
   // REMOVED Phase 16: makeTradeDecision() - Dead code (~400 lines)
-  // Logic already exists in core/EntryDecider.js, TradingLoop calls entryDecider.makeTradeDecision()
+  // Phase 3 REWRITE: EntryDecider deleted, logic inlined to TradingLoop
 
 
   /**

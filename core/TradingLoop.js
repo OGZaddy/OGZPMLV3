@@ -16,9 +16,11 @@ const { IndicatorSnapshot } = require('./IndicatorSnapshot');
 const { RegimeDetector } = require('./RegimeDetector');
 const FeatureExtractor = require('./FeatureExtractor');
 const FeatureFlagManager = require('./FeatureFlagManager');
+const { getInstance: getExitContractManager } = require('./ExitContractManager');
 const flagManager = FeatureFlagManager.getInstance();
 
 const stateManager = getStateManager();
+const exitContractManager = getExitContractManager();
 
 class TradingLoop {
   constructor(ctx) {
@@ -360,9 +362,70 @@ class TradingLoop {
       }
     }
 
-    // Make trade decision
+    // Phase 3 REWRITE: Inline trade decision logic (EntryDecider deleted)
+    // Simple flow: BUY when flat + bullish signal, SELL via ExitContractManager, else HOLD
     console.log(`🔍 PRE-DECISION: tradingDirection=${tradingDirection}, conf=${confidenceData.totalConfidence.toFixed(1)}%`);
-    const decision = this.ctx.entryDecider.makeTradeDecision(confidenceData, indicators, patterns, price, tradingDirection, this.ctx.runner);
+
+    const pos = stateManager.get('position');
+    const minConfidence = this.ctx.config.minTradeConfidence * 100;
+    let decision = { action: 'HOLD', confidence: orchResult.confidence };
+
+    // Check for SELL first (exit existing position)
+    if (pos > 0) {
+      const allTrades = stateManager.getAllTrades();
+      const activeTrade = allTrades.find(t => t.action === 'BUY');
+
+      if (activeTrade) {
+        // Update max profit for trailing stop calculation
+        exitContractManager.updateMaxProfit(activeTrade, price);
+
+        // Check exit conditions from trade's own contract
+        const exitCheck = exitContractManager.checkExitConditions(activeTrade, price, {
+          indicators: indicators,
+          currentTime: this.ctx.marketData?.timestamp || Date.now(),
+          accountBalance: stateManager.get('balance'),
+          initialBalance: stateManager.get('initialBalance') || 10000
+        });
+
+        if (exitCheck.shouldExit) {
+          console.log(`[EXIT-CONTRACT] ${exitCheck.details}`);
+          decision = {
+            action: 'SELL',
+            direction: 'close',
+            confidence: exitCheck.confidence || 100,
+            exitReason: exitCheck.exitReason
+          };
+        }
+
+        // Check MaxProfitManager for tiered profit exits (if active)
+        if (decision.action !== 'SELL' && this.ctx.tradingBrain?.maxProfitManager?.state?.active) {
+          const profitResult = this.ctx.tradingBrain.maxProfitManager.update(price, {
+            volatility: indicators.volatility || 0,
+            trend: indicators.trend || 'sideways',
+            volume: this.ctx.marketData?.volume || 0
+          });
+
+          if (profitResult && (profitResult.action === 'exit_full' || profitResult.action === 'exit_partial')) {
+            console.log(`📉 SELL Signal: ${profitResult.reason || 'MaxProfitManager exit'} (${profitResult.action})`);
+            decision = {
+              action: 'SELL',
+              direction: 'close',
+              confidence: orchResult.confidence,
+              exitSize: profitResult.exitSize,
+              exitReason: profitResult.reason
+            };
+          }
+        }
+      }
+    } else if (tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
+      // BUY when flat and orchestrator signals buy with sufficient confidence
+      console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${minConfidence}% | Direction: ${tradingDirection}`);
+      decision = {
+        action: 'BUY',
+        direction: 'long',
+        confidence: orchResult.confidence
+      };
+    }
 
     // Store for PipelineSnapshot
     this.ctx.lastConfidence = confidenceData.totalConfidence;
@@ -384,11 +447,11 @@ class TradingLoop {
       }
     }
 
-    // Broadcast TRAI chain-of-thought to dashboard
-    if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs && decision.decisionContext) {
+    // Broadcast chain-of-thought to dashboard (Phase 3: uses orchResult directly)
+    if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs) {
       const reasoning = decision.action === 'HOLD' ?
-        `Waiting: Confidence ${decision.confidence?.toFixed(1) || 0}% < ${this.ctx.config.minTradeConfidence * 100}% minimum` :
-        `${decision.action}: Confidence ${decision.confidence?.toFixed(1)}% | ${decision.decisionContext.module} strategy`;
+        `Waiting: Confidence ${decision.confidence?.toFixed(1) || 0}% < ${minConfidence}% minimum` :
+        `${decision.action}: Confidence ${decision.confidence?.toFixed(1)}% | ${orchResult.winnerStrategy || 'signal'} strategy`;
 
       const chainOfThought = {
         type: 'bot_thinking',
@@ -397,24 +460,23 @@ class TradingLoop {
         confidence: decision.confidence,
         data: {
           reasoning: reasoning,
-          pattern: decision.decisionContext.patterns?.[0] || 'Scanning...',
+          pattern: patterns?.[0]?.name || 'Scanning...',
           rsi: indicators.rsi,
           trend: indicators.trend,
-          riskScore: (isNaN(decision.decisionContext.riskScore) ? 0 : decision.decisionContext.riskScore) || 0,
+          riskScore: 0,
           recommendation: decision.action,
           finalConfidence: decision.confidence,
-          price: decision.decisionContext.price,
-          regime: decision.decisionContext.regime,
-          module: decision.decisionContext.module,
+          price: price,
+          regime: regime?.currentRegime || 'unknown',
+          module: orchResult.winnerStrategy || 'orchestrator',
           volatility: indicators.volatility
         }
       };
 
       try {
         this.ctx.dashboardWs.send(JSON.stringify(chainOfThought));
-        console.log(`🧠 [TRAI] Chain-of-thought sent to dashboard: ${decision.action}`);
       } catch (err) {
-        console.error('Failed to send TRAI reasoning to dashboard:', err.message);
+        // Fail silently - dashboard is optional
       }
     }
 

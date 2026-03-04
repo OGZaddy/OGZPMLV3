@@ -137,23 +137,9 @@ class OrderExecutor {
         // return;
       }
 
-      // ═══ PHASE 9 FIX: Gate checks BEFORE execution ═══
-      // Previously gates ran AFTER executeTrade() - order was already on exchange!
-      // Now gates block BEFORE any order is sent
-      if (decision.action === 'BUY') {
-        const entryDecision = this.ctx.entryDecider.decide(decision, {
-          price,
-          indicators,
-          patterns,
-          positionSize
-        });
-
-        if (!entryDecision.enter) {
-          console.log(`⛔ [ENTRY GATE] BUY blocked BEFORE execution: ${entryDecision.reason}`);
-          return;
-        }
-        console.log(`✅ [ENTRY GATE] All gates passed (risk: ${entryDecision.riskLevel})`);
-      }
+      // Phase 3 REWRITE: Gate checks moved to TradingLoop (single location)
+      // BUY confidence threshold checked before executeTrade is called
+      // No duplicate gate checking here
 
       // Generate decisionId for pattern attribution (join key to trai-decisions.log)
       const decisionId = decision.decisionId || `dec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
