@@ -16,6 +16,9 @@
 
 'use strict';
 
+// Phase 1 REWRITE: Single source of truth for all trading params
+const TradingConfig = require('./TradingConfig');
+
 // Phase 10: Delegate to individual exit checkers
 const StopLossChecker = require('./exit/StopLossChecker');
 const TakeProfitChecker = require('./exit/TakeProfitChecker');
@@ -25,131 +28,23 @@ const MaxHoldChecker = require('./exit/MaxHoldChecker');
 const BreakEvenManager = require('./exit/BreakEvenManager');
 
 /**
- * Default exit contracts by strategy type
- * These are used when a strategy doesn't provide its own generateExitContract()
+ * Exit contracts and universal limits now come from TradingConfig (single source of truth)
+ * Phase 1 REWRITE: Eliminated hardcoded duplicates - TradingConfig owns all trading params
  */
-// FIX 2026-02-21: Scaled for 1-minute candle reality
-// OLD values (2-5% TP) were UNREACHABLE on 1m candles where BTC moves 0.05-0.5% per bar
-// This caused trades to be trapped until max hold timeout, bleeding fees
-// NEW values: Realistic R:R ratios that actually trigger on 1-minute price action
-// TUNE 2026-02-27: Widened exits for positive net R:R after 0.52% fees
-// Old: TP 0.75%, SL -0.45% → Net R:R 0.24:1 (needed 81% WR)
-// New: TP 2.0%, SL -1.0% → Net R:R ~1:1 (needs 50% WR)
-// Added trailingActivation to prevent premature trail triggers on volatility noise
-const DEFAULT_CONTRACTS = {
-  // ═══ Trend Following (hold longer, ride the trend) ═══
-  EMASMACrossover: {
-    stopLossPercent: -1.2,
-    takeProfitPercent: 2.5,
-    trailingStopPercent: 0.8,
-    trailingActivation: 1.0,    // Don't activate trail until +1%
-    invalidationConditions: ['ema_cross_reversal'],
-    maxHoldTimeMinutes: 300     // 20 candles at 15m — trends need room
-  },
-
-  // ═══ Mean Reversion (tighter, quicker exits) ═══
-  LiquiditySweep: {
-    stopLossPercent: -0.8,
-    takeProfitPercent: 1.5,
-    trailingStopPercent: 0.5,
-    trailingActivation: 0.8,
-    invalidationConditions: ['sweep_invalidated', 'box_broken'],
-    maxHoldTimeMinutes: 180
-  },
-
-  // ═══ Momentum (RSI extremes — expect snapback) ═══
-  RSI: {
-    stopLossPercent: -1.0,
-    takeProfitPercent: 2.0,
-    trailingStopPercent: 0.6,
-    trailingActivation: 0.8,
-    invalidationConditions: [],
-    maxHoldTimeMinutes: 240
-  },
-
-  // ═══ Support/Resistance (bounce trades) ═══
-  MADynamicSR: {
-    stopLossPercent: -0.8,
-    takeProfitPercent: 1.5,
-    trailingStopPercent: 0.5,
-    trailingActivation: 0.8,
-    invalidationConditions: ['sr_level_broken'],
-    maxHoldTimeMinutes: 180
-  },
-
-  // ═══ Pattern Recognition (quick setups, moderate hold) ═══
-  CandlePattern: {
-    stopLossPercent: -0.8,
-    takeProfitPercent: 1.5,
-    trailingStopPercent: 0.5,
-    trailingActivation: 0.7,
-    invalidationConditions: ['pattern_negated'],
-    maxHoldTimeMinutes: 150
-  },
-
-  // ═══ Regime Confluence (strongest signals, widest room) ═══
-  MarketRegime: {
-    stopLossPercent: -1.5,
-    takeProfitPercent: 3.0,
-    trailingStopPercent: 1.0,
-    trailingActivation: 1.5,
-    invalidationConditions: ['regime_change'],
-    maxHoldTimeMinutes: 360     // 24 candles — big moves need time
-  },
-
-  // ═══ Multi-Timeframe (high-conviction confluence) ═══
-  MultiTimeframe: {
-    stopLossPercent: -1.2,
-    takeProfitPercent: 2.5,
-    trailingStopPercent: 0.8,
-    trailingActivation: 1.0,
-    invalidationConditions: ['mtf_divergence'],
-    maxHoldTimeMinutes: 300
-  },
-
-  // ═══ TPO / Volume Profile ═══
-  OGZTPO: {
-    stopLossPercent: -1.0,
-    takeProfitPercent: 2.0,
-    trailingStopPercent: 0.6,
-    trailingActivation: 0.8,
-    invalidationConditions: [],
-    maxHoldTimeMinutes: 240
-  },
-
-  // ═══ Default fallback ═══
-  default: {
-    stopLossPercent: -1.0,
-    takeProfitPercent: 2.0,
-    trailingStopPercent: 0.6,
-    trailingActivation: 0.8,
-    invalidationConditions: [],
-    maxHoldTimeMinutes: 240
-  }
-};
-
-/**
- * Universal circuit breakers - always enforced regardless of strategy
- */
-// FIX 2026-02-21: Universal limits for 15m trading
-// TUNE 2026-02-27: Raised from 150 to 360 to match widened strategy contracts
-// Old 150 min cap was firing before TPs could hit with widened exits
-const UNIVERSAL_LIMITS = {
-  hardStopLossPercent: -2.0,      // Per-trade absolute max loss (wider for 15m)
-  accountDrawdownPercent: -10.0,  // Force close all if account down 10%
-  maxHoldTimeMinutes: 360         // 360 min — matches MarketRegime max hold
-};
+const DEFAULT_CONTRACTS = TradingConfig.BASE_CONFIG.exitContracts;
+const UNIVERSAL_LIMITS = TradingConfig.BASE_CONFIG.universalLimits;
 
 class ExitContractManager {
   constructor() {
-    this.universalLimits = UNIVERSAL_LIMITS;
-    this.defaultContracts = DEFAULT_CONTRACTS;
+    // Phase 1 REWRITE: Read from TradingConfig (single source of truth)
+    this.universalLimits = TradingConfig.BASE_CONFIG.universalLimits;
+    this.defaultContracts = TradingConfig.BASE_CONFIG.exitContracts;
 
     // Phase 10: Delegate to individual checkers
-    this.stopLossChecker = new StopLossChecker(UNIVERSAL_LIMITS);
+    this.stopLossChecker = new StopLossChecker(this.universalLimits);
     this.takeProfitChecker = new TakeProfitChecker();
     this.trailingStopChecker = new TrailingStopChecker();
-    this.maxHoldChecker = new MaxHoldChecker(UNIVERSAL_LIMITS);
+    this.maxHoldChecker = new MaxHoldChecker(this.universalLimits);
     // Phase 11: Break-even state machine (for external access/dashboard)
     this.breakEvenManager = new BreakEvenManager();
   }
