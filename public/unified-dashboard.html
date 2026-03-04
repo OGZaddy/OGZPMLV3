@@ -2617,8 +2617,8 @@
                     </div>
                 </div>
 
-                <!-- Signal Pipeline Panel -->
-                <div class="signal-overlay" id="signalOverlay" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:10px; min-width:220px; z-index:100; font-family:monospace; display:none;">
+                <!-- Signal Pipeline Panel - HIDDEN: Clutters the chart, info available in Edge Analytics -->
+                <div class="signal-overlay" id="signalOverlay" style="display:none !important; position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:10px; min-width:220px; z-index:100; font-family:monospace;">
                     <h4 style="margin:0 0 6px 0; font-size:12px; color:#888;">📡 SIGNAL PIPELINE</h4>
                     <div id="signalDirection" style="font-size:15px; font-weight:bold; color:#888;">WAITING...</div>
                     <div id="signalConfidence" style="font-size:11px; color:#aaa; margin-bottom:6px;"></div>
@@ -3121,6 +3121,8 @@
                 lineWidth: 1,
                 visible: activeOverlays.includes('ema'),
                 title: 'EMA20',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
 
             ema50Series = tvChart.addLineSeries({
@@ -3128,6 +3130,8 @@
                 lineWidth: 1,
                 visible: activeOverlays.includes('ema'),
                 title: 'EMA50',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
 
             ema200Series = tvChart.addLineSeries({
@@ -3135,6 +3139,8 @@
                 lineWidth: 2,
                 visible: activeOverlays.includes('ema'),
                 title: 'EMA200',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             
             // Bollinger Bands
@@ -3143,39 +3149,49 @@
                 lineWidth: 1,
                 visible: activeOverlays.includes('bollinger'),
                 lineStyle: 2,
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             bbMiddleSeries = tvChart.addLineSeries({
                 color: COLORS.bbMiddle,
                 lineWidth: 1,
                 visible: activeOverlays.includes('bollinger'),
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             bbLowerSeries = tvChart.addLineSeries({
                 color: COLORS.bbLower,
                 lineWidth: 1,
                 visible: activeOverlays.includes('bollinger'),
                 lineStyle: 2,
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             // VWAP
             vwapSeries = tvChart.addLineSeries({
                 color: COLORS.vwap,
                 lineWidth: 2,
                 visible: activeOverlays.includes('vwap'),
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
-            
+
             // SuperTrend
             superTrendSeries = tvChart.addLineSeries({
                 color: COLORS.superTrendUp,
                 lineWidth: 2,
                 visible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
 
             // 2026-02-12: SMA lines
-            sma20Series = tvChart.addLineSeries({ color: '#00ccff', lineWidth: 1, visible: false, title: 'SMA20' });
-            sma50Series = tvChart.addLineSeries({ color: '#0088ff', lineWidth: 1, visible: false, title: 'SMA50' });
-            sma200Series = tvChart.addLineSeries({ color: '#0044cc', lineWidth: 2, visible: false, title: 'SMA200' });
+            sma20Series = tvChart.addLineSeries({ color: '#00ccff', lineWidth: 1, visible: false, title: 'SMA20', lastValueVisible: false, priceLineVisible: false });
+            sma50Series = tvChart.addLineSeries({ color: '#0088ff', lineWidth: 1, visible: false, title: 'SMA50', lastValueVisible: false, priceLineVisible: false });
+            sma200Series = tvChart.addLineSeries({ color: '#0044cc', lineWidth: 2, visible: false, title: 'SMA200', lastValueVisible: false, priceLineVisible: false });
 
             // 2026-02-12: Indicator sub-panes — stacked ABOVE volume bars (volume is 85-100%)
             // RSI pane: 62-78% of chart (above volume)
@@ -3183,6 +3199,8 @@
                 color: '#ff0066', lineWidth: 1.5, visible: false, title: 'RSI',
                 priceScaleId: 'rsi',
                 priceFormat: { type: 'custom', formatter: v => v.toFixed(0) },
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             tvChart.priceScale('rsi').applyOptions({
                 scaleMargins: { top: 0.62, bottom: 0.22 },
@@ -3193,10 +3211,14 @@
             macdLineSeries = tvChart.addLineSeries({
                 color: '#6600ff', lineWidth: 1.5, visible: false, title: 'MACD',
                 priceScaleId: 'macd',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             macdSignalSeries = tvChart.addLineSeries({
                 color: '#ff6600', lineWidth: 1, visible: false, title: 'Signal',
                 priceScaleId: 'macd',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             tvChart.priceScale('macd').applyOptions({
                 scaleMargins: { top: 0.62, bottom: 0.22 },
@@ -3207,6 +3229,8 @@
             atrSeries = tvChart.addLineSeries({
                 color: '#ff9800', lineWidth: 1, visible: false, title: 'ATR',
                 priceScaleId: 'atr',
+                lastValueVisible: false,
+                priceLineVisible: false,
             });
             tvChart.priceScale('atr').applyOptions({
                 scaleMargins: { top: 0.62, bottom: 0.22 },
@@ -3214,10 +3238,10 @@
             });
 
             // Ichimoku Cloud lines (on main price scale)
-            ichimokuTenkanSeries = tvChart.addLineSeries({ color: '#00bcd4', lineWidth: 1, visible: false, title: 'Tenkan' });
-            ichimokuKijunSeries = tvChart.addLineSeries({ color: '#ff5722', lineWidth: 1, visible: false, title: 'Kijun' });
-            ichimokuSenkouASeries = tvChart.addLineSeries({ color: '#4caf50', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouA' });
-            ichimokuSenkouBSeries = tvChart.addLineSeries({ color: '#f44336', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouB' });
+            ichimokuTenkanSeries = tvChart.addLineSeries({ color: '#00bcd4', lineWidth: 1, visible: false, title: 'Tenkan', lastValueVisible: false, priceLineVisible: false });
+            ichimokuKijunSeries = tvChart.addLineSeries({ color: '#ff5722', lineWidth: 1, visible: false, title: 'Kijun', lastValueVisible: false, priceLineVisible: false });
+            ichimokuSenkouASeries = tvChart.addLineSeries({ color: '#4caf50', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouA', lastValueVisible: false, priceLineVisible: false });
+            ichimokuSenkouBSeries = tvChart.addLineSeries({ color: '#f44336', lineWidth: 1, visible: false, lineStyle: 2, title: 'SenkouB', lastValueVisible: false, priceLineVisible: false });
             
             // Resize handler
             window.addEventListener('resize', () => {
