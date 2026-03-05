@@ -189,7 +189,7 @@ class WebSocketManager {
             // Dynamic confidence adjustment
             else if (msg.command === 'set_confidence' && msg.confidence) {
               this.ctx.profileManager.setDynamicConfidence(msg.confidence);
-              this.ctx.tradingBrain.updateConfidenceThreshold(msg.confidence / 100);
+              // Phase 4 REWRITE: tradingBrain deleted - profileManager handles confidence
             }
 
             // PAUSE TRADING - Manual safety stop from dashboard

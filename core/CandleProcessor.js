@@ -335,8 +335,8 @@ class CandleProcessor {
         // FIX 2026-02-26: Use StateManager instead of hardcoded value
         const initialBalance = stateManager.get('initialBalance') || parseFloat(process.env.INITIAL_BALANCE) || 10000;
         const totalPnL = totalAccountValue - initialBalance;  // Correct: includes open position
-        const trades = this.ctx.executionLayer?.trades || [];
-        const closedTrades = trades.filter(t => t.pnl !== undefined);
+        // Phase 4 REWRITE: executionLayer deleted - use stateManager for trade stats
+        const closedTrades = stateManager.get('closedTrades') || [];
         const winningTrades = closedTrades.filter(t => t.pnl > 0).length;
         const winRate = closedTrades.length > 0 ? (winningTrades / closedTrades.length) * 100 : 0;
 
@@ -359,7 +359,7 @@ class CandleProcessor {
             overlays: renderPacket.overlays,  // FIX: Should be 'overlays' not 'series'!
             balance: currentBalance,
             position: stateManager.get('position'),
-            totalTrades: this.ctx.executionLayer?.totalTrades || 0,
+            totalTrades: stateManager.get('totalTrades') || closedTrades.length,
             // CHANGE 2026-01-23: Include performance stats
             totalPnL: totalPnL,
             winRate: winRate
