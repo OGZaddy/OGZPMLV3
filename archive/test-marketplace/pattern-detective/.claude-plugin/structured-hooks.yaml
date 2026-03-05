@@ -1,0 +1,188 @@
+# Structured Hooks for Optimal Agent Control
+version: 1.0.0
+agent_type: detective
+single_task_enforced: true
+
+hooks:
+  # STRUCTURE HOOKS - Force clean output format
+  on-start:
+    priority: 1
+    prompt: |
+      === PATTERN DETECTIVE AGENT INITIALIZED ===
+      Task ID: {task_id}
+      Branch: {branch_name}
+      Time Limit: 5 minutes
+
+      OUTPUT STRUCTURE REQUIRED:
+      ```yaml
+      findings:
+        detection_triggered: yes/no
+        record_pattern_called: yes/no
+        save_to_disk_executed: yes/no
+        root_cause: "single sentence"
+        evidence:
+          - file:line - "relevant code/log"
+      ```
+
+      Begin investigation NOW.
+
+  # CLARITY HOOKS - Ensure clear communication
+  on-finding:
+    priority: 2
+    prompt: |
+      FINDING DETECTED. Structure it:
+
+      WHAT: {what_you_found}
+      WHERE: {file}:{line_number}
+      IMPACT: How this affects pattern saving
+      EVIDENCE: Paste the exact code/log
+
+      No speculation. Facts only.
+
+  # OPTIMIZATION HOOKS - Keep investigation efficient
+  on-search:
+    priority: 1
+    prompt: |
+      SEARCH OPTIMIZATION:
+
+      Priority 1: Check logs (last 1000 lines)
+      Priority 2: Check EnhancedPatternRecognition.js
+      Priority 3: Check pattern_memory.json timestamps
+
+      Skip if already found root cause.
+      Move to next priority after 1 minute.
+
+  on-redundant-check:
+    priority: 3
+    prompt: |
+      REDUNDANCY DETECTED!
+      You already checked: {already_checked}
+      Move to next investigation point.
+      Time remaining: {time_left}
+
+  # BOUNDARY HOOKS - Maintain strict scope
+  on-file-access:
+    priority: 1
+    allowed_files:
+      - "core/EnhancedPatternRecognition.js"
+      - "pattern_memory.json"
+      - "*.log"
+      - "core/PatternMemoryBank.js"
+    prompt: |
+      FILE ACCESS CHECK:
+      Requested: {requested_file}
+      Allowed: {is_allowed}
+
+      {if not is_allowed}
+      DENIED. Not relevant to pattern detection task.
+      Stick to allowed files only.
+      {endif}
+
+  # QUALITY HOOKS - Ensure useful output
+  on-vague-statement:
+    priority: 2
+    prompt: |
+      VAGUE STATEMENT DETECTED: "{statement}"
+
+      Be SPECIFIC:
+      - Not "seems broken" → "recordPattern() never called"
+      - Not "might be" → "is/is not"
+      - Not "somewhere" → "file.js:line 123"
+
+      Restate with precision.
+
+  # COMPLETION HOOKS - Clean task handoff
+  on-complete:
+    priority: 1
+    prompt: |
+      === INVESTIGATION COMPLETE ===
+
+      Generate final report:
+
+      ## PATTERN MEMORY INVESTIGATION REPORT
+
+      ### Summary
+      - Detection Triggered: {yes/no}
+      - Recording Called: {yes/no}
+      - Saving Executed: {yes/no}
+
+      ### Root Cause
+      {one_sentence_root_cause}
+
+      ### Evidence
+      ```
+      {paste_key_evidence}
+      ```
+
+      ### Recommended Fix
+      Branch name: fix-{specific-issue}
+      Assigned to: Next available Claudito
+
+      Commit this report and exit.
+
+  # ERROR RECOVERY HOOKS
+  on-error:
+    priority: 1
+    prompt: |
+      ERROR ENCOUNTERED: {error_message}
+
+      Recovery actions:
+      1. Document what caused error
+      2. Skip that check
+      3. Continue with next priority
+      4. If critical error, report and exit
+
+      Do NOT try to fix the error.
+
+  # TIME MANAGEMENT HOOKS
+  on-1-minute-remaining:
+    priority: 1
+    prompt: |
+      ⏰ 1 MINUTE WARNING
+
+      Wrap up immediately:
+      1. Stop new investigations
+      2. Summarize what you found
+      3. State root cause hypothesis
+      4. Prepare final report
+
+  on-timeout:
+    priority: 1
+    force_exit: true
+    prompt: |
+      ⏰ TIME EXPIRED
+
+      Submit findings AS-IS:
+      - Found: {list_findings}
+      - Root cause: {best_guess}
+      - Next step: {what_to_investigate_next}
+
+      EXIT NOW.
+
+# Output validation schema
+output_schema:
+  type: object
+  required:
+    - findings
+    - root_cause
+    - evidence
+    - next_claudito_task
+  properties:
+    findings:
+      type: object
+      properties:
+        detection_triggered:
+          type: boolean
+        record_pattern_called:
+          type: boolean
+        save_to_disk_executed:
+          type: boolean
+    root_cause:
+      type: string
+      maxLength: 100
+    evidence:
+      type: array
+      items:
+        type: string
+    next_claudito_task:
+      type: string

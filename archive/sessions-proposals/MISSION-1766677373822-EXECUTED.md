@@ -1,0 +1,244 @@
+# MISSION EXECUTION REPORT
+Generated: 2025-12-25T16:21:27.328Z
+Mission ID: 1766677373822
+
+## EXECUTION SUMMARY
+- **Total Fixes Attempted**: 4
+- **Successful**: 4
+- **Failed**: 0
+
+## EXECUTION LOG
+
+### ...
+- **File**: path/to/file.js
+- **Status**: SUCCESS
+- **Timestamp**: 2025-12-25T16:21:27.328Z
+
+
+
+### FIX-659-SUMMARY
+- **File**: N/A
+- **Status**: SUCCESS
+- **Timestamp**: 2025-12-25T16:21:27.328Z
+
+
+
+### FIX-659-INDEX
+- **File**: N/A
+- **Status**: SUCCESS
+- **Timestamp**: 2025-12-25T16:21:27.328Z
+
+
+
+### FIX-2025-12-25-MAP-SERIALIZATION-FAILURE
+- **File**: N/A
+- **Status**: SUCCESS
+- **Timestamp**: 2025-12-25T16:21:27.328Z
+
+
+
+## POST-EXECUTION VERIFICATION
+
+### Files Modified
+- path/to/file.js
+
+### Recommended Tests
+1. Run smoke tests on affected subsystems
+2. Verify dashboard displays indicators correctly
+3. Check bot state consistency
+4. Monitor for any new errors
+
+### Rollback Instructions
+If issues occur, backups are available:
+- path/to/file.js.backup.1766677373822
+
+To rollback:
+```bash
+# Replace current files with backups
+cp path/to/file.js.backup.1766677373822 path/to/file.js
+```
+
+---
+## ORIGINAL MISSION PLAN
+
+# SUPPORT MISSION PLAN
+Generated: 2025-12-25T15:42:53.822Z
+
+## ISSUE
+pattern memory not saving after restart
+
+## TRIAGE RESULTS
+- **Severity**: LOW
+- **Category**: PATTERN_MEMORY
+- **Subsystems**: EnhancedPatternRecognition, PatternMemoryBank
+- **Containment**: Backup data/pattern-memory.json
+
+## FORCED EVAL (COMMITMENT)
+```
+RAG_RETRIEVAL: YES - Must retrieve architecture and past fixes
+FORENSICS: MAYBE - Similar issue found, may reuse fix
+FIXER: NO
+DEBUGGER: NO
+TESTS: NO
+DEPLOYMENT: NO
+```
+
+## SIMILAR PAST FIXES
+- FIX-659-SUMMARY: Fixed feature data conversion in pattern pipeline
+- FIX-659-INDEX: Fixed feature data conversion in pattern pipeline
+- FIX-2025-12-25-MAP-SERIALIZATION-FAILURE: - **File**: `core/StateManager.js` lines 326-385
+
+## RETRIEVED CONTEXT
+# Retrieved Context
+
+## Relevant Past Fixes:
+- **FIX-659-SUMMARY**: Fixed feature data conversion in pattern pipeline
+  - Root cause: The pattern recording pipeline lost features data when converting from pattern objects to the record
+  - Files: 
+  - ✅ Worked: Preserving features array through pipeline
+  - ❌ Failed: String signature truncation
+- **FIX-659-INDEX**: Fixed feature data conversion in pattern pipeline
+  - Root cause: See report
+  - Files: v2.js, v2.js, EnhancedPatternRecognition.js, RiskManager.js
+  - ✅ Worked: Preserving features array through pipeline
+  - ❌ Failed: String signature truncation
+- **FIX-2025-12-25-MAP-SERIALIZATION-FAILURE**: - **File**: `core/StateManager.js` lines 326-385
+  - Root cause: - StateManager used Maps for activeTrades
+- JavaScript Maps can't be serialized to JSON
+- On restart
+  - Files: core/StateManager.js, core/KrakenAdapterV2.js
+  - ✅ Worked: Active trades persist across restarts
+
+## Relevant Reports:
+### VERIFY-FIX-659.md
+```bash
+# Check final pattern count
+cat /opt/ogzprime/OGZPMLV2/data/pattern-memory.json | jq '.count'
+# Expected: 5+ (should grow significantly)
+
+# Compare before/after
+echo "Before: $(cat pattern-memory.backup.json | jq '.count')"
+echo "After: $(cat data/pattern-memory.json | jq '.count')"
+```
+
+### 2. Pattern Keys Created
+
+```bash
+# List all pattern keys
+cat /opt/ogzprime/OGZPMLV2/data/pattern-memory.json | jq '.patterns | keys'
+# Expected: Array with multiple unique pattern keys like:
+# ["0.50...
+
+### FIX-659-SUMMARY.md
+# OR
+npm start
+```
+
+### After Testing
+```bash
+# Check pattern file after 30+ trades
+cat /opt/ogzprime/OGZPMLV2/data/pattern-memory.json | jq '.count'
+# Expected: 10+ patterns (should grow with each trade)
+
+# Check that new patterns are being added
+cat /opt/ogzprime/OGZPMLV2/data/pattern-memory.json | jq '.patterns | keys | length'
+# Expected: 10+ unique pattern keys
+```
+
+### Verification Signs
+- ✅ Console logs `✅ Added [X] new patterns` instead of `❌ Pattern recording failed`
+- ✅ Pattern count i...
+
+### FIX-659-INDEX.md
+- Decision quality: doesn't improve
+
+### After Fix
+- Pattern count: grows with trades
+- Memory growth: continuous
+- Learning: active and measurable
+- Decision quality: improves over time
+
+## Key Insights
+
+1. **Signature Problem**: Truncated to 50 chars, loses data
+2. **Features Solution**: Full numeric array, preserves all data
+3. **Three Recording Points**: Detection, trade completion, risk management
+4. **Backward Compatible**: Old code still works, new code works better
+5. **Pattern Key**: Ge...
+
+## Architecture/Guardrails:
+### From claudito_context.md:
+ Upgrade Path
+
+- **New Brains** (ML/quantum/neuromorphic)
+  - Plug in at the **Signal/Brain** layer.
+  - Must emit the standard decision schema used by ExecutionLayer.
+
+- **New Brokers**
+  - Implement a broker adapter that speaks:
+    - `placeOrder`, `cancelOrder`, `getPositions`, `getBalance`, etc.
+  - ExecutionLayer routes through the adapter instead of talking per-broker APIs directly....
+
+### From 06_recent-changes.md:
+ 2025-12-07 – Pattern Memory Investigation (Claudito Chain)
+
+- Ran full Claudito chain (Orchestrator → Forensics → Fixer → Debugger → Committer) on PatternMemorySystem.
+- Confirmed:
+  - `this.memory` init now conditional:
+    - `if (!this.memory) { this.memory = {}; }`
+  - Actual persistence path:
+    - `data/pattern-memory.json`
+  - Root `pattern_memory.json` is legacy/decoy.
+- Outcome:...
+
+### From 02_architecture-overview.md:
+ Runtime Flow (Candle Loop)
+
+1. **Market Data In**
+   - Websocket / feed ingests ticks/candles
+   - Normalized into a standard structure (symbol, timeframe, OHLCV, metadata)
+
+2. **Pre-Checks**
+   - Circuit/guardrail checks (market open, spread sanity, max risk per symbol, etc.)
+   - If any HARD guardrail fails → **no trade**, log why.
+
+3. **Signal Generation**
+   - Technical + pattern +...
+
+
+
+## ⚠️ USER VERIFICATION REQUIRED
+**NO CHANGES WILL BE MADE AUTOMATICALLY**
+
+This is a diagnostic report only. Review the analysis and suggested fixes below.
+All changes require explicit user approval before implementation.
+
+## SUGGESTED APPROACH
+1. Known issue - see similar fixes below
+2. **REVIEW**: User reviews suggested fixes from past issues
+3. **APPROVE**: User selects which approach to take
+4. **IMPLEMENT**: User or approved agent implements fix
+5. **TEST**: Run smoke tests on affected subsystems
+6. **DOCUMENT**: Update CHANGELOG and Fix Ledger
+
+## RISK MAP TEMPLATE (FOR REFERENCE)
+```javascript
+{
+  file: "path/to/file.js",
+  line: 123,
+  root_cause: "...",
+  minimal_fix: "...",
+  required_tests: ["smoke test X", "verify Y"],
+  telemetry: ["monitor metric Z"]
+}
+```
+
+## RULES
+- NO action without context
+- NO fixes without forensics Risk Map
+- NO commits without tests
+- EVERY fix updates the ledger
+
+---
+To proceed, run the mission chain with this plan as context.
+

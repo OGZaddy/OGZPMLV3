@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OGZ Prime Multi-Asset Neural Command Center</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .command-center {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-rows: auto auto auto auto;
+            gap: 20px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: rgba(0, 255, 255, 0.6);
+            box-shadow: 0 12px 40px rgba(0, 255, 255, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .panel-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #00ffff;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .portfolio-overview {
+            grid-column: 1 / 3;
+            grid-row: 1;
+        }
+
+        .neural-status {
+            grid-column: 3 / 5;
+            grid-row: 1;
+        }
+
+        .asset-grid {
+            grid-column: 1 / 3;
+            grid-row: 2 / 4;
+        }
+
+        .correlation-matrix {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        .momentum-rankings {
+            grid-column: 4;
+            grid-row: 2;
+        }
+
+        .arbitrage-opportunities {
+            grid-column: 3;
+            grid-row: 3;
+        }
+
+        .neural-coordination {
+            grid-column: 4;
+            grid-row: 3;
+        }
+
+        .real-time-trades {
+            grid-column: 1 / 5;
+            grid-row: 4;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #00ffff;
+        }
+
+        .metric-label {
+            font-weight: 500;
+            color: #cccccc;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .positive {
+            color: #00ff88;
+        }
+
+        .negative {
+            color: #ff4444;
+        }
+
+        .neutral {
+            color: #ffaa00;
+        }
+
+        .asset-card {
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+
+        .asset-card:hover {
+            background: rgba(0, 255, 255, 0.1);
+            border-color: rgba(0, 255, 255, 0.4);
+        }
+
+        .asset-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .asset-symbol {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #00ffff;
+        }
+
+        .asset-allocation {
+            background: rgba(0, 255, 255, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .asset-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .correlation-cell {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .momentum-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+
+        .arbitrage-item {
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.2));
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        .trade-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border-left: 4px solid transparent;
+        }
+
+        .trade-buy {
+            border-left-color: #00ff88;
+        }
+
+        .trade-sell {
+            border-left-color: #ff4444;
+        }
+
+        .trade-hold {
+            border-left-color: #ffaa00;
+        }
+
+        .neural-brain {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .brain-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.6; transform: scale(1); }
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .status-warning {
+            background: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        .status-danger {
+            background: #ff4444;
+            box-shadow: 0 0 10px #ff4444;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            margin: 15px 0;
+        }
+
+        .mini-chart {
+            height: 100px;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        @media (max-width: 1200px) {
+            .command-center {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .portfolio-overview,
+            .neural-status {
+                grid-column: 1 / 3;
+            }
+            
+            .asset-grid {
+                grid-column: 1 / 3;
+                grid-row: 3;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="command-center">
+        <!-- Portfolio Overview -->
+        <div class="panel portfolio-overview">
+            <div class="panel-title">🚀 Portfolio Command Center</div>
+            
+            <div class="metric">
+                <span class="metric-label">Total Portfolio Value</span>
+                <span class="metric-value positive glow-text" id="total-value">$0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Daily P&L</span>
+                <span class="metric-value" id="daily-pnl">$0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Total P&L</span>
+                <span class="metric-value" id="total-pnl">$0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Max Drawdown</span>
+                <span class="metric-value" id="max-drawdown">0%</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Sharpe Ratio</span>
+                <span class="metric-value" id="sharpe-ratio">0.0</span>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="portfolio-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Neural Status -->
+        <div class="panel neural-status">
+            <div class="panel-title">🧠 Neural Coordination Status</div>
+            
+            <div class="neural-brain">
+                <div class="brain-icon">🧠</div>
+                <div id="master-regime">Market Regime: <span class="glow-text">Unknown</span></div>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Active Neural Networks</span>
+                <span class="metric-value positive" id="active-networks">0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Neural Consensus</span>
+                <span class="metric-value" id="neural-consensus">--</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Preferred Assets</span>
+                <span class="metric-value" id="preferred-assets">--</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Risk Appetite</span>
+                <span class="metric-value" id="risk-appetite">Medium</span>
+            </div>
+        </div>
+
+        <!-- Asset Grid -->
+        <div class="panel asset-grid">
+            <div class="panel-title">📊 Asset Neural Status</div>
+            <div id="asset-cards-container">
+                <!-- Asset cards will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Correlation Matrix -->
+        <div class="panel correlation-matrix">
+            <div class="panel-title">🔗 Correlation Matrix</div>
+            <div id="correlation-grid">
+                <!-- Correlation matrix will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Momentum Rankings -->
+        <div class="panel momentum-rankings">
+            <div class="panel-title">📈 Momentum Leaders</div>
+            <div id="momentum-list">
+                <!-- Momentum rankings will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Arbitrage Opportunities -->
+        <div class="panel arbitrage-opportunities">
+            <div class="panel-title">⚡ Arbitrage Alerts</div>
+            <div id="arbitrage-list">
+                <div style="text-align: center; color: #666;">Scanning for opportunities...</div>
+            </div>
+        </div>
+
+        <!-- Neural Coordination -->
+        <div class="panel neural-coordination">
+            <div class="panel-title">🤖 Neural Sync</div>
+            <div class="metric">
+                <span class="metric-label">
+                    <span class="status-indicator status-active"></span>
+                    Ensemble Sync
+                </span>
+                <span class="metric-value positive">Active</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">
+                    <span class="status-indicator status-active"></span>
+                    Microstructure AI
+                </span>
+                <span class="metric-value positive">Online</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">
+                    <span class="status-indicator status-active"></span>
+                    Quantum Engine
+                </span>
+                <span class="metric-value positive">Coherent</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Cross-Asset Signals</span>
+                <span class="metric-value" id="cross-signals">0</span>
+            </div>
+        </div>
+
+        <!-- Real-time Trades -->
+        <div class="panel real-time-trades">
+            <div class="panel-title">⚡ Live Neural Trades</div>
+            <div id="trades-feed">
+                <!-- Live trades will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Portfolio Chart
+        const portfolioCtx = document.getElementById('portfolio-chart').getContext('2d');
+        const portfolioChart = new Chart(portfolioCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Portfolio Value',
+                    data: [],
+                    borderColor: '#00ffff',
+                    backgroundColor: 'rgba(0, 255, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#ffffff'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Sample data for demonstration
+        const sampleAssets = [
+            { symbol: 'BTC-USD', allocation: 0.25, pnl: 1250.45, confidence: 0.78, momentum: 0.15 },
+            { symbol: 'ETH-USD', allocation: 0.20, pnl: 890.32, confidence: 0.72, momentum: 0.12 },
+            { symbol: 'SOL-USD', allocation: 0.15, pnl: -320.15, confidence: 0.65, momentum: -0.08 },
+            { symbol: 'MATIC-USD', allocation: 0.12, pnl: 456.78, confidence: 0.69, momentum: 0.09 },
+            { symbol: 'ADA-USD', allocation: 0.10, pnl: 123.45, confidence: 0.71, momentum: 0.05 },
+            { symbol: 'DOT-USD', allocation: 0.08, pnl: -89.32, confidence: 0.63, momentum: -0.03 },
+            { symbol: 'LINK-USD', allocation: 0.06, pnl: 234.56, confidence: 0.75, momentum: 0.07 },
+            { symbol: 'AVAX-USD', allocation: 0.04, pnl: 78.90, confidence: 0.68, momentum: 0.04 }
+        ];
+
+        // Update dashboard with sample data
+        function updateDashboard() {
+            // Portfolio overview
+            const totalValue = 52430.67;
+            const dailyPnL = 1245.32;
+            const totalPnL = 2430.67;
+            const maxDrawdown = -8.5;
+            const sharpeRatio = 1.85;
+
+            document.getElementById('total-value').textContent = `$${totalValue.toLocaleString()}`;
+            document.getElementById('daily-pnl').textContent = `$${dailyPnL.toFixed(2)}`;
+            document.getElementById('daily-pnl').className = `metric-value ${dailyPnL >= 0 ? 'positive' : 'negative'}`;
+            document.getElementById('total-pnl').textContent = `$${totalPnL.toFixed(2)}`;
+            document.getElementById('total-pnl').className = `metric-value ${totalPnL >= 0 ? 'positive' : 'negative'}`;
+            document.getElementById('max-drawdown').textContent = `${maxDrawdown.toFixed(1)}%`;
+            document.getElementById('max-drawdown').className = `metric-value ${maxDrawdown >= 0 ? 'positive' : 'negative'}`;
+            document.getElementById('sharpe-ratio').textContent = sharpeRatio.toFixed(2);
+
+            // Neural status
+            document.getElementById('active-networks').textContent = sampleAssets.length * 5; // 5 networks per asset
+            document.getElementById('neural-consensus').textContent = 'Bullish (73%)';
+            document.getElementById('preferred-assets').textContent = 'BTC, ETH, LINK';
+            document.getElementById('cross-signals').textContent = '12';
+
+            // Update portfolio chart
+            updatePortfolioChart();
+
+            // Generate asset cards
+            generateAssetCards();
+
+            // Generate correlation matrix
+            generateCorrelationMatrix();
+
+            // Generate momentum rankings
+            generateMomentumRankings();
+
+            // Generate arbitrage opportunities
+            generateArbitrageOpportunities();
+
+            // Generate trades feed
+            generateTradesFeed();
+        }
+
+        function updatePortfolioChart() {
+            const timeLabels = [];
+            const valueData = [];
+            const baseValue = 50000;
+            
+            for (let i = 29; i >= 0; i--) {
+                const time = new Date(Date.now() - i * 60000); // Last 30 minutes
+                timeLabels.push(time.toLocaleTimeString());
+                valueData.push(baseValue + Math.random() * 5000 + i * 50);
+            }
+            
+            portfolioChart.data.labels = timeLabels;
+            portfolioChart.data.datasets[0].data = valueData;
+            portfolioChart.update('none');
+        }
+
+        function generateAssetCards() {
+            const container = document.getElementById('asset-cards-container');
+            container.innerHTML = '';
+
+            sampleAssets.forEach(asset => {
+                const card = document.createElement('div');
+                card.className = 'asset-card';
+                
+                const confidenceColor = asset.confidence >= 0.7 ? 'positive' : asset.confidence >= 0.6 ? 'neutral' : 'negative';
+                const pnlColor = asset.pnl >= 0 ? 'positive' : 'negative';
+                const momentumColor = asset.momentum >= 0 ? 'positive' : 'negative';
+                
+                card.innerHTML = `
+                    <div class="asset-header">
+                        <span class="asset-symbol">${asset.symbol}</span>
+                        <span class="asset-allocation">${(asset.allocation * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="asset-metrics">
+                        <div>P&L: <span class="${pnlColor}">$${asset.pnl.toFixed(2)}</span></div>
+                        <div>Neural: <span class="${confidenceColor}">${(asset.confidence * 100).toFixed(0)}%</span></div>
+                        <div>Momentum: <span class="${momentumColor}">${(asset.momentum * 100).toFixed(1)}%</span></div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function generateCorrelationMatrix() {
+            const container = document.getElementById('correlation-grid');
+            const correlations = [
+                [1.00, 0.85, 0.72, 0.68],
+                [0.85, 1.00, 0.78, 0.71],
+                [0.72, 0.78, 1.00, 0.65],
+                [0.68, 0.71, 0.65, 1.00]
+            ];
+            
+            container.innerHTML = '<div style="font-size: 0.8em; margin-bottom: 10px;">BTC ETH SOL MATIC</div>';
+            
+            correlations.forEach((row, i) => {
+                const rowDiv = document.createElement('div');
+                row.forEach(corr => {
+                    const cell = document.createElement('span');
+                    cell.className = 'correlation-cell';
+                    cell.textContent = corr.toFixed(2);
+                    
+                    if (corr >= 0.8) cell.style.background = '#ff4444';
+                    else if (corr >= 0.6) cell.style.background = '#ffaa00';
+                    else cell.style.background = '#00ff88';
+                    
+                    rowDiv.appendChild(cell);
+                });
+                container.appendChild(rowDiv);
+            });
+        }
+
+        function generateMomentumRankings() {
+            const container = document.getElementById('momentum-list');
+            const sorted = [...sampleAssets].sort((a, b) => b.momentum - a.momentum);
+            
+            container.innerHTML = '';
+            sorted.slice(0, 5).forEach((asset, index) => {
+                const item = document.createElement('div');
+                item.className = 'momentum-item';
+                
+                const momentumColor = asset.momentum >= 0 ? 'positive' : 'negative';
+                
+                item.innerHTML = `
+                    <span>${index + 1}. ${asset.symbol}</span>
+                    <span class="${momentumColor}">${(asset.momentum * 100).toFixed(1)}%</span>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+
+        function generateArbitrageOpportunities() {
+            const container = document.getElementById('arbitrage-list');
+            
+            const opportunities = [
+                { pair: 'BTC-ETH', type: 'Momentum Divergence', score: 0.85, potential: 2.3 },
+                { pair: 'SOL-MATIC', type: 'Correlation Breakdown', score: 0.72, potential: 1.8 }
+            ];
+            
+            container.innerHTML = '';
+            opportunities.forEach(opp => {
+                const item = document.createElement('div');
+                item.className = 'arbitrage-item';
+                
+                item.innerHTML = `
+                    <div style="font-weight: bold; color: #ffd700;">${opp.pair}</div>
+                    <div style="font-size: 0.9em;">${opp.type}</div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                        <span>Score: ${(opp.score * 100).toFixed(0)}%</span>
+                        <span class="positive">+${opp.potential}%</span>
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+
+        function generateTradesFeed() {
+            const container = document.getElementById('trades-feed');
+            
+            const trades = [
+                { asset: 'BTC-USD', action: 'BUY', confidence: 0.85, time: '14:23:45', price: 43250 },
+                { asset: 'ETH-USD', action: 'SELL', confidence: 0.78, time: '14:22:12', price: 2680 },
+                { asset: 'SOL-USD', action: 'HOLD', confidence: 0.65, time: '14:21:33', price: 98.5 },
+                { asset: 'LINK-USD', action: 'BUY', confidence: 0.82, time: '14:20:45', price: 15.8 }
+            ];
+            
+            container.innerHTML = '';
+            trades.forEach(trade => {
+                const entry = document.createElement('div');
+                entry.className = `trade-entry trade-${trade.action.toLowerCase()}`;
+                
+                const confidenceColor = trade.confidence >= 0.8 ? 'positive' : trade.confidence >= 0.7 ? 'neutral' : 'negative';
+                
+                entry.innerHTML = `
+                    <div>
+                        <strong>${trade.asset}</strong> ${trade.action}
+                        <span style="color: #666; margin-left: 10px;">${trade.time}</span>
+                    </div>
+                    <div>
+                        $${trade.price} | <span class="${confidenceColor}">${(trade.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                `;
+                
+                container.appendChild(entry);
+            });
+        }
+
+        // Initialize dashboard
+        updateDashboard();
+
+        // Update dashboard every 5 seconds
+        setInterval(updateDashboard, 5000);
+
+        // Simulate real-time updates
+        setInterval(() => {
+            // Add random trade to feed
+            const assets = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'MATIC-USD'];
+            const actions = ['BUY', 'SELL', 'HOLD'];
+            const randomAsset = assets[Math.floor(Math.random() * assets.length)];
+            const randomAction = actions[Math.floor(Math.random() * actions.length)];
+            
+            const newTrade = {
+                asset: randomAsset,
+                action: randomAction,
+                confidence: 0.6 + Math.random() * 0.3,
+                time: new Date().toLocaleTimeString(),
+                price: Math.random() * 50000 + 1000
+            };
+            
+            const container = document.getElementById('trades-feed');
+            const entry = document.createElement('div');
+            entry.className = `trade-entry trade-${newTrade.action.toLowerCase()}`;
+            entry.style.opacity = '0';
+            entry.style.transform = 'translateX(-20px)';
+            
+            const confidenceColor = newTrade.confidence >= 0.8 ? 'positive' : newTrade.confidence >= 0.7 ? 'neutral' : 'negative';
+            
+            entry.innerHTML = `
+                <div>
+                    <strong>${newTrade.asset}</strong> ${newTrade.action}
+                    <span style="color: #666; margin-left: 10px;">${newTrade.time}</span>
+                </div>
+                <div>
+                    $${newTrade.price.toFixed(2)} | <span class="${confidenceColor}">${(newTrade.confidence * 100).toFixed(0)}%</span>
+                </div>
+            `;
+            
+            container.insertBefore(entry, container.firstChild);
+            
+            // Animate in
+            setTimeout(() => {
+                entry.style.transition = 'all 0.3s ease';
+                entry.style.opacity = '1';
+                entry.style.transform = 'translateX(0)';
+            }, 10);
+            
+            // Remove old trades
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+            
+        }, 8000 + Math.random() * 7000); // Random intervals
+    </script>
+</body>
+</html>

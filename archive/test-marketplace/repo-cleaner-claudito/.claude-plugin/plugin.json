@@ -1,0 +1,11 @@
+{
+  "name": "repo-cleaner-claudito",
+  "description": "Keeps repository clean by removing test files and junk",
+  "version": "1.0.0",
+  "author": {
+    "name": "OGZPrime Team"
+  },
+  "single_task": true,
+  "trigger": "end_of_session",
+  "auto_run": true
+}

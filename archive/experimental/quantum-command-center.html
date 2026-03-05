@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OGZPrime Quantum Trading Command Center</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-panel: rgba(20, 20, 20, 0.8);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --elite-color: #ffd700;
+            --quantum-color: #00ffff;
+            --profit-color: #00ff88;
+            --loss-color: #ff3366;
+            --neutral-color: #8b8b8b;
+            --metallic-gradient: linear-gradient(135deg, #c0c0c0 0%, #808080 50%, #c0c0c0 100%);
+            --elite-metallic: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%);
+            --quantum-metallic: linear-gradient(135deg, #00ffff 0%, #4dffff 50%, #00ffff 100%);
+        }
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* Background effects */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(0, 255, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        /* Main Layout */
+        .command-center {
+            display: grid;
+            grid-template-rows: 60px 1fr 180px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            padding: 0 20px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--metallic-gradient);
+            opacity: 0.3;
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            background: var(--metallic-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(192, 192, 192, 0.5);
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        
+        .balance { color: var(--profit-color); }
+        .time { color: var(--quantum-color); }
+        
+        /* Main Trading Area */
+        .trading-floor {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .bot-section {
+            display: grid;
+            grid-template-rows: 40px 1fr;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .bot-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.02) 50%, transparent 100%);
+            pointer-events: none;
+        }
+        
+        /* Bot Header */
+        .bot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .bot-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .elite-title {
+            background: var(--elite-metallic);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+        
+        .quantum-title {
+            background: var(--quantum-metallic);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+        
+        .bot-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .dropdown {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 4px 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .dropdown:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            padding: 10px;
+            height: 100%;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        #elite-chart, #quantum-chart {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Chart Overlays */
+        .chart-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .chart-info {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px;
+        }
+        
+        .price-display {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .price-change {
+            font-size: 12px;
+        }
+        
+        .indicators-display {
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+        }
+        
+        .indicator {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .indicator-name {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        
+        .indicator-value {
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+        
+        /* Bottom Panel */
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .panel-section {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 10px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+        }
+        
+        /* Info Grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .info-card {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .info-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--metallic-gradient);
+            opacity: 0.3;
+        }
+        
+        .info-title {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        
+        .info-sub {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        
+        /* Pattern Recognition */
+        .pattern-panel {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 160px;
+        }
+        
+        .pattern-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+        
+        .pattern-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            margin: 4px 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid;
+            font-size: 11px;
+        }
+        
+        .pattern-high { border-color: var(--profit-color); }
+        .pattern-medium { border-color: var(--elite-color); }
+        .pattern-low { border-color: var(--loss-color); }
+        
+        /* Neuromorphic Display */
+        .neuro-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 8px;
+            height: 100%;
+        }
+        
+        .brain-node {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        
+        .brain-node::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, var(--quantum-color) 0%, transparent 70%);
+            opacity: 0;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s;
+        }
+        
+        .brain-node.active::before {
+            width: 100px;
+            height: 100px;
+            opacity: 0.3;
+        }
+        
+        .brain-name {
+            font-size: 9px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .brain-vote {
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+        
+        .vote-long { color: var(--profit-color); }
+        .vote-short { color: var(--loss-color); }
+        .vote-hold { color: var(--elite-color); }
+        .vote-hedge { color: var(--quantum-color); }
+        
+        /* Trading Buttons */
+        .trading-actions {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            z-index: 20;
+        }
+        
+        .trade-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid;
+            color: inherit;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .trade-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--metallic-gradient);
+            opacity: 0.3;
+            transition: left 0.3s;
+        }
+        
+        .trade-btn:hover::before {
+            left: 0;
+        }
+        
+        .btn-buy {
+            border-color: var(--profit-color);
+            color: var(--profit-color);
+        }
+        
+        .btn-buy:hover {
+            background: var(--profit-color);
+            color: var(--bg-primary);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+        }
+        
+        .btn-sell {
+            border-color: var(--loss-color);
+            color: var(--loss-color);
+        }
+        
+        .btn-sell:hover {
+            background: var(--loss-color);
+            color: var(--bg-primary);
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.5);
+        }
+        
+        .btn-neutral {
+            border-color: var(--neutral-color);
+            color: var(--neutral-color);
+        }
+        
+        .btn-neutral:hover {
+            background: var(--neutral-color);
+            color: var(--bg-primary);
+        }
+        
+        .btn-long {
+            border-color: var(--quantum-color);
+            color: var(--quantum-color);
+        }
+        
+        .btn-long:hover {
+            background: var(--quantum-color);
+            color: var(--bg-primary);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .btn-kill {
+            border-color: #ff0000;
+            color: #ff0000;
+        }
+        
+        .btn-kill:hover {
+            background: #ff0000;
+            color: var(--text-primary);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+        
+        /* Live Trades Ticker */
+        .trades-ticker {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.8);
+            border-top: 1px solid var(--border-color);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+        
+        .ticker-content {
+            display: flex;
+            animation: scroll 30s linear infinite;
+            white-space: nowrap;
+        }
+        
+        @keyframes scroll {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+        
+        .trade-item {
+            margin: 0 20px;
+            font-size: 11px;
+        }
+        
+        .trade-type { font-weight: 700; }
+        .trade-profit { color: var(--profit-color); }
+        .trade-loss { color: var(--loss-color); }
+        
+        /* Decision Log */
+        .decision-log {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            width: 300px;
+            max-height: 200px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            font-size: 10px;
+            overflow-y: auto;
+            z-index: 15;
+            display: none;
+        }
+        
+        .decision-log.active {
+            display: block;
+        }
+        
+        .log-entry {
+            margin: 4px 0;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 2px solid var(--quantum-color);
+        }
+        
+        .log-time {
+            color: var(--text-secondary);
+            font-size: 9px;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--metallic-gradient);
+            opacity: 0.5;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            opacity: 0.8;
+        }
+        
+        /* Animations */
+        @keyframes pulse-gold {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes pulse-cyan {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse-elite {
+            animation: pulse-gold 2s infinite;
+        }
+        
+        .pulse-quantum {
+            animation: pulse-cyan 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="command-center">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">OGZPRIME</div>
+            <div class="header-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Balance</span>
+                    <span class="stat-value balance">$10,000.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">24h P&L</span>
+                    <span class="stat-value" id="daily-pnl">+$0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Active Trades</span>
+                    <span class="stat-value" id="active-trades">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">System Time</span>
+                    <span class="stat-value time" id="system-time">00:00:00</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Trading Floor -->
+        <div class="trading-floor">
+            <!-- Elite Bot Section -->
+            <section class="bot-section">
+                <div class="bot-header">
+                    <h2 class="bot-title elite-title">ELITE BOT</h2>
+                    <div class="bot-controls">
+                        <select class="dropdown" id="elite-timeframe">
+                            <option value="1">1 MIN</option>
+                            <option value="5" selected>5 MIN</option>
+                            <option value="15">15 MIN</option>
+                            <option value="60">1 HOUR</option>
+                            <option value="240">4 HOUR</option>
+                        </select>
+                        <select class="dropdown" id="elite-indicators">
+                            <option value="all">ALL INDICATORS</option>
+                            <option value="bb">BOLLINGER</option>
+                            <option value="rsi">RSI</option>
+                            <option value="fib">FIBONACCI</option>
+                            <option value="trend">TREND</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <canvas id="elite-chart"></canvas>
+                        <div class="chart-overlay">
+                            <div class="chart-info">
+                                <div class="price-display elite-title" id="elite-price">$43,521.32</div>
+                                <div class="price-change" id="elite-change">+2.34%</div>
+                                <div class="indicators-display">
+                                    <div class="indicator">
+                                        <span class="indicator-name">RSI</span>
+                                        <span class="indicator-value">67</span>
+                                    </div>
+                                    <div class="indicator">
+                                        <span class="indicator-name">MACD</span>
+                                        <span class="indicator-value">+125</span>
+                                    </div>
+                                    <div class="indicator">
+                                        <span class="indicator-name">BB%</span>
+                                        <span class="indicator-value">82%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="trading-actions">
+                            <button class="trade-btn btn-buy">BUY</button>
+                            <button class="trade-btn btn-sell">SELL</button>
+                            <button class="trade-btn btn-kill">KILL</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Quantum Bot Section -->
+            <section class="bot-section">
+                <div class="bot-header">
+                    <h2 class="bot-title quantum-title">QUANTUM BOT</h2>
+                    <div class="bot-controls">
+                        <select class="dropdown" id="quantum-timeframe">
+                            <option value="1">1 MIN</option>
+                            <option value="5" selected>5 MIN</option>
+                            <option value="15">15 MIN</option>
+                            <option value="60">1 HOUR</option>
+                            <option value="240">4 HOUR</option>
+                        </select>
+                        <select class="dropdown" id="quantum-indicators">
+                            <option value="all">ALL INDICATORS</option>
+                            <option value="bb">BOLLINGER</option>
+                            <option value="rsi">RSI</option>
+                            <option value="fib">FIBONACCI</option>
+                            <option value="trend">TREND</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <canvas id="quantum-chart"></canvas>
+                        <div class="chart-overlay">
+                            <div class="chart-info">
+                                <div class="price-display quantum-title" id="quantum-price">$43,498.77</div>
+                                <div class="price-change" id="quantum-change">+2.28%</div>
+                                <div class="indicators-display">
+                                    <div class="indicator">
+                                        <span class="indicator-name">RSI</span>
+                                        <span class="indicator-value">65</span>
+                                    </div>
+                                    <div class="indicator">
+                                        <span class="indicator-name">MACD</span>
+                                        <span class="indicator-value">+118</span>
+                                    </div>
+                                    <div class="indicator">
+                                        <span class="indicator-name">VOL</span>
+                                        <span class="indicator-value">HIGH</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="trading-actions">
+                            <button class="trade-btn btn-buy">BUY</button>
+                            <button class="trade-btn btn-sell">SELL</button>
+                            <button class="trade-btn btn-long">LONG</button>
+                            <button class="trade-btn btn-neutral">SHORT</button>
+                            <button class="trade-btn btn-neutral">HEDGE</button>
+                            <button class="trade-btn btn-kill">KILL</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <!-- Elite Bot Controls -->
+            <div class="panel-section">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3 class="info-title">Current P&L</h3>
+                        <div class="info-value" style="color: var(--profit-color)">+$842.53</div>
+                        <div class="info-sub">Runtime: 4h 23m</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Drawdown</h3>
+                        <div class="info-value" style="color: var(--loss-color)">-2.3%</div>
+                        <div class="info-sub">Max: -3.1%</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Risk Level</h3>
+                        <div class="info-value" style="color: var(--elite-color)">MEDIUM</div>
+                        <div class="info-sub">Adaptive</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Decisions</h3>
+                        <div class="info-value">147</div>
+                        <div class="info-sub">87% Confidence</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Win Rate</h3>
+                        <div class="info-value" style="color: var(--profit-color)">73%</div>
+                        <div class="info-sub">52 Trades</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Position</h3>
+                        <div class="info-value" style="color: var(--elite-color)">LONG</div>
+                        <div class="info-sub">0.025 BTC</div>
+                    </div>
+                </div>
+                <div class="pattern-panel">
+                    <h3 class="pattern-title">Pattern Recognition</h3>
+                    <div class="pattern-item pattern-high">
+                        <span>Ascending Triangle</span>
+                        <span>92%</span>
+                    </div>
+                    <div class="pattern-item pattern-high">
+                        <span>Bull Flag</span>
+                        <span>87%</span>
+                    </div>
+                    <div class="pattern-item pattern-medium">
+                        <span>Cup & Handle</span>
+                        <span>78%</span>
+                    </div>
+                    <div class="pattern-item pattern-medium">
+                        <span>Double Bottom</span>
+                        <span>65%</span>
+                    </div>
+                    <div class="pattern-item pattern-low">
+                        <span>Head & Shoulders</span>
+                        <span>42%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quantum Bot Controls -->
+            <div class="panel-section">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3 class="info-title">Current P&L</h3>
+                        <div class="info-value" style="color: var(--profit-color)">+$1,183.35</div>
+                        <div class="info-sub">Runtime: 4h 23m</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Drawdown</h3>
+                        <div class="info-value" style="color: var(--profit-color)">-1.7%</div>
+                        <div class="info-sub">Max: -2.4%</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Risk Level</h3>
+                        <div class="info-value" style="color: var(--quantum-color)">ADAPTIVE</div>
+                        <div class="info-sub">Quantum</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Decisions</h3>
+                        <div class="info-value">312</div>
+                        <div class="info-sub">94% Confidence</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Win Rate</h3>
+                        <div class="info-value" style="color: var(--profit-color)">81%</div>
+                        <div class="info-sub">89 Trades</div>
+                    </div>
+                    <div class="info-card">
+                        <h3 class="info-title">Positions</h3>
+                        <div class="info-value" style="color: var(--quantum-color)">HEDGE</div>
+                        <div class="info-sub">Multi-Asset</div>
+                    </div>
+                </div>
+                <div class="pattern-panel">
+                    <h3 class="pattern-title">Neuromorphic Analysis</h3>
+                    <div class="neuro-grid">
+                        <div class="brain-node active">
+                            <div class="brain-name">Pattern</div>
+                            <div class="brain-vote vote-long">LONG</div>
+                        </div>
+                        <div class="brain-node active">
+                            <div class="brain-name">Sentiment</div>
+                            <div class="brain-vote vote-long">LONG</div>
+                        </div>
+                        <div class="brain-node">
+                            <div class="brain-name">Momentum</div>
+                            <div class="brain-vote vote-hold">HOLD</div>
+                        </div>
+                        <div class="brain-node">
+                            <div class="brain-name">Volatility</div>
+                            <div class="brain-vote vote-hedge">HEDGE</div>
+                        </div>
+                        <div class="brain-node active">
+                            <div class="brain-name">Volume</div>
+                            <div class="brain-vote vote-long">LONG</div>
+                        </div>
+                        <div class="brain-node">
+                            <div class="brain-name">Risk</div>
+                            <div class="brain-vote vote-short">SHORT</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Live Trades Ticker -->
+        <div class="trades-ticker">
+            <div class="ticker-content">
+                <span class="trade-item">
+                    <span class="trade-type trade-profit">LONG</span> BTC @ $43,521 
+                    <span class="trade-profit">+$47.23</span>
+                </span>
+                <span class="trade-item">
+                    <span class="trade-type trade-loss">SHORT</span> ETH @ $2,341 
+                    <span class="trade-loss">-$12.45</span>
+                </span>
+                <span class="trade-item">
+                    <span class="trade-type trade-profit">HEDGE</span> SOL @ $98.72 
+                    <span class="trade-profit">+$28.91</span>
+                </span>
+                <span class="trade-item">
+                    <span class="trade-type trade-profit">LONG</span> BTC @ $43,498 
+                    <span class="trade-profit">+$83.15</span>
+                </span>
+                <span class="trade-item">
+                    <span class="trade-type trade-loss">SELL</span> DOGE @ $0.0834 
+                    <span class="trade-loss">-$5.72</span>
+                </span>
+            </div>
+        </div>
+        
+        <!-- Decision Log (Hidden by default) -->
+        <div class="decision-log" id="decision-log">
+            <div class="log-entry">
+                <span class="log-time">12:34:56</span> QUANTUM: Detected ascending triangle, confidence 92%
+            </div>
+            <div class="log-entry">
+                <span class="log-time">12:34:52</span> ELITE: RSI oversold, initiating long position
+            </div>
+            <div class="log-entry">
+                <span class="log-time">12:34:48</span> QUANTUM: Neuromorphic consensus reached - 5/6 LONG
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+    <script>
+        // WebSocket connection
+        let ws;
+        const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+        
+        // Chart configuration with candlestick
+        const chartConfig = {
+            type: 'candlestick',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        right: 2,
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.03)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            font: {
+                                family: 'JetBrains Mono',
+                                size: 10
+                            },
+                            maxRotation: 0
+                        }
+                    },
+                    y: {
+                        position: 'right',
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.03)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            font: {
+                                family: 'JetBrains Mono',
+                                size: 10
+                            },
+                            callback: function(value) {
+                                return '$' + value.toFixed(0);
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'nearest',
+                        intersect: false,
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        borderWidth: 1,
+                        titleFont: {
+                            family: 'JetBrains Mono',
+                            size: 11
+                        },
+                        bodyFont: {
+                            family: 'JetBrains Mono',
+                            size: 10
+                        },
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                const point = context.raw;
+                                return [
+                                    'O: $' + point.o.toFixed(2),
+                                    'H: $' + point.h.toFixed(2),
+                                    'L: $' + point.l.toFixed(2),
+                                    'C: $' + point.c.toFixed(2)
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        
+        // Initialize Elite Chart
+        const eliteCtx = document.getElementById('elite-chart').getContext('2d');
+        const eliteChart = new Chart(eliteCtx, {
+            ...chartConfig,
+            data: {
+                datasets: [{
+                    label: 'BTC-USD',
+                    data: [],
+                    color: {
+                        up: 'rgba(0, 255, 136, 0.8)',
+                        down: 'rgba(255, 51, 102, 0.8)',
+                        unchanged: 'rgba(255, 255, 255, 0.5)'
+                    },
+                    borderColor: {
+                        up: '#00ff88',
+                        down: '#ff3366',
+                        unchanged: 'rgba(255, 255, 255, 0.5)'
+                    }
+                }]
+            }
+        });
+        
+        // Initialize Quantum Chart
+        const quantumCtx = document.getElementById('quantum-chart').getContext('2d');
+        const quantumChart = new Chart(quantumCtx, {
+            ...chartConfig,
+            data: {
+                datasets: [{
+                    label: 'Multi-Asset',
+                    data: [],
+                    color: {
+                        up: 'rgba(0, 255, 255, 0.8)',
+                        down: 'rgba(255, 51, 102, 0.8)',
+                        unchanged: 'rgba(255, 255, 255, 0.5)'
+                    },
+                    borderColor: {
+                        up: '#00ffff',
+                        down: '#ff3366',
+                        unchanged: 'rgba(255, 255, 255, 0.5)'
+                    }
+                }]
+            }
+        });
+        
+        // Generate realistic candlestick data
+        function generateCandlestickData(basePrice = 43500, points = 50) {
+            const data = [];
+            let currentPrice = basePrice;
+            const now = Date.now();
+            
+            for (let i = 0; i < points; i++) {
+                const time = new Date(now - (points - i) * 60000 * 5); // 5-minute candles
+                const volatility = (Math.random() - 0.5) * 200;
+                
+                const open = currentPrice;
+                const close = currentPrice + volatility;
+                const high = Math.max(open, close) + Math.random() * 50;
+                const low = Math.min(open, close) - Math.random() * 50;
+                
+                data.push({
+                    x: time.getTime(),
+                    o: open,
+                    h: high,
+                    l: low,
+                    c: close
+                });
+                
+                currentPrice = close;
+            }
+            
+            return data;
+        }
+        
+        // Update clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('system-time').textContent = 
+                now.toTimeString().split(' ')[0];
+        }
+        
+        // Initialize WebSocket
+        function initWebSocket() {
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                ws.send(JSON.stringify({ type: 'identify', source: 'dashboard' }));
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (err) {
+                    console.error('Error parsing WebSocket message:', err);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected, reconnecting...');
+                setTimeout(initWebSocket, 5000);
+            };
+        }
+        
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'price':
+                    updatePriceData(data.data);
+                    break;
+                case 'trade':
+                    addTradeToTicker(data.data);
+                    break;
+                case 'pattern':
+                    updatePatternRecognition(data.data);
+                    break;
+                case 'neuromorphic':
+                    updateNeuromorphicDisplay(data.data);
+                    break;
+            }
+        }
+        
+        // Update price displays
+        function updatePriceDisplays(price, change) {
+            document.getElementById('elite-price').textContent = `$${price.toFixed(2)}`;
+            document.getElementById('quantum-price').textContent = `$${(price - 22.55).toFixed(2)}`;
+            
+            const changePercent = change.toFixed(2);
+            const changeText = changePercent >= 0 ? `+${changePercent}%` : `${changePercent}%`;
+            const changeColor = changePercent >= 0 ? 'var(--profit-color)' : 'var(--loss-color)';
+            
+            document.getElementById('elite-change').textContent = changeText;
+            document.getElementById('elite-change').style.color = changeColor;
+            document.getElementById('quantum-change').textContent = changeText;
+            document.getElementById('quantum-change').style.color = changeColor;
+        }
+        
+        // Initialize with demo data
+        function initializeCharts() {
+            const eliteData = generateCandlestickData(43500, 50);
+            const quantumData = generateCandlestickData(43478, 50);
+            
+            eliteChart.data.datasets[0].data = eliteData;
+            quantumChart.data.datasets[0].data = quantumData;
+            
+            eliteChart.update('none');
+            quantumChart.update('none');
+            
+            // Update price displays
+            const lastElite = eliteData[eliteData.length - 1];
+            const change = ((lastElite.c - eliteData[0].o) / eliteData[0].o) * 100;
+            updatePriceDisplays(lastElite.c, change);
+        }
+        
+        // Trading button handlers
+        document.querySelectorAll('.trade-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.textContent;
+                console.log(`${action} button clicked`);
+                
+                // Visual feedback
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = 'scale(1)';
+                }, 100);
+                
+                // Add to decision log
+                const log = document.getElementById('decision-log');
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                const time = new Date().toTimeString().split(' ')[0];
+                entry.innerHTML = `<span class="log-time">${time}</span> USER: Manual ${action} triggered`;
+                log.insertBefore(entry, log.firstChild);
+            });
+        });
+        
+        // Dropdown handlers
+        document.querySelectorAll('.dropdown').forEach(select => {
+            select.addEventListener('change', function() {
+                console.log(`${this.id} changed to ${this.value}`);
+                // Here you would update the chart timeframe or indicators
+            });
+        });
+        
+        // Toggle decision log with D key
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'd' || e.key === 'D') {
+                const log = document.getElementById('decision-log');
+                log.classList.toggle('active');
+            }
+        });
+        
+        // Animate neuromorphic nodes
+        setInterval(() => {
+            const nodes = document.querySelectorAll('.brain-node');
+            nodes.forEach(node => {
+                if (Math.random() > 0.7) {
+                    node.classList.toggle('active');
+                }
+            });
+        }, 2000);
+        
+        // Initialize
+        updateClock();
+        setInterval(updateClock, 1000);
+        initializeCharts();
+        initWebSocket();
+        
+        // Simulate live updates
+        setInterval(() => {
+            // Add new candle to charts
+            const eliteData = eliteChart.data.datasets[0].data;
+            const lastElite = eliteData[eliteData.length - 1];
+            const newPrice = lastElite.c + (Math.random() - 0.5) * 100;
+            
+            const newCandle = {
+                x: Date.now(),
+                o: lastElite.c,
+                h: Math.max(lastElite.c, newPrice) + Math.random() * 20,
+                l: Math.min(lastElite.c, newPrice) - Math.random() * 20,
+                c: newPrice
+            };
+            
+            eliteData.push(newCandle);
+            if (eliteData.length > 100) eliteData.shift();
+            
+            eliteChart.update('none');
+            
+            // Update price display
+            const change = ((newPrice - eliteData[0].o) / eliteData[0].o) * 100;
+            updatePriceDisplays(newPrice, change);
+            
+            // Update metrics
+            document.getElementById('daily-pnl').textContent = 
+                `+$${(Math.random() * 1000).toFixed(2)}`;
+            document.getElementById('active-trades').textContent = 
+                Math.floor(Math.random() * 5) + 1;
+        }, 5000);
+    </script>
+</body>
+</html>
