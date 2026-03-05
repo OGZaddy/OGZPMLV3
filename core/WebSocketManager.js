@@ -98,8 +98,8 @@ class WebSocketManager {
               capabilities: ['trading', 'realtime', 'risk-management']
             }));
 
-            // Connect to AdvancedExecutionLayer for trade broadcasts
-            this.ctx.executionLayer.setWebSocketClient(this.ctx.dashboardWs);
+            // PHASE 4 REWRITE: executionLayer deleted - StateManager handles dashboard connection
+            // this.ctx.executionLayer.setWebSocketClient(this.ctx.dashboardWs);
 
             // CHANGE 2025-12-11: Connect StateManager to dashboard for accurate post-update state
             // Dashboard now receives state AFTER changes, never stale data
