@@ -297,17 +297,9 @@ const singletonLock = new OGZSingletonLock('ogz-prime-v14');
   } else {
     console.log('â­ï¸ Skipping singleton lock (BACKTEST_MODE)');
   }
-  // Skip port check in backtest mode for faster testing
-  if (process.env.BACKTEST_MODE !== 'true') {
-    // CHANGE 660: Remove port 3010 from check - it's the WebSocket SERVER we connect TO
-    // Bot is a CLIENT of 3010, not binding it
-    const portsOk = await checkCriticalPorts([3001, 3002, 3003]);
-    if (!portsOk) {
-      console.error('ðŸš¨ Critical ports in use! Exiting...');
-      process.exit(1);
-    }
-  }
-})();
+  // REMOVED: Port check was conflicting with other services (ogz-stripe on 3001)
+  // Singleton lock file is sufficient to prevent duplicate bot instances
+})();;
 const WebSocket = require('ws');
 
 // Core Trading Modules - All through ModuleAutoLoader
