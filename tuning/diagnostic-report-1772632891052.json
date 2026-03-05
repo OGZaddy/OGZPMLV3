@@ -1,0 +1,772 @@
+{
+  "timestamp": "2026-03-04T14:00:09.642Z",
+  "config": {
+    "candleFile": "data/btc-15m-2024-2025.json",
+    "minConfidence": 35,
+    "feesPct": 0.25,
+    "stopLoss": 1.5,
+    "takeProfit": 2,
+    "tiers": [
+      0.007,
+      0.01,
+      0.015
+    ]
+  },
+  "tests": {
+    "tradingConfigRespect": {
+      "status": "pass",
+      "details": {
+        "configConfidence": {
+          "minTradeConfidence": 0.5,
+          "maxConfidence": 0.95,
+          "minStrategyConfidence": 0.35,
+          "minSignalConfidence": 0.25,
+          "minSignalsToTrade": 2,
+          "confidencePenalty": 0.1,
+          "confidenceBoost": 0.05
+        },
+        "configExits": {
+          "stopLossPercent": 1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 3.5,
+          "trailingActivation": 2.5,
+          "breakevenTrigger": 0.005,
+          "breakevenExitPercent": 0.5,
+          "postBreakevenTrail": 0.05,
+          "profitProtectionLevel": 0.015,
+          "profitTiers": {
+            "tier1": 0.007,
+            "tier2": 0.01,
+            "tier3": 0.015,
+            "final": 0.025
+          },
+          "normalTrailDistance": 0.025,
+          "tightTrailDistance": 0.015
+        },
+        "configFees": {
+          "makerFee": 0.0025,
+          "takerFee": 0.004,
+          "slippage": 0.0005,
+          "totalRoundTrip": 0.005,
+          "safetyBuffer": 0.001,
+          "minProfitAfterFees": 0.006
+        },
+        "envMinConfidence": 35,
+        "envFeesPct": 0.25
+      }
+    },
+    "strategyVerification": {
+      "status": "fail",
+      "details": {
+        "strategies": {}
+      }
+    },
+    "exitContractVerification": {
+      "status": "pass",
+      "details": {
+        "contracts": {
+          "RSI": {
+            "stopLossPercent": -1,
+            "takeProfitPercent": 2,
+            "trailingStopPercent": 0.6,
+            "trailingActivation": 0.8,
+            "maxHoldTimeMinutes": 240,
+            "invalidationConditions": []
+          },
+          "EMASMACrossover": {
+            "stopLossPercent": -1.2,
+            "takeProfitPercent": 2.5,
+            "trailingStopPercent": 0.8,
+            "trailingActivation": 1,
+            "maxHoldTimeMinutes": 300,
+            "invalidationConditions": [
+              "ema_cross_reversal"
+            ]
+          },
+          "MADynamicSR": {
+            "stopLossPercent": -0.8,
+            "takeProfitPercent": 1.5,
+            "trailingStopPercent": 0.5,
+            "trailingActivation": 0.7,
+            "maxHoldTimeMinutes": 180,
+            "invalidationConditions": [
+              "sr_break"
+            ]
+          },
+          "BreakAndRetest": {
+            "stopLossPercent": -1,
+            "takeProfitPercent": 2,
+            "trailingStopPercent": 0.6,
+            "trailingActivation": 0.8,
+            "maxHoldTimeMinutes": 240,
+            "invalidationConditions": []
+          },
+          "LiquiditySweep": {
+            "stopLossPercent": -0.8,
+            "takeProfitPercent": 1.5,
+            "trailingStopPercent": 0.5,
+            "trailingActivation": 0.7,
+            "maxHoldTimeMinutes": 180,
+            "invalidationConditions": [
+              "liquidity_absorbed"
+            ]
+          }
+        }
+      }
+    },
+    "gateVerification": {
+      "status": "pass",
+      "details": {
+        "gateBlocks": {
+          "confidence": 0,
+          "confluence": 0,
+          "vpChop": 0,
+          "regime": 0,
+          "shorts": 654
+        }
+      }
+    },
+    "feeVerification": {
+      "status": "pass",
+      "details": {
+        "feesPctSetting": 0.25,
+        "totalFeesPaid": 167.98764805929412,
+        "avgFeePerTrade": 0.9940097518301427
+      }
+    },
+    "positionSizing": {
+      "status": "pass",
+      "details": {
+        "positionSizePct": 4
+      }
+    }
+  },
+  "flags": [
+    "No strategies generated any trades"
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 1,
+    "warnings": 0
+  },
+  "backtest": {
+    "candlesProcessed": 45812,
+    "totalTrades": 169,
+    "signalsGenerated": 823,
+    "finalBalance": 9892.721244650023,
+    "totalReturn": -1.0727875534997657,
+    "strategyStats": {
+      "undefined": {
+        "trades": 0,
+        "wins": 0,
+        "pnl": 0,
+        "confidences": [
+          41.729867674501456,
+          73.59711282330935,
+          41.078457315940916,
+          41.98129458266294,
+          35.694363123672915,
+          63.43720050731956,
+          35.24813792005308,
+          39.31596539018244,
+          44.54895080454207,
+          36.69585749530109,
+          42.28592877053903,
+          53.189033674043316,
+          43.467193169613125,
+          38.23167162139105,
+          37.17246440920907,
+          36.38239644509023,
+          41.948130138151875,
+          37.15242704435175,
+          39.550977098517606,
+          49.78811411225678,
+          36.8612551588482,
+          38.035836375149565,
+          37.2781723798569,
+          47.288680982161345,
+          35.031563346308445,
+          71.37347371387924,
+          36.005373473059166,
+          61.34002766933444,
+          38.856251226972205,
+          39.145890699554116,
+          40.784908664346204,
+          39.232353089492776,
+          35.96319927708777,
+          59.22733895768473,
+          50.11113135099298,
+          72.08383779349845,
+          40.10939035146468,
+          55.54439670598848,
+          74.6556811055458,
+          37.64199247004674,
+          36.09251649643369,
+          42.913106899378974,
+          35.742916006785634,
+          39.19925179817842,
+          52.91076415402283,
+          43.09824342938654,
+          65.16033723455826,
+          52.04840036743491,
+          38.071456708923954,
+          56.0729220099139,
+          47.95624583658295,
+          42.09468932539242,
+          68.51800922433976,
+          47.64949275511034,
+          45.716406346309476,
+          48.493842367992904,
+          50.63311661493155,
+          36.27273259914578,
+          39.64839496914569,
+          36.342728462773024,
+          39.786399183840096,
+          38.43826769888807,
+          42.97671079632115,
+          39.927118717706996,
+          36.88347036415578,
+          43.77197469990435,
+          36.293272385518186,
+          41.58517870901401,
+          58.89081910090339,
+          42.90795279534175,
+          36.88368743779416,
+          35.987408268040944,
+          35.26515639107018,
+          35.38653734235926,
+          51.760543570234695,
+          35.13718985689247,
+          46.431911170607094,
+          36.203040339116654,
+          41.927645156567195,
+          49.585447091200905,
+          76.3632276500697,
+          39.24226450225305,
+          66.6096696409904,
+          49.05252788843091,
+          44.379164343618235,
+          38.406986247517615,
+          36.18429573996224,
+          37.3768012642931,
+          37.5404109906295,
+          45.36012224142814,
+          48.252473485294445,
+          50.35264814936582,
+          80,
+          39.29935628529284,
+          56.30325127021072,
+          45.64425599033825,
+          39.680306307560045,
+          38.365353976483426,
+          46.082943573288304,
+          35.55129715330859,
+          44.80191018180084,
+          40.20737017255376,
+          41.894236184883056,
+          36.27996665077404,
+          36.98568963352007,
+          35.79028244675721,
+          44.28775996585605,
+          44.33978563863822,
+          39.4880237942102,
+          40.213129366267566,
+          43.66322801633278,
+          59.9085447801643,
+          40.728733524838056,
+          35.87600300946041,
+          61.49987514637512,
+          40.71500066272719,
+          37.61631703216541,
+          52.30573342526525,
+          35.02773179623347,
+          47.81420299337928,
+          57.952050405394,
+          37.805373926493836,
+          46.09213046380736,
+          60.38475923331645,
+          43.44504415720143,
+          37.765247320788355,
+          54.83135294006492,
+          36.463783842510885,
+          43.96267189809861,
+          54.74670890794769,
+          50.50781722681014,
+          36.38696754823414,
+          38.551228707898936,
+          43.594107770398075,
+          43.41806073067227,
+          37.49517300349912,
+          39.070342529839714,
+          35.08986900271282,
+          38.941655625758784,
+          39.92944354828206,
+          35.3348012026585,
+          49.91077154137717,
+          40.063567099147924,
+          36.64774355264678,
+          41.49974787956343,
+          42.06008320281446,
+          38.6398534692248,
+          48.26601682343854,
+          35.46785698942145,
+          44.179907915856845,
+          53.77848993718056,
+          39.5073888075989,
+          38.34442811492982,
+          42.17629384153644,
+          35.895386530751615,
+          60.94353937544194,
+          35.44904974163548,
+          37.38473369778129,
+          40.94058610498578,
+          36.034773308679604,
+          41.0167416299411,
+          47.387412040339804,
+          75.18822182143784,
+          37.861961512182816,
+          37.60543143458719,
+          36.698835396918476,
+          40.880738209976734,
+          39.646522181485956,
+          37.97746003830378
+        ]
+      }
+    },
+    "gateBlocks": {
+      "confidence": 0,
+      "confluence": 0,
+      "vpChop": 0,
+      "regime": 0,
+      "shorts": 654
+    },
+    "exitReasons": {
+      "stop_loss": 27,
+      "profit_tier_1": 83,
+      "max_hold": 56,
+      "take_profit": 3
+    },
+    "trades": [
+      {
+        "strategyName": "unknown",
+        "entryPrice": 43731.245,
+        "exitPrice": 41938.8795,
+        "pnlPercent": -4.348592436597677,
+        "grossPnlPercent": -4.098592436597677,
+        "feeDollars": 1,
+        "reason": "stop_loss",
+        "confidence": 41.729867674501456,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632810004,
+          "strategyName": "RSI",
+          "signalConfidence": 0.41729867674501453
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 41938.8795,
+        "exitPrice": 42404.6725,
+        "pnlPercent": 0.8606472217503995,
+        "grossPnlPercent": 1.1106472217503995,
+        "feeDollars": 0.9982605630253609,
+        "reason": "profit_tier_1",
+        "confidence": 73.59711282330935,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632810005,
+          "strategyName": "RSI",
+          "signalConfidence": 0.7359711282330934
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 42404.6725,
+        "exitPrice": 42816.8915,
+        "pnlPercent": 0.7221074959369096,
+        "grossPnlPercent": 0.9721074959369096,
+        "feeDollars": 0.9986042230974213,
+        "reason": "profit_tier_1",
+        "confidence": 41.078457315940916,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632810006,
+          "strategyName": "RSI",
+          "signalConfidence": 0.4107845731594092
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 44699.122,
+        "exitPrice": 45097.829,
+        "pnlPercent": 0.6419794889930832,
+        "grossPnlPercent": 0.8919794889930832,
+        "feeDollars": 0.9988926629354103,
+        "reason": "profit_tier_1",
+        "confidence": 41.98129458266294,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632811424,
+          "strategyName": "RSI",
+          "signalConfidence": 0.4198129458266294
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 44522.48,
+        "exitPrice": 43529.9,
+        "pnlPercent": -2.479390635921453,
+        "grossPnlPercent": -2.229390635921453,
+        "feeDollars": 0.9991491703759344,
+        "reason": "stop_loss",
+        "confidence": 35.694363123672915,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632811729,
+          "strategyName": "RSI",
+          "signalConfidence": 0.3569436312367292
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 43529.9,
+        "exitPrice": 43899.53,
+        "pnlPercent": 0.5991404758568188,
+        "grossPnlPercent": 0.8491404758568188,
+        "feeDollars": 0.9981582579371668,
+        "reason": "profit_tier_1",
+        "confidence": 63.43720050731956,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632811736,
+          "strategyName": "RSI",
+          "signalConfidence": 0.6343720050731956
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 41884.1,
+        "exitPrice": 42298.791,
+        "pnlPercent": 0.7400917054443068,
+        "grossPnlPercent": 0.9900917054443068,
+        "feeDollars": 0.9983974727426232,
+        "reason": "profit_tier_1",
+        "confidence": 35.24813792005308,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632811762,
+          "strategyName": "RSI",
+          "signalConfidence": 0.35248137920053085
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 42231.07,
+        "exitPrice": 42526.7,
+        "pnlPercent": 0.45002962273983915,
+        "grossPnlPercent": 0.7000296227398392,
+        "feeDollars": 0.9986930350179488,
+        "reason": "profit_tier_1",
+        "confidence": 39.31596539018244,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632811983,
+          "strategyName": "RSI",
+          "signalConfidence": 0.3931596539018244
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 41710.475,
+        "exitPrice": 42017.4065,
+        "pnlPercent": 0.4858619147827945,
+        "grossPnlPercent": 0.7358619147827945,
+        "feeDollars": 0.9988728115978613,
+        "reason": "profit_tier_1",
+        "confidence": 44.54895080454207,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632811995,
+          "strategyName": "RSI",
+          "signalConfidence": 0.44548950804542076
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 41893.8945,
+        "exitPrice": 41238.068,
+        "pnlPercent": -1.8154464876737655,
+        "grossPnlPercent": -1.5654464876737655,
+        "feeDollars": 0.9990669373006082,
+        "reason": "stop_loss",
+        "confidence": 36.69585749530109,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632812624,
+          "strategyName": "RSI",
+          "signalConfidence": 0.36695857495301093
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 40300.125,
+        "exitPrice": 40677.8165,
+        "pnlPercent": 0.6871968449229396,
+        "grossPnlPercent": 0.9371968449229396,
+        "feeDollars": 0.9983414362756989,
+        "reason": "profit_tier_1",
+        "confidence": 42.28592877053903,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632812778,
+          "strategyName": "RSI",
+          "signalConfidence": 0.42285928770539033
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 39107.711,
+        "exitPrice": 38914.3885,
+        "pnlPercent": -0.74433345766517,
+        "grossPnlPercent": -0.49433345766517,
+        "feeDollars": 0.9986158591097648,
+        "reason": "max_hold",
+        "confidence": 53.189033674043316,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632813567,
+          "strategyName": "RSI",
+          "signalConfidence": 0.5318903367404332
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 49131.015,
+        "exitPrice": 48984.7545,
+        "pnlPercent": -0.547694847134741,
+        "grossPnlPercent": -0.29769484713474104,
+        "feeDollars": 0.9983185378316484,
+        "reason": "max_hold",
+        "confidence": 43.467193169613125,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632817376,
+          "strategyName": "RSI",
+          "signalConfidence": 0.4346719316961313
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 51273.04,
+        "exitPrice": 51196.7255,
+        "pnlPercent": -0.398839429064476,
+        "grossPnlPercent": -0.148839429064476,
+        "feeDollars": 0.9980998282640607,
+        "reason": "max_hold",
+        "confidence": 38.23167162139105,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632818078,
+          "strategyName": "RSI",
+          "signalConfidence": 0.3823167162139105
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 61481.39,
+        "exitPrice": 63131.687,
+        "pnlPercent": 2.4342220060411757,
+        "grossPnlPercent": 2.6842220060411757,
+        "feeDollars": 0.9979405956377991,
+        "reason": "take_profit",
+        "confidence": 37.17246440920907,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632820935,
+          "strategyName": "RSI",
+          "signalConfidence": 0.3717246440920907
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 68686.995,
+        "exitPrice": 68419.2215,
+        "pnlPercent": -0.6398459963199667,
+        "grossPnlPercent": -0.3898459963199667,
+        "feeDollars": 0.9989122792212486,
+        "reason": "max_hold",
+        "confidence": 36.38239644509023,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632821776,
+          "strategyName": "RSI",
+          "signalConfidence": 0.3638239644509023
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 69274.616,
+        "exitPrice": 70143.7495,
+        "pnlPercent": 1.0046204514508041,
+        "grossPnlPercent": 1.2546204514508041,
+        "feeDollars": 0.9986566192122348,
+        "reason": "profit_tier_1",
+        "confidence": 41.948130138151875,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632822065,
+          "strategyName": "RSI",
+          "signalConfidence": 0.41948130138151873
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 70282.355,
+        "exitPrice": 71270.745,
+        "pnlPercent": 1.1563131492961491,
+        "grossPnlPercent": 1.4063131492961491,
+        "feeDollars": 0.9990579275576897,
+        "reason": "profit_tier_1",
+        "confidence": 37.15242704435175,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632822379,
+          "strategyName": "RSI",
+          "signalConfidence": 0.37152427044351743
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 68898.945,
+        "exitPrice": 70032.25,
+        "pnlPercent": 1.3948800485987018,
+        "grossPnlPercent": 1.6448800485987018,
+        "feeDollars": 0.9995200170851071,
+        "reason": "profit_tier_1",
+        "confidence": 39.550977098517606,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632822399,
+          "strategyName": "RSI",
+          "signalConfidence": 0.3955097709851761
+        }
+      },
+      {
+        "strategyName": "unknown",
+        "entryPrice": 67458.475,
+        "exitPrice": 68292.485,
+        "pnlPercent": 0.9863309428503899,
+        "grossPnlPercent": 1.23633094285039,
+        "feeDollars": 1.0000777012971098,
+        "reason": "profit_tier_1",
+        "confidence": 49.78811411225678,
+        "contract": {
+          "stopLossPercent": -1.5,
+          "takeProfitPercent": 2,
+          "trailingStopPercent": 0.6,
+          "trailingActivation": 0.8,
+          "maxHoldTimeMinutes": 240,
+          "invalidationConditions": [],
+          "createdAt": 1772632822451,
+          "strategyName": "RSI",
+          "signalConfidence": 0.49788114112256776
+        }
+      }
+    ]
+  }
+}

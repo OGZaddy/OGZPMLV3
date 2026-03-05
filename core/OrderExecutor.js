@@ -21,6 +21,7 @@ const stateManager = getStateManager();
 
 // BACKTEST_FAST: Skip notifications during backtest
 const BACKTEST_FAST = process.env.BACKTEST_FAST === 'true';
+const BACKTEST_MODE = process.env.BACKTEST_MODE === 'true';
 
 class OrderExecutor {
   constructor(ctx) {
@@ -74,15 +75,12 @@ class OrderExecutor {
 
     console.log(`💰 Position sizing: Balance=$${currentBalance.toFixed(2)}, Percent=${(basePositionPercent*100).toFixed(1)}%, USD=$${positionSizeUSD.toFixed(2)}, BTC=${positionSizeBTC.toFixed(8)}`);
 
-    // CHANGE 2025-12-11: Pass 2 - Pattern-based position sizing
-    const patternIds = decision.decisionContext?.patternsActive ||
-                      patterns?.map(p => p.id || p.signature || 'unknown') || [];
-    // Now pass BTC amount to calculatePositionSize, not USD
-    const adjustedPositionBTC = this.ctx.tradingOptimizations.calculatePositionSize(positionSizeBTC, patternIds, decision.decisionContext);
-    const positionSize = adjustedPositionBTC; // Final position size in BTC
+    // Phase 4 REWRITE: tradingOptimizations deleted - use position size directly
+    // Pattern-based adjustments can be added to TradingConfig later if needed
+    const positionSize = positionSizeBTC; // Final position size in BTC
 
     // CHECKPOINT 2: Position sizing
-    console.log(`📍 CP2: Position size calculated: ${positionSize.toFixed(8)} BTC (base: ${positionSizeBTC.toFixed(8)} BTC, adjusted for pattern quality)`);
+    console.log(`📍 CP2: Position size calculated: ${positionSize.toFixed(8)} BTC`);
 
     // Change 587: SafetyNet DISABLED - too restrictive
     // Was blocking legitimate trades with overly conservative limits
@@ -102,22 +100,41 @@ class OrderExecutor {
       // Generate decisionId for pattern attribution (join key to trai-decisions.log)
       const decisionId = decision.decisionId || `dec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
-      const tradeResult = await this.ctx.executionLayer.executeTrade({
-        direction: decision.action,
-        positionSize: usdAmount,  // ExecutionLayer expects USD, not BTC!
-        confidence: decision.confidence / 100,
-        decisionId: decisionId,  // Pattern attribution join key
-        marketData: {
-          price,
-          indicators,
-          volatility: indicators.volatility,
-          timestamp: Date.now()
-        },
-        patterns
-      });
+      // Phase 4 REWRITE: executionLayer deleted - use orderRouter for live, simulate for backtest
+      let tradeResult;
+      if (BACKTEST_MODE) {
+        // Backtest: Simulate trade execution
+        tradeResult = {
+          success: true,
+          orderId: `SIM_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          price: price,
+          amount: positionSize
+        };
+      } else {
+        // Live: Route through OrderRouter to exchange
+        const symbol = this.ctx.tradingPair || 'BTC/USD';
+        const side = decision.action.toLowerCase(); // 'buy' or 'sell'
+        try {
+          const orderResult = await this.ctx.orderRouter.sendOrder({
+            symbol,
+            side,
+            amount: positionSize,  // BTC amount
+            type: 'market'
+          });
+          tradeResult = {
+            success: true,
+            orderId: orderResult.orderId || orderResult.id || `LIVE_${Date.now()}`,
+            price: orderResult.price || price,
+            amount: positionSize
+          };
+        } catch (orderErr) {
+          console.error(`❌ Order execution failed: ${orderErr.message}`);
+          tradeResult = { success: false, reason: orderErr.message };
+        }
+      }
 
-      // CHECKPOINT 4: After ExecutionLayer call
-      console.log(`📍 CP4: ExecutionLayer returned:`, tradeResult ? `success=${tradeResult.success}` : 'NULL');
+      // CHECKPOINT 4: After order execution
+      console.log(`📍 CP4: Order result:`, tradeResult ? `success=${tradeResult.success}` : 'NULL');
 
       if (tradeResult && tradeResult.success) {
         console.log(`📍 CP4.5: Trade SUCCESS confirmed, creating unified result`);
@@ -245,7 +262,8 @@ class OrderExecutor {
           console.log(`📍 CP6: AFTER BUY - Position: ${stateAfter.position}, Balance: $${stateAfter.balance} (spent $${positionSize})`);
 
           // Change 605: Start MaxProfitManager on BUY to track profit targets
-          this.ctx.tradingBrain.maxProfitManager.start(price, 'buy', positionSize, {
+          // Phase 4 REWRITE: Access maxProfitManager directly (was inside deleted tradingBrain)
+          this.ctx.maxProfitManager.start(price, 'buy', positionSize, {
             volatility: indicators.volatility || 0,
             confidence: decision.confidence / 100,
             trend: indicators.trend || 'sideways'
@@ -285,20 +303,7 @@ class OrderExecutor {
             }
           }
 
-          // CHANGE 642: Record BUY trade for backtest reporting
-          // FIX 2026-02-17: Added entryStrategy and exitContract for strategy attribution analysis
-          if (this.ctx.executionLayer && this.ctx.executionLayer.trades) {
-            this.ctx.executionLayer.trades.push({
-              timestamp: new Date().toISOString(),
-              type: 'BUY',
-              price: price,
-              amount: positionSize,
-              confidence: decision.confidence,
-              balance: stateManager.get('balance'),  // CHANGE 2025-12-13: Read from StateManager
-              entryStrategy: entryStrategy,  // FIX 2026-02-17: Strategy attribution
-              exitContract: exitContract     // FIX 2026-02-17: Exit conditions for analysis
-            });
-          }
+          // Phase 4 REWRITE: executionLayer.trades deleted - backtestRecorder handles trade recording
 
           // CHANGE 2026-01-23: Broadcast BUY trade to dashboard
           if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs && this.ctx.dashboardWs.readyState === 1) {
@@ -359,8 +364,9 @@ class OrderExecutor {
             // CHANGE 2025-12-13: No local balance sync needed
 
             // Stop MaxProfitManager if it's tracking
-            if (this.ctx.tradingBrain?.maxProfitManager) {
-              this.ctx.tradingBrain.maxProfitManager.reset();
+            // Phase 4 REWRITE: Access maxProfitManager directly
+            if (this.ctx.maxProfitManager) {
+              this.ctx.maxProfitManager.reset();
             }
             return; // Exit early, don't process invalid SELL
           }
@@ -450,37 +456,7 @@ class OrderExecutor {
               this.ctx.discordNotifier.notifyTrade('sell', price, btcAmount, profitLoss);
             }
 
-            // CHANGE 642: Record SELL trade for backtest reporting
-            // CHANGE 649: Add exit indicators for ML learning
-            // FIX 2026-02-17: Added entryStrategy and exitContract for strategy attribution
-            if (this.ctx.executionLayer && this.ctx.executionLayer.trades) {
-              this.ctx.executionLayer.trades.push({
-                timestamp: new Date().toISOString(),
-                type: 'SELL',
-                price: price,
-                entryPrice: buyTrade.entryPrice,
-                amount: sellValue,
-                pnl: pnl,
-                pnlDollars: completeTradeResult.pnlDollars,
-                confidence: decision.confidence,
-                balance: stateManager.get('balance'),
-                holdDuration: holdDuration,
-                // FIX 2026-02-17: Strategy attribution from entry
-                entryStrategy: buyTrade.entryStrategy || 'unknown',
-                exitContract: buyTrade.exitContract || null,
-                // Entry indicators from BUY
-                entryIndicators: buyTrade.indicators,
-                // Exit indicators at SELL time
-                exitIndicators: {
-                  rsi: indicators.rsi,
-                  macd: indicators.macd?.macd || 0,
-                  macdSignal: indicators.macd?.signal || 0,
-                  trend: indicators.trend,
-                  volatility: indicators.volatility || 0
-                },
-                exitReason: completeTradeResult.exitReason || 'signal'
-              });
-            }
+            // Phase 4 REWRITE: executionLayer.trades deleted - backtestRecorder handles trade recording
 
             // CHANGE 2026-01-23: Broadcast SELL trade to dashboard
             if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs && this.ctx.dashboardWs.readyState === 1) {
@@ -715,8 +691,9 @@ class OrderExecutor {
           }
 
           // CHANGE 645: Reset MaxProfitManager after successful SELL
-          if (this.ctx.tradingBrain?.maxProfitManager) {
-            this.ctx.tradingBrain.maxProfitManager.reset();
+          // Phase 4 REWRITE: Access maxProfitManager directly
+          if (this.ctx.maxProfitManager) {
+            this.ctx.maxProfitManager.reset();
             console.log(`💰 MaxProfitManager deactivated - ready for next trade`);
           }
 
@@ -763,15 +740,7 @@ class OrderExecutor {
       console.error(`   Decision: ${decision?.action}, Confidence: ${decision?.confidence}`);
       console.error(`   Position size: ${positionSize}`);
 
-      // Report error to circuit breaker
-      if (this.ctx.tradingBrain?.errorHandler) {
-        console.log(`   Reporting to error handler (circuit breaker will increment)`);
-        this.ctx.tradingBrain.errorHandler.reportCritical('ExecutionLayer', error, {
-          decision: decision.action,
-          confidence: decision.confidence,
-          positionSize
-        });
-      }
+      // Phase 4 REWRITE: tradingBrain.errorHandler deleted - error logging above is sufficient
     }
   }
 }

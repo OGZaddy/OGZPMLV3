@@ -1,0 +1,33 @@
+=== OGZ Prime Health Check Thu Mar  5 01:49:57 AM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m10[39m[22m │ ogz-prime-v2       │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 746766   │ 0s     │ 246… │ [32m[1monline[22m[39m    │ 0%       │ 94.0mb   │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+
+📈 CONFIDENCE LEVELS (last 50):
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 0
+0 occurrences
+
+❌ ERRORS (last 10):
+   ❌ Errors: 21
+🛡️ Sentry error monitoring initialized
+  ✅ ErrorHandler
+
+🧠 PATTERNS WITH PnL:
+âœ… Pattern RECORDED: features[9], pnl=?%, total=179
+âœ… Pattern RECORDED: features[9], pnl=?%, total=180
+âœ… Pattern RECORDED: features[9], pnl=?%, total=181
+âœ… Pattern RECORDED: features[9], pnl=?%, total=182
+âœ… Pattern RECORDED: features[9], pnl=?%, total=183
+âœ… Pattern RECORDED: features[9], pnl=?%, total=184
+âœ… Pattern RECORDED: features[9], pnl=?%, total=185
+âœ… Pattern RECORDED: features[9], pnl=?%, total=186
+  ✅ PatternMemoryBank
+  ✅ PatternMemoryStore
+
+🎯 RECENT DECISIONS:
+
+=== END REPORT ===

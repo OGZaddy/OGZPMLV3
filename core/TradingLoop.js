@@ -398,8 +398,9 @@ class TradingLoop {
         }
 
         // Check MaxProfitManager for tiered profit exits (if active)
-        if (decision.action !== 'SELL' && this.ctx.tradingBrain?.maxProfitManager?.state?.active) {
-          const profitResult = this.ctx.tradingBrain.maxProfitManager.update(price, {
+        // Phase 4 REWRITE: Access maxProfitManager directly (was inside deleted tradingBrain)
+        if (decision.action !== 'SELL' && this.ctx.maxProfitManager?.state?.active) {
+          const profitResult = this.ctx.maxProfitManager.update(price, {
             volatility: indicators.volatility || 0,
             trend: indicators.trend || 'sideways',
             volume: this.ctx.marketData?.volume || 0

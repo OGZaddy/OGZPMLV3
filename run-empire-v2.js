@@ -156,6 +156,9 @@ const OrderRouter = require('./core/OrderRouter');
 // REFACTOR Phase 14: OrderExecutor - exact copy of executeTrade() extracted
 const OrderExecutor = require('./core/OrderExecutor');
 
+// Phase 4 REWRITE: MaxProfitManager standalone (was inside deleted OptimizedTradingBrain)
+const MaxProfitManager = require('./core/MaxProfitManager');
+
 // REFACTOR Phase 15: TradingLoop - exact copy of analyzeAndTrade() extracted
 const TradingLoop = require('./core/TradingLoop');
 
@@ -570,6 +573,10 @@ class OGZPrimeV14Bot {
     this.orderRouter.registerBroker(this.kraken, ['BTC/USD', 'XBT/USD', 'ETH/USD', 'SOL/USD']);
     console.log('[EMPIRE V2] OrderRouter initialized - multi-broker ready');
 
+    // Phase 4 REWRITE: MaxProfitManager standalone (was inside deleted OptimizedTradingBrain)
+    this.maxProfitManager = new MaxProfitManager();
+    console.log('[EMPIRE V2] MaxProfitManager initialized - tiered exits ready');
+
     // RECONCILER REMOVED - was causing more problems than it solved
 
     // EVENT LOOP MONITORING: DISABLED 2026-02-04
@@ -704,6 +711,7 @@ class OGZPrimeV14Bot {
     // REFACTOR Phase 14: OrderExecutor - context with all dependencies
     // Phase 2 REWRITE: executionLayer, tradingBrain, tradingOptimizations deleted
     // Phase 3 REWRITE: entryDecider deleted - gate checks in TradingLoop
+    // Phase 4 REWRITE: Added orderRouter + maxProfitManager
     this.orderExecutor = new OrderExecutor({
       performanceAnalyzer: this.performanceAnalyzer,
       patternChecker: this.patternChecker,
@@ -715,6 +723,9 @@ class OGZPrimeV14Bot {
       config: this.config,
       pendingTraiDecisions: this.pendingTraiDecisions,
       tradingPair: this.tradingPair || process.env.TRADING_PAIR || 'BTC-USD',
+      // Phase 4 REWRITE: Standalone dependencies (was inside deleted modules)
+      orderRouter: this.orderRouter,
+      maxProfitManager: this.maxProfitManager,
       // Module-level functions
       notifyTrade: notifyTrade,
       notifyTradeClose: notifyTradeClose,
@@ -725,6 +736,7 @@ class OGZPrimeV14Bot {
     // REFACTOR Phase 15: TradingLoop - context with all dependencies
     // Phase 2 REWRITE: tradingBrain, executionLayer deleted - orchestrator handles decisions
     // Phase 3 REWRITE: entryDecider deleted - decision logic inlined here
+    // Phase 4 REWRITE: Added maxProfitManager for tiered exits
     this.tradingLoop = new TradingLoop({
       indicatorEngine: indicatorEngine,
       contractValidator: this.contractValidator,
@@ -736,6 +748,8 @@ class OGZPrimeV14Bot {
       trai: this.trai,
       backtestRecorder: this.backtestRecorder,
       orderExecutor: this.orderExecutor,
+      // Phase 4 REWRITE: MaxProfitManager standalone
+      maxProfitManager: this.maxProfitManager,
       // Additional context for strategy orchestration
       strategyOrchestrator: this.strategyOrchestrator,
       emaCrossoverSignal: this.emaCrossoverSignal,
