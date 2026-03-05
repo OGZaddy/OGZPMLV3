@@ -55,6 +55,7 @@ async function route(command, args) {
     '/branch': branch,
     '/commander': commander,
     '/architect': architect,
+    '/bombardier': bombardier,  // Blast radius analysis - shows impact before fixing
     '/entomologist': entomologist,
     '/exterminator': exterminator,
     '/fixer': fixer,           // For refactor mode - applies extractions/refactors
@@ -219,6 +220,80 @@ async function architect(manifest, params) {
   });
 
   console.log('✅ Architect: System mapped');
+  return manifest;
+}
+
+/**
+ * Bombardier: Blast radius analysis
+ * Shows what will be affected before making changes
+ */
+async function bombardier(manifest, params) {
+  const { Bombardier } = require('./bombardier');
+  const bomb = new Bombardier();
+
+  // Load or build call graph
+  if (!bomb.loadCache()) {
+    console.log('📊 Building call graph (first run)...');
+    await bomb.buildGraph();
+  }
+
+  // Get target from params or from architect's findings
+  let target = params[0];
+  if (!target && manifest.architect?.system_map?.length > 0) {
+    // Use first file from architect's system map
+    target = manifest.architect.system_map[0];
+  }
+
+  if (!target) {
+    console.log('⚠️ Bombardier: No target specified');
+    updateSection(manifest, 'bombardier', {
+      status: 'NO_TARGET',
+      blast_radius: null
+    });
+    return manifest;
+  }
+
+  // Parse file:line or function name
+  let result;
+  if (target.includes(':')) {
+    const [file, line] = target.split(':');
+    result = bomb.getBlastRadius(file, parseInt(line, 10));
+  } else {
+    result = bomb.getBlastRadius(target);
+  }
+
+  // Print the blast radius
+  bomb.printBlastRadius(result);
+
+  // Store in manifest
+  const blastData = {
+    target,
+    found: result.found,
+    upstream_count: result.upstream?.length || 0,
+    downstream_count: result.downstream?.length || 0,
+    files_affected: result.files?.length || 0,
+    risk_level: 'LOW'
+  };
+
+  // Calculate risk
+  const totalImpact = blastData.upstream_count + blastData.downstream_count;
+  if (totalImpact > 20 || blastData.files_affected > 5) blastData.risk_level = 'HIGH';
+  else if (totalImpact > 10 || blastData.files_affected > 3) blastData.risk_level = 'MEDIUM';
+
+  // Block if HIGH risk without explicit approval
+  if (blastData.risk_level === 'HIGH') {
+    console.log('\n⚠️  HIGH RISK - Review blast radius carefully before proceeding');
+  }
+
+  updateSection(manifest, 'bombardier', {
+    status: 'ANALYZED',
+    blast_radius: blastData,
+    upstream: result.upstream?.slice(0, 10) || [],
+    downstream: result.downstream?.slice(0, 10) || [],
+    files: result.files || []
+  });
+
+  console.log(`✅ Bombardier: ${blastData.risk_level} risk - ${totalImpact} functions, ${blastData.files_affected} files`);
   return manifest;
 }
 

@@ -3,309 +3,509 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OGZ Prime - Verified Trading Operations</title>
+  <title>OGZPrime — Modular Trading Infrastructure</title>
   <link rel="stylesheet" href="valhalla-style.css">
-  <script src="https://js.stripe.com/v3/"></script>
-  <script defer src="trai-widget.js"></script>
-  <script>
-    const stripe = Stripe("pk_test_51Rc2VnGai7JiFhNgT1aZdghugWMXbWoOnOVpNwr7QmojxxIau57wGKOB3f8rBi8yFWVuvIGGON7bjvuUtcm7SIm100ylS00sz6");
-
-    function createCheckoutSession(tier) {
-    // UPDATED FOR ELITE/ML TIER SYSTEM - All prices TBD, using placeholders
-    const priceMap = {
-    elite: "price_elite_placeholder",  // Advanced trading features
-    ml: "price_ml_placeholder"         // Elite + TRAI AI co-founder
-    };
-
-      fetch("/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId: priceMap[tier] })
-      })
-      .then(res => res.json())
-      .then(data => stripe.redirectToCheckout({ sessionId: data.sessionId }))
-      .catch(error => console.error("Error:", error));
-    }
-  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: linear-gradient(135deg, #0a0a0a, #1a0a0a);
-      color: white;
-      font-family: 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      line-height: 1.6;
     }
+
+    /* Hero */
     .hero {
-      text-align: center;
-      padding: 100px 20px;
-      background: black;
       position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
       overflow: hidden;
     }
-    .video-bg {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      overflow: hidden;
-      z-index: -1;
-    }
-    .video-bg video {
-      min-width: 100%;
-      min-height: 100%;
-      object-fit: cover;
-      filter: brightness(0.3);
-    }
-    .overlay {
+    .hero video {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.6);
+      object-fit: cover;
       z-index: 1;
+      filter: brightness(0.25);
     }
     .hero-content {
       position: relative;
       z-index: 2;
-    }
-    .hero h1 {
-      font-size: 3.5rem;
-      background: linear-gradient(45deg, #ff3333, #dc2626);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 20px rgba(255, 51, 51, 0.6);
-    }
-    .hero p {
-      font-size: 1.3rem;
-      color: #ccc;
-      margin-top: 20px;
-    }
-    .cta-btn {
-      background: #dc2626;
-      padding: 18px 40px;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.2rem;
-      margin-top: 30px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-    .cta-btn:hover {
-      background: #ff3333;
-      box-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
-    }
-    .section {
-      padding: 80px 40px;
-      max-width: 1000px;
-      margin: auto;
       text-align: center;
+      padding: 20px;
+    }
+    .hero-content h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: 4rem;
+      color: #dc2626;
+      margin-bottom: 16px;
+      letter-spacing: -2px;
+    }
+    .hero-content p {
+      font-size: 1.2rem;
+      color: #999;
+      max-width: 600px;
+      margin: 0 auto 8px;
+    }
+    .hero-content .sub {
+      font-size: 0.95rem;
+      color: #555;
+    }
+
+    /* Sections */
+    .section {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    .section-dark {
+      background: #0f0f0f;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
     }
     .section h2 {
-      font-size: 2.5rem;
-      color: #ff3333;
-      margin-bottom: 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 2rem;
+      color: #dc2626;
+      margin-bottom: 16px;
+      text-align: center;
     }
-    .feature-grid {
+    .section .lead {
+      text-align: center;
+      color: #999;
+      font-size: 1.1rem;
+      max-width: 650px;
+      margin: 0 auto 48px;
+    }
+
+    /* Feature grid */
+    .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 40px;
-      margin-top: 40px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
     }
-    .feature {
+    .card {
       background: #111;
-      padding: 30px;
+      border: 1px solid #222;
       border-radius: 12px;
-      border: 1px solid #dc2626;
+      padding: 28px 24px;
+      transition: border-color 0.3s;
     }
-    .feature h3 {
-      color: #f87171;
-      font-size: 1.4rem;
-      margin-bottom: 10px;
+    .card:hover { border-color: #dc2626; }
+    .card h3 {
+      font-size: 1.1rem;
+      color: #fff;
+      margin-bottom: 8px;
     }
-    .feature p {
-      color: #bbb;
+    .card p {
+      color: #888;
+      font-size: 0.92rem;
+      line-height: 1.6;
     }
+
+    /* Stats bar */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      text-align: center;
+      padding: 60px 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .stat-num {
+      font-family: 'Space Mono', monospace;
+      font-size: 2.2rem;
+      color: #dc2626;
+      font-weight: 700;
+    }
+    .stat-label {
+      color: #666;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    /* Proof strip */
+    .proof-strip {
+      background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
+      border-top: 1px solid #22c55e;
+      border-bottom: 1px solid #22c55e;
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .proof-strip h2 {
+      font-family: 'Space Mono', monospace;
+      color: #22c55e;
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+    }
+    .proof-strip p { color: #888; margin-bottom: 24px; }
+    .proof-checks {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .proof-check {
+      color: #ccc;
+      font-size: 0.95rem;
+    }
+    .proof-check::before {
+      content: "\2713";
+      color: #22c55e;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    /* How it works */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      counter-reset: step;
+    }
+    .step {
+      text-align: center;
+      counter-increment: step;
+    }
+    .step::before {
+      content: counter(step);
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      line-height: 48px;
+      border-radius: 50%;
+      background: #dc2626;
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .step h3 { color: #fff; margin-bottom: 8px; font-size: 1.05rem; }
+    .step p { color: #888; font-size: 0.9rem; }
+
+    /* CTA */
+    .cta-section {
+      text-align: center;
+      padding: 80px 24px;
+    }
+    .cta-section h2 {
+      font-family: 'Space Mono', monospace;
+      color: #fff;
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+    }
+    .cta-section p { color: #888; margin-bottom: 32px; font-size: 1.05rem; }
+    .btn-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-block;
+      padding: 16px 36px;
+      background: #dc2626;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .btn-primary:hover { background: #ef4444; transform: translateY(-2px); }
+    .btn-outline {
+      display: inline-block;
+      padding: 16px 36px;
+      background: transparent;
+      color: #dc2626;
+      text-decoration: none;
+      border: 2px solid #dc2626;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-outline:hover { background: rgba(220,38,38,0.1); transform: translateY(-2px); }
+
+    /* Footer */
     footer {
       text-align: center;
-      padding: 60px 20px;
-      color: #666;
-      font-size: 0.9rem;
+      padding: 40px 20px;
+      color: #555;
+      font-size: 0.85rem;
+      border-top: 1px solid #1a1a1a;
+    }
+    footer a { color: #f87171; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Lead modal */
+    #leadModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-box {
+      width: 95%;
+      max-width: 480px;
+      background: #0b0b0b;
+      border: 1px solid #dc2626;
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .modal-box h3 { color: #f87171; margin-bottom: 8px; }
+    .modal-box p { color: #888; font-size: 0.92rem; margin-bottom: 16px; }
+    .modal-box input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #111;
+      color: #fff;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+    .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+    .modal-submit {
+      flex: 1;
+      padding: 12px;
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .modal-cancel {
+      padding: 12px 16px;
+      background: transparent;
+      border: 1px solid #333;
+      color: #888;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    @media (max-width: 700px) {
+      .hero-content h1 { font-size: 2.5rem; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .steps { grid-template-columns: 1fr; }
+      .proof-checks { flex-direction: column; align-items: center; gap: 8px; }
     }
   </style>
 </head>
 <body>
-  <section class="hero" style="position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: black; overflow: hidden;">
-    <video autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: brightness(0.3);">
+
+  <!-- HERO -->
+  <section class="hero">
+    <video autoplay muted loop playsinline>
       <source src="/assets/video/ogz-stinger-merged.mp4" type="video/mp4">
     </video>
     <div class="hero-content">
-      <h1>OGZ Prime</h1>
-      <p>Backtested, live-tested, and continuously monitored under real market conditions.</p>
-      <p style="font-size: 1rem; color: #888; margin-top: 10px;">Operational behavior is recorded automatically. No silent resets.</p>
+      <h1>OGZPrime</h1>
+      <p>Modular trading infrastructure. Plug in your strategies, backtest with real fees, deploy to live markets.</p>
+      <p class="sub">Verified daily under real market conditions. No silent resets.</p>
     </div>
   </section>
 
-  <!-- Verification Hook -->
-  <section style="padding: 60px 20px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); border-top: 1px solid #4CAF50; border-bottom: 1px solid #4CAF50;">
-    <div class="container" style="max-width: 800px; margin: 0 auto; text-align: center;">
-      <h2 style="font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 20px; line-height: 1.3;">
-        What is continuously verified
-      </h2>
-
-      <div style="text-align: left; max-width: 500px; margin: 0 auto 30px; font-size: 16px; color: #ccc;">
-        <p style="margin: 12px 0;">✓ Order handling verified</p>
-        <p style="margin: 12px 0;">✓ Restart behavior verified</p>
-        <p style="margin: 12px 0;">✓ Continuous operation recorded</p>
-        <p style="margin: 12px 0;">✓ Instance isolation verified</p>
-      </div>
-
-      <a href="proof/" style="display: inline-block; padding: 14px 32px; background: #4CAF50; color: #000; text-decoration: none; font-weight: 700; font-size: 18px; border-radius: 4px; transition: all 0.3s ease;">
-        View live system proof
-      </a>
+  <!-- STATS -->
+  <div class="stats">
+    <div>
+      <div class="stat-num">15+</div>
+      <div class="stat-label">Technical Indicators</div>
     </div>
-  </section>
+    <div>
+      <div class="stat-num">45K+</div>
+      <div class="stat-label">Candles Validated</div>
+    </div>
+    <div>
+      <div class="stat-num">24/7</div>
+      <div class="stat-label">Live Operation</div>
+    </div>
+    <div>
+      <div class="stat-num">7 Day</div>
+      <div class="stat-label">Free Trial</div>
+    </div>
+  </div>
 
-  <section class="section">
-    <h2>What OGZPrime Is</h2>
-    <p>OGZPrime is an automated trading system designed to operate continuously under real market conditions, with behavior that is observed, recorded, and verified over time.</p>
-    <div class="feature-grid">
-      <div class="feature">
-        <h3>Order Handling</h3>
-        <p>Orders can be placed, validated, canceled, and reconciled without duplication.</p>
-      </div>
-      <div class="feature">
-        <h3>Restart Behavior</h3>
-        <p>The system can restart without corrupting state or re-issuing trades.</p>
-      </div>
-      <div class="feature">
-        <h3>Continuous Operation</h3>
-        <p>Runtime behavior is tracked day-by-day, not reconstructed after the fact.</p>
-      </div>
-      <div class="feature">
-        <h3>Instance Isolation</h3>
-        <p>Test and customer instances operate without touching production data.</p>
+  <!-- WHAT IT DOES -->
+  <div class="section-dark">
+    <div class="section">
+      <h2>Your Strategies. Our Infrastructure.</h2>
+      <p class="lead">OGZPrime handles the hard parts — exchange connections, indicator calculations, risk management, exit logic, position tracking. You focus on what matters: your trading edge.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Indicator Engine</h3>
+          <p>RSI, MACD, EMA, Bollinger Bands, ATR, ADX, VWAP, Stochastic RSI, SuperTrend, and more. Calculated in real-time on every candle.</p>
+        </div>
+        <div class="card">
+          <h3>Strategy Orchestrator</h3>
+          <p>Plug in your own strategies. Each competes independently on confidence. Winner takes the trade. No blended signals, no soup.</p>
+        </div>
+        <div class="card">
+          <h3>Exit Contract System</h3>
+          <p>Every trade gets its own exit rules based on which strategy opened it. Stop loss, take profit, trailing stops, tiered exits. Per-strategy, per-trade.</p>
+        </div>
+        <div class="card">
+          <h3>Risk Management</h3>
+          <p>Drawdown limits, daily loss caps, confidence-scaled position sizing. Multiple layers of protection you configure once from a single file.</p>
+        </div>
+        <div class="card">
+          <h3>Live Dashboard</h3>
+          <p>Real-time TradingView charts, trade markers, indicator overlays, position tracking. WebSocket-fed, always current.</p>
+        </div>
+        <div class="card">
+          <h3>Backtest Engine</h3>
+          <p>Run your strategies against historical data with real fee calculations. Per-strategy attribution shows exactly what works and what doesn't.</p>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <section class="section">
-    <h2>Why This Exists</h2>
-    <p>OGZPrime was built to solve one problem: trading systems that work in testing often fail in production. This system was designed from the start to be monitored, recorded, and verified under real conditions — not reconstructed after the fact.</p>
-  </section>
-
-  <section class="section">
-    <h2>See It Running</h2>
-    <p>OGZPrime operates continuously under real market conditions. Behavior is recorded and published automatically.</p>
-    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 30px;">
-      <a href="proof/" style="text-decoration: none;">
-        <button style="background: linear-gradient(45deg, #dc2626, #ff3333); padding: 18px 40px; color: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">
-          View live system proof
-        </button>
-      </a>
-      <a href="pricing.html"><button style="background: transparent; border: 2px solid #dc2626; color: #dc2626; padding: 16px 38px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">See Pricing</button></a>
+  <!-- VERIFIED PROOF -->
+  <div class="proof-strip">
+    <h2>Verified Operations</h2>
+    <p>Behavior is recorded and published automatically as part of normal operation.</p>
+    <div class="proof-checks">
+      <span class="proof-check">Order handling verified</span>
+      <span class="proof-check">Restart integrity verified</span>
+      <span class="proof-check">Continuous operation recorded</span>
+      <span class="proof-check">Instance isolation verified</span>
     </div>
-  </section>
+    <a href="proof/" class="btn-outline" style="border-color: #22c55e; color: #22c55e;">View Live Proof</a>
+  </div>
 
-  <!-- Lead Capture Modal for Live Demo Gate -->
-  <div id="leadModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
-    <div style="width: 95%; max-width: 520px; background:#0b0b0b; border:1px solid #dc2626; border-radius:12px; padding:22px; box-shadow: 0 20px 60px rgba(0,0,0,0.7);">
-      <h3 style="margin:0; color:#f87171;">Unlock Live Demo</h3>
-      <p style="color:#bbb; margin:8px 0 14px;">Enter your email to view the live trading dashboard. We’ll send strategy insights and performance updates.</p>
+  <!-- HOW IT WORKS -->
+  <div class="section">
+    <h2>How It Works</h2>
+    <p class="lead">From signup to live trading in three steps.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Connect Your Exchange</h3>
+        <p>Add your Kraken API keys. Read-only or trade-enabled — your choice. More exchanges coming.</p>
+      </div>
+      <div class="step">
+        <h3>Plug In Your Strategy</h3>
+        <p>Use the strategy template. Implement your logic. Backtest against real data with real fees before going live.</p>
+      </div>
+      <div class="step">
+        <h3>Deploy & Monitor</h3>
+        <p>Go live. Watch the dashboard. Risk management and exit contracts handle the rest. Every action logged and verifiable.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <h2>Built Different. Verified Daily.</h2>
+    <p>7-day free trial. No credit card required to explore. Cancel anytime.</p>
+    <div class="btn-row">
+      <a href="pricing.html" class="btn-primary">See Pricing</a>
+      <a href="#" onclick="return openDemoGate(event)" class="btn-outline">Watch Live Demo</a>
+    </div>
+  </div>
+
+  <!-- LEAD CAPTURE MODAL -->
+  <div id="leadModal">
+    <div class="modal-box">
+      <h3>Unlock Live Demo</h3>
+      <p>Enter your email to view the live trading dashboard.</p>
       <form id="leadForm" onsubmit="return submitLead(event)">
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-          <input id="leadName" placeholder="Your name (optional)" style="flex:1; padding:12px; border-radius:8px; border:1px solid #333; background:#111; color:#fff;">
+        <input id="leadName" placeholder="Your name (optional)">
+        <input id="leadEmail" placeholder="Email (required)" type="email" required>
+        <div id="leadError" style="display:none; color:#f87171; font-size:0.9rem; margin-bottom:8px;"></div>
+        <div class="modal-actions">
+          <button id="leadSubmit" class="modal-submit" type="submit">Continue to Live Demo</button>
+          <button type="button" class="modal-cancel" onclick="closeLeadModal()">Cancel</button>
         </div>
-        <div style="display:flex; gap:10px;">
-          <input id="leadEmail" placeholder="Email (required)" type="email" required style="flex:1; padding:12px; border-radius:8px; border:1px solid #333; background:#111; color:#fff;">
-        </div>
-        <div id="leadError" style="display:none; color:#f87171; margin-top:8px; font-size:0.95rem;"></div>
-        <div style="display:flex; gap:10px; margin-top:14px; align-items:center;">
-          <button id="leadSubmit" class="cta-btn" type="submit" style="flex:1;">Continue to Live Demo</button>
-          <button type="button" onclick="closeLeadModal()" style="background:transparent; border:1px solid #444; color:#aaa; padding:12px 16px; border-radius:8px; cursor:pointer;">Cancel</button>
-        </div>
-        <div style="margin-top:10px; color:#777; font-size:0.85rem;">We respect your inbox. Unsubscribe anytime. Read our <a href="legal-final.html" style="color:#f87171;">privacy</a>.</div>
-        <input type="text" id="leadBot" style="position:absolute; left:-9999px; top:-9999px;" tabindex="-1" autocomplete="off">
+        <div style="margin-top:10px; color:#555; font-size:0.8rem;">We respect your inbox. Unsubscribe anytime. <a href="legal.html" style="color:#f87171;">Privacy</a></div>
+        <input type="text" id="leadBot" style="position:absolute; left:-9999px;" tabindex="-1" autocomplete="off">
       </form>
     </div>
   </div>
 
+  <!-- FOOTER -->
+  <footer>
+    &copy; 2026 OGZPrime. All Rights Reserved. |
+    <a href="legal.html">Legal</a> |
+    <a href="features.html">Features</a> |
+    <a href="pricing.html">Pricing</a>
+    <p style="margin-top:8px; font-size:0.8rem; color:#444;">OGZPrime publishes operational proof as part of normal operation.</p>
+  </footer>
+
   <script>
-    // Gate the live demo behind lead capture unless already captured
     function openDemoGate(e) {
+      e.preventDefault();
       try {
-        const ok = localStorage.getItem('ogz_lead_demo_ok');
-        if (ok) {
+        if (localStorage.getItem('ogz_lead_demo_ok')) {
           window.location.href = 'unified-dashboard.html';
           return false;
         }
-        document.getElementById('leadModal').style.display = 'flex';
-      } catch (_) {
-        document.getElementById('leadModal').style.display = 'flex';
-      }
+      } catch(_) {}
+      document.getElementById('leadModal').style.display = 'flex';
       return false;
     }
     function closeLeadModal() {
       document.getElementById('leadModal').style.display = 'none';
     }
     function showLeadError(msg) {
-      const el = document.getElementById('leadError');
+      var el = document.getElementById('leadError');
       el.textContent = msg; el.style.display = 'block';
     }
     function hideLeadError() {
-      const el = document.getElementById('leadError');
-      el.style.display = 'none';
+      document.getElementById('leadError').style.display = 'none';
     }
     function getUtmParams() {
-      const p = new URLSearchParams(window.location.search);
-      const keys = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'];
-      const obj = {}; keys.forEach(k => { if (p.get(k)) obj[k] = p.get(k); });
+      var p = new URLSearchParams(window.location.search);
+      var keys = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'];
+      var obj = {}; keys.forEach(function(k) { if (p.get(k)) obj[k] = p.get(k); });
       return obj;
     }
     async function submitLead(ev) {
       ev.preventDefault(); hideLeadError();
-      const email = document.getElementById('leadEmail').value.trim();
-      const name = document.getElementById('leadName').value.trim();
-      const honeypot = document.getElementById('leadBot').value;
-      if (honeypot) { return false; }
+      var email = document.getElementById('leadEmail').value.trim();
+      var name = document.getElementById('leadName').value.trim();
+      if (document.getElementById('leadBot').value) return false;
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLeadError('Please enter a valid email.'); return false; }
-      const btn = document.getElementById('leadSubmit');
+      var btn = document.getElementById('leadSubmit');
       btn.disabled = true; btn.textContent = 'Submitting...';
       try {
-        const payload = {
-          email,
-          name,
+        var payload = {
+          email: email,
+          name: name,
           type: 'demo_gate',
           timestamp: new Date().toISOString(),
           source: 'index',
           page: window.location.href,
           userAgent: navigator.userAgent,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          ...getUtmParams()
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         };
-        // Send to Make.com webhook for lead tracking + AI follow-up
-        const res = await fetch('https://hook.us2.make.com/qvl54ugr24grkqgkbbm7i0xmfub3oh5a', {
+        var utms = getUtmParams();
+        for (var k in utms) payload[k] = utms[k];
+        var res = await fetch('https://hook.us2.make.com/qvl54ugr24grkqgkbbm7i0xmfub3oh5a', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) {
-          console.error('Webhook failed:', res.status, res.statusText);
-          throw new Error('Lead webhook failed');
-        }
-        try { localStorage.setItem('ogz_lead_demo_ok', String(Date.now())); } catch(_){}
+        if (!res.ok) throw new Error('Webhook failed');
+        try { localStorage.setItem('ogz_lead_demo_ok', String(Date.now())); } catch(_) {}
         window.location.href = 'unified-dashboard.html';
       } catch (e) {
-        console.error('Form submission error:', e);
-        showLeadError('Could not submit. Please try again in a moment.');
+        showLeadError('Could not submit. Please try again.');
       } finally {
         btn.disabled = false; btn.textContent = 'Continue to Live Demo';
       }
       return false;
     }
   </script>
-
-  <footer>
-    &copy; 2025 OGZ Prime. All Rights Reserved. |
-    <a href="legal.html" style="color:#f87171">Legal</a> |
-    <a href="features.html" style="color:#f87171">Features</a> |
-    <a href="signup.html" style="color:#f87171">Downloads</a>
-    <p style="margin-top: 10px; font-size: 0.8rem; color: #555;">OGZPrime publishes operational proof as part of normal operation.</p>
-  </footer>
 </body>
 </html>

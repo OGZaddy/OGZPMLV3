@@ -2563,13 +2563,59 @@
             <div class="chart-container">
                 <!-- TradingView Chart -->
                 <div id="tvChartContainer"></div>
+                
+                <!-- Dynamic Indicator Overlay -->
+                <div class="indicator-overlay" id="indicatorOverlay">
+                    <h4>📊 Indicators</h4>
 
-                <!-- Trade Tooltip (hover on markers) -->
-                <div id="tradeTooltip" style="display:none; position:absolute; background:rgba(0,0,0,0.95); border:1px solid #444; border-radius:6px; padding:10px 12px; font-size:11px; font-family:monospace; z-index:1000; pointer-events:none; min-width:180px;">
-                    <div id="tooltipContent"></div>
+                    <!-- Core Indicators -->
+                    <div class="indicators-panel core-indicators">
+                        <div class="indicator-item">
+                            <span class="indicator-label">RSI (14):</span>
+                            <span class="indicator-value" id="rsiCore">50</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">MACD (12/26):</span>
+                            <span class="indicator-value" id="macdCore">0.00</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">Pattern:</span>
+                            <span class="indicator-value" id="patternCore">None</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">Volume:</span>
+                            <span class="indicator-value" id="volumeCore">0</span>
+                        </div>
+                    </div>
+
+                    <!-- ML Indicators (Full suite) -->
+                    <div class="indicators-panel ml-indicators">
+                        <div class="indicator-item">
+                            <span class="indicator-label">RSI (14):</span>
+                            <span class="indicator-value" id="rsiML">50</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">MACD (12/26):</span>
+                            <span class="indicator-value" id="macdML">0.00</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">Pattern:</span>
+                            <span class="indicator-value" id="patternML">None</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">Volume:</span>
+                            <span class="indicator-value" id="volumeML">0</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">ATR:</span>
+                            <span class="indicator-value" id="atrML">0.00</span>
+                        </div>
+                        <div class="indicator-item">
+                            <span class="indicator-label">Confidence:</span>
+                            <span class="indicator-value" id="confidenceML">0%</span>
+                        </div>
+                    </div>
                 </div>
-
-                <!-- Dynamic Indicator Overlay - MOVED to Trade Log panel for readability -->
 
                 <!-- Signal Pipeline Panel - HIDDEN: Clutters the chart, info available in Edge Analytics -->
                 <div class="signal-overlay" id="signalOverlay" style="display:none !important; position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:10px; min-width:220px; z-index:100; font-family:monospace;">
@@ -2620,6 +2666,15 @@
                             <p class="pattern-info">Pattern detection active. When a pattern is identified, its visual representation and explanation will appear here.</p>
                         </div>
                     </div>
+
+                    <!-- Signal Pipeline Panel (restored 2026-02-18) -->
+                    <div id="signalPipelineInline" style="background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:10px; margin-top:12px; font-family:monospace;">
+                        <h4 style="margin:0 0 6px 0; font-size:12px; color:#888;">📡 SIGNAL PIPELINE</h4>
+                        <div id="signalDirectionInline" style="font-size:15px; font-weight:bold; color:#888;">WAITING...</div>
+                        <div id="signalConfidenceInline" style="font-size:11px; color:#aaa; margin-bottom:6px;"></div>
+                        <div id="signalListInline" style="font-size:10px; max-height:120px; overflow-y:auto;"></div>
+                        <div id="moduleStatusInline" style="font-size:9px; color:#666; margin-top:6px; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;"></div>
+                    </div>
                 </div>
             </div>
             
@@ -2643,17 +2698,6 @@
                         <div class="stat-label">Confidence</div>
                         <div class="stat-value" id="confidence">0%</div>
                     </div>
-                </div>
-
-                <!-- Indicators (moved from chart overlay) -->
-                <div class="panel-title">📊 Indicators</div>
-                <div class="indicator-bar" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px; background:rgba(0,0,0,0.3); border-radius:4px; font-size:11px;">
-                    <span><b>RSI:</b> <span id="rsiCore">50</span></span>
-                    <span><b>MACD:</b> <span id="macdCore">0.00</span></span>
-                    <span><b>Pattern:</b> <span id="patternCore">None</span></span>
-                    <span><b>Vol:</b> <span id="volumeCore">0</span></span>
-                    <span><b>ATR:</b> <span id="atrML">0.00</span></span>
-                    <span><b>Conf:</b> <span id="confidenceML">0%</span></span>
                 </div>
 
                 <!-- Trade Log -->
@@ -2727,9 +2771,6 @@
         let tradesExecuted = 0;
         let lastPrice = 0;
         let currentChartType = 'candlestick';
-
-        // Trade history for tooltip display (stores full trade data keyed by time)
-        const tradeHistory = new Map();
         
         // Chart series
         let candleSeries = null;
@@ -3222,14 +3263,10 @@
             window.tvChart = tvChart;
             window.candleSeries = candleSeries;
 
-            // Add crosshair move handler for OHLC display + trade tooltips
-            const tooltip = document.getElementById('tradeTooltip');
-            const tooltipContent = document.getElementById('tooltipContent');
-
+            // Add crosshair move handler for OHLC display
             tvChart.subscribeCrosshairMove((param) => {
                 if (!param || !param.seriesData || !param.time) {
                     document.getElementById('currentPrice').textContent = '$0.00';
-                    tooltip.style.display = 'none';
                     return;
                 }
 
@@ -3244,42 +3281,6 @@
                         displayText = `$${data.value.toFixed(2)}`;
                     }
                     document.getElementById('currentPrice').textContent = displayText;
-                }
-
-                // Check for trade at this time
-                const tradeData = tradeHistory.get(param.time);
-                if (tradeData && param.point) {
-                    const color = tradeData.type === 'BUY' ? '#00ff88' : '#ff3366';
-                    const pnlText = tradeData.pnl !== null
-                        ? `<div style="color:${tradeData.pnl >= 0 ? '#00ff88' : '#ff3366'}; font-weight:bold;">P&L: ${tradeData.pnl >= 0 ? '+' : ''}$${parseFloat(tradeData.pnl).toFixed(2)}</div>`
-                        : '';
-
-                    tooltipContent.innerHTML = `
-                        <div style="color:${color}; font-weight:bold; font-size:13px; margin-bottom:6px;">${tradeData.type}</div>
-                        <div><span style="color:#888;">Price:</span> $${parseFloat(tradeData.price).toLocaleString()}</div>
-                        <div><span style="color:#888;">Time:</span> ${tradeData.time}</div>
-                        <div><span style="color:#888;">Date:</span> ${tradeData.date}</div>
-                        ${tradeData.size ? `<div><span style="color:#888;">Size:</span> $${parseFloat(tradeData.size).toFixed(2)}</div>` : ''}
-                        <div><span style="color:#888;">Reason:</span> ${tradeData.reason}</div>
-                        ${tradeData.confidence ? `<div><span style="color:#888;">Confidence:</span> ${tradeData.confidence}%</div>` : ''}
-                        ${pnlText}
-                    `;
-
-                    // Position tooltip near cursor
-                    const chartRect = container.getBoundingClientRect();
-                    let left = param.point.x + 15;
-                    let top = param.point.y - 80;
-
-                    // Keep tooltip in bounds
-                    if (left + 200 > chartRect.width) left = param.point.x - 200;
-                    if (top < 0) top = param.point.y + 15;
-
-                    tooltip.style.left = left + 'px';
-                    tooltip.style.top = top + 'px';
-                    tooltip.style.display = 'block';
-                    tooltip.style.borderColor = color;
-                } else {
-                    tooltip.style.display = 'none';
                 }
             });
 
@@ -4094,7 +4095,8 @@
 
                 // Module status strip
                 const modEl = document.getElementById('moduleStatus');
-                if (modEl && mods) {
+                const moduleHtml = (() => {
+                    if (!mods) return '';
                     const m = [];
                     m.push(mods.emaCrossover?.active ? '<span style="color:#00bcd4">EMA✓</span>' : '<span style="color:#333">EMA✗</span>');
                     m.push(mods.liquiditySweep?.active ? '<span style="color:#ff9800">SWEEP✓</span>' : '<span style="color:#333">SWEEP✗</span>');
@@ -4102,8 +4104,32 @@
                     m.push(mods.tpo?.active ? '<span style="color:#ffeb3b">TPO✓</span>' : '<span style="color:#333">TPO✗</span>');
                     if (mods.regime?.regime && mods.regime.regime !== 'unknown') m.push(`<span style="color:#4caf50">${mods.regime.regime}</span>`);
                     if (mods.patterns?.length > 0) m.push(`<span style="color:#e91e63">${mods.patterns.length}pat</span>`);
-                    modEl.innerHTML = m.join(' │ ');
+                    return m.join(' │ ');
+                })();
+                if (modEl) modEl.innerHTML = moduleHtml;
+
+                // Build signals HTML once for reuse
+                const signalsHtml = sig.signals ? sig.signals.map(s => {
+                    const color = s.direction === 'buy' ? '#00e676' : s.direction === 'sell' ? '#ff5252' : '#666';
+                    const icon = s.direction === 'buy' ? '▲' : s.direction === 'sell' ? '▼' : '─';
+                    const bar = '█'.repeat(Math.round((s.strength || 0.5) * 8));
+                    return `<div style="color:${color}; margin:1px 0;">${icon} ${s.name} <span style="opacity:0.4">${bar}</span></div>`;
+                }).join('') : '';
+
+                // Also update INLINE panel in pattern section (restored 2026-02-18)
+                const dirInline = document.getElementById('signalDirectionInline');
+                if (dirInline) {
+                    const colors = { buy: '#00e676', sell: '#ff5252', hold: '#888' };
+                    const icons = { buy: '📈', sell: '📉', hold: '⏸️' };
+                    dirInline.style.color = colors[sig.direction] || '#888';
+                    dirInline.textContent = `${icons[sig.direction] || ''} ${sig.direction.toUpperCase()} @ ${(sig.confidence * 100).toFixed(0)}%`;
                 }
+                const confInline = document.getElementById('signalConfidenceInline');
+                if (confInline) confInline.textContent = `${sig.meta?.signalsFired || 0} signals | Bull: ${sig.meta?.bullishCount || 0} Bear: ${sig.meta?.bearishCount || 0}`;
+                const listInline = document.getElementById('signalListInline');
+                if (listInline) listInline.innerHTML = signalsHtml;
+                const modInline = document.getElementById('moduleStatusInline');
+                if (modInline) modInline.innerHTML = moduleHtml;
 
                 // Also update the Confidence indicator in ML panel (sigConf already normalized above)
                 const confML = document.getElementById('confidenceML');
@@ -4467,21 +4493,8 @@
                 position: isLong ? 'belowBar' : 'aboveBar',
                 color: isLong ? '#00ff88' : '#ff3366',
                 shape: isLong ? 'arrowUp' : 'arrowDown',
-                text: `${isLong ? 'BUY' : 'SELL'} $${(trade.price || lastPrice).toLocaleString()}`
+                text: `${isLong ? '▲ BUY' : '▼ SELL'} $${(trade.price || lastPrice).toLocaleString()}`
             };
-
-            // Store full trade data for tooltip display
-            const tradeData = {
-                type: isLong ? 'BUY' : 'SELL',
-                price: trade.price || lastPrice,
-                time: new Date(trade.timestamp || Date.now()).toLocaleTimeString(),
-                date: new Date(trade.timestamp || Date.now()).toLocaleDateString(),
-                reason: trade.reason || trade.signal || 'Signal',
-                confidence: trade.confidence || 0,
-                pnl: trade.pnl || trade.profit || null,
-                size: trade.size || trade.value_usd || null
-            };
-            tradeHistory.set(tradeTime, tradeData);
 
             // Get existing markers, add new, sort by time (required by lightweight charts)
             const existingMarkers = candleSeries.markers() || [];

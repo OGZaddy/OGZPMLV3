@@ -3,635 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OGZ Prime Pricing - Choose Your Trading Tier</title>
-  <link rel="stylesheet" href="valhalla-style.css">
+  <title>OGZPrime Pricing — Trading Infrastructure That Works</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://js.stripe.com/v3/"></script>
   <style>
     :root {
-      --primary-red: #dc2626;
-      --dark-red: #991b1b;
-      --light-red: #f87171;
-      --neon-red: #ff3333;
-      --dark-bg: #0a0a0a;
-      --card-bg: #111111;
-      --text-primary: #ffffff;
-      --text-secondary: #cccccc;
-      --text-muted: #888888;
-      --border-glow: rgba(220, 38, 38, 0.5);
-      --success-green: #22c55e;
-      --warning-yellow: #f59e0b;
+      --red: #dc2626;
+      --red-glow: rgba(220, 38, 38, 0.4);
+      --red-light: #f87171;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --bg: #0a0a0a;
+      --card: #111;
+      --text: #fff;
+      --text-dim: #999;
+      --border: #222;
     }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: linear-gradient(135deg, var(--dark-bg) 0%, #1a0a0a 50%, #2a0a0a 100%);
-      color: var(--text-primary);
-      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
       line-height: 1.6;
       min-height: 100vh;
     }
-
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
+    .container { max-width: 960px; margin: 0 auto; padding: 60px 20px; }
+    .header { text-align: center; margin-bottom: 60px; }
     .header h1 {
-      font-size: 3.5rem;
-      background: linear-gradient(45deg, var(--primary-red), var(--neon-red), var(--light-red));
-      background-size: 200% 200%;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: gradient-shift 3s ease infinite;
-      margin-bottom: 20px;
-      text-shadow: 0 0 30px rgba(220, 38, 38, 0.5);
+      font-family: 'Space Mono', monospace;
+      font-size: 2.8rem;
+      color: var(--red);
+      margin-bottom: 12px;
+      letter-spacing: -1px;
     }
-
-    @keyframes gradient-shift {
-      0%, 100% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-    }
-
-    .header p {
-      font-size: 1.4rem;
-      color: var(--text-secondary);
-      margin-bottom: 10px;
-    }
-
-    .subtitle {
-      font-size: 1.1rem;
-      color: var(--primary-red);
-      font-weight: 600;
-    }
-
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 30px;
-      margin-bottom: 60px;
-    }
-
-    .pricing-card {
-      background: linear-gradient(135deg, var(--card-bg), #1a1a1a);
-      border: 2px solid var(--primary-red);
-      border-radius: 20px;
-      padding: 40px 30px;
+    .header p { font-size: 1.15rem; color: var(--text-dim); max-width: 600px; margin: 0 auto; }
+    .pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 60px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
       position: relative;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 30px var(--border-glow);
+      transition: border-color 0.3s, box-shadow 0.3s;
     }
-
-    .pricing-card:hover {
-      transform: translateY(-10px);
-      box-shadow: 0 20px 60px var(--border-glow);
+    .card:hover { border-color: var(--red); box-shadow: 0 0 40px var(--red-glow); }
+    .card.featured { border-color: var(--green); box-shadow: 0 0 30px rgba(34, 197, 94, 0.2); }
+    .card.featured::before {
+      content: "RECOMMENDED";
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--green); color: #000; padding: 4px 16px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 1px;
     }
-
-    .pricing-card.featured {
-      border-color: var(--success-green);
-      box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+    .tier-name { font-family: 'Space Mono', monospace; font-size: 1.1rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    .price { font-size: 3rem; font-weight: 700; margin-bottom: 4px; }
+    .price span { font-size: 1rem; color: var(--text-dim); font-weight: 400; }
+    .trial { color: var(--green); font-size: 0.9rem; margin-bottom: 24px; }
+    .description { color: var(--text-dim); font-size: 0.95rem; margin-bottom: 24px; min-height: 48px; }
+    .features { list-style: none; margin-bottom: 32px; }
+    .features li { padding: 8px 0; color: #ccc; font-size: 0.95rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-left: 24px; position: relative; }
+    .features li::before { content: "\2713"; position: absolute; left: 0; color: var(--green); font-weight: 700; }
+    .features li.highlight { color: var(--yellow); }
+    .features li.highlight::before { content: "\2605"; color: var(--yellow); }
+    .cta {
+      display: block; width: 100%; padding: 16px; background: var(--red); border: none;
+      border-radius: 10px; color: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s, transform 0.2s; text-transform: uppercase; letter-spacing: 1px;
     }
-
-    .pricing-card.featured::before {
-      content: "MOST POPULAR";
-      position: absolute;
-      top: -15px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--success-green);
-      color: white;
-      padding: 8px 20px;
-      border-radius: 20px;
-      font-size: 0.9rem;
-      font-weight: bold;
-    }
-
-    .tier-name {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--primary-red);
-      margin-bottom: 15px;
-      text-align: center;
-    }
-
-    .tier-price {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .price-amount {
-      font-size: 3rem;
-      font-weight: bold;
-      color: var(--text-primary);
-    }
-
-    .price-period {
-      font-size: 1.1rem;
-      color: var(--text-muted);
-      margin-left: 10px;
-    }
-
-    .price-setup {
-      font-size: 1rem;
-      color: var(--warning-yellow);
-      margin-top: 5px;
-    }
-
-    .tier-description {
-      color: var(--text-secondary);
-      margin-bottom: 30px;
-      text-align: center;
-      font-size: 1.1rem;
-    }
-
-    .features-list {
-      list-style: none;
-      margin-bottom: 30px;
-    }
-
-    .features-list li {
-      padding: 10px 0;
-      color: var(--text-secondary);
-      position: relative;
-      padding-left: 30px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .features-list li:before {
-      content: "✓";
-      position: absolute;
-      left: 0;
-      color: var(--success-green);
-      font-weight: bold;
-      font-size: 1.2rem;
-    }
-
-    .features-list li.premium:before {
-      color: var(--warning-yellow);
-      content: "⭐";
-    }
-
-    .tier-button {
-      width: 100%;
-      padding: 18px;
-      background: linear-gradient(45deg, var(--primary-red), var(--neon-red));
-      border: none;
-      border-radius: 12px;
-      color: white;
-      font-size: 1.3rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .tier-button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
-      background: linear-gradient(45deg, var(--neon-red), var(--primary-red));
-    }
-
-    .tier-button:active {
-      transform: translateY(-1px);
-    }
-
-    .tier-button:disabled {
-      background: #666;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .comparison-table {
-      background: rgba(17, 17, 17, 0.8);
-      border: 2px solid var(--primary-red);
-      border-radius: 20px;
-      padding: 40px;
-      margin-top: 60px;
-      backdrop-filter: blur(10px);
-    }
-
-    .comparison-table h3 {
-      text-align: center;
-      color: var(--primary-red);
-      font-size: 2rem;
-      margin-bottom: 30px;
-    }
-
-    .feature-comparison {
-      display: grid;
-      grid-template-columns: 2fr repeat(4, 1fr);
-      gap: 20px;
-      margin-bottom: 20px;
-      align-items: center;
-    }
-
-    .feature-row {
-      display: contents;
-    }
-
-    .feature-name {
-      font-weight: bold;
-      color: var(--text-primary);
-      padding: 15px;
-      background: rgba(220, 38, 38, 0.1);
-      border-radius: 8px;
-    }
-
-    .feature-value {
-      text-align: center;
-      padding: 15px;
-      color: var(--text-secondary);
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-    }
-
-    .feature-value.yes {
-      color: var(--success-green);
-      font-weight: bold;
-    }
-
-    .feature-value.premium {
-      color: var(--warning-yellow);
-      font-weight: bold;
-    }
-
-    .back-link {
-      display: inline-block;
-      margin-top: 40px;
-      padding: 15px 30px;
-      background: rgba(220, 38, 38, 0.1);
-      border: 2px solid var(--primary-red);
-      color: var(--primary-red);
-      text-decoration: none;
-      border-radius: 25px;
-      font-weight: bold;
-      transition: all 0.3s ease;
-    }
-
-    .back-link:hover {
-      background: rgba(220, 38, 38, 0.2);
-      transform: translateY(-2px);
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        padding: 20px 10px;
-      }
-
-      .header h1 {
-        font-size: 2.5rem;
-      }
-
-      .pricing-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
-      }
-
-      .pricing-card {
-        padding: 30px 20px;
-      }
-
-      .feature-comparison {
-        grid-template-columns: 1fr;
-        gap: 10px;
-      }
-
-      .feature-value {
-        text-align: left;
-      }
-    }
-
-    .loading {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
-      margin-right: 10px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .cta:hover { background: #ef4444; transform: translateY(-2px); }
+    .cta:disabled { background: #444; cursor: wait; }
+    .comparison { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 40px; margin-bottom: 40px; }
+    .comparison h3 { font-family: 'Space Mono', monospace; color: var(--red); font-size: 1.4rem; text-align: center; margin-bottom: 24px; }
+    .comp-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
+    .comp-row:first-child { border-bottom: 2px solid var(--border); font-weight: 700; }
+    .comp-label { color: #ccc; }
+    .comp-val { text-align: center; color: var(--text-dim); }
+    .comp-val.yes { color: var(--green); font-weight: 700; }
+    .comp-val.no { color: #444; }
+    .comp-val.pro { color: var(--yellow); font-weight: 700; }
+    .footer { text-align: center; padding: 40px 0; color: var(--text-dim); font-size: 0.85rem; }
+    .footer a { color: var(--red-light); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .back { display: inline-block; margin: 20px 10px; padding: 12px 24px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); text-decoration: none; transition: all 0.2s; }
+    .back:hover { border-color: var(--red); color: var(--red); }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 700px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+      .header h1 { font-size: 2rem; }
+      .comp-row { grid-template-columns: 1.5fr 1fr 1fr; font-size: 0.85rem; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>OGZ Prime Pricing</h1>
-      <p>Choose Your Trading Tier</p>
-      <div class="subtitle">Continuously monitored trading systems</div>
+      <h1>OGZPrime</h1>
+      <p>Modular trading infrastructure. Plug in your strategies, backtest with real fees, deploy to live markets. You bring the edge — we handle everything else.</p>
     </div>
-
     <div class="pricing-grid">
-      <!-- Core Tier -->
-      <div class="pricing-card">
-        <div class="tier-name">CORE</div>
-        <div class="tier-price">
-          <span class="price-amount">$499</span>
-          <span class="price-period">/month</span>
-          <div class="price-setup" style="color: #22c55e; font-weight: bold;">💰 Pay after 30 days</div>
-        </div>
-        <div class="tier-description">
-          Start trading today. See results first, then pay from your profits.
-        </div>
-        <ul class="features-list">
-          <li>Long & short position trading</li>
-          <li>Technical indicator analysis</li>
-          <li>Multi-timeframe analysis</li>
-          <li>Regime-adaptive strategies</li>
-          <li>Real-time risk management</li>
-          <li>Professional dashboard</li>
-          <li>Full access to live proof logs</li>
-          <li>Performance analytics</li>
+      <div class="card">
+        <div class="tier-name">Core</div>
+        <div class="price">$49 <span>/month</span></div>
+        <div class="trial">7-day free trial</div>
+        <div class="description">Everything you need to run a trading bot. Connect your exchange, plug in strategies, manage risk.</div>
+        <ul class="features">
+          <li>Full indicator engine (RSI, EMA, MACD, BB, ATR, 15+)</li>
+          <li>Strategy orchestrator — plug in your own strategies</li>
+          <li>Per-strategy exit contracts (SL, TP, trailing, tiers)</li>
+          <li>Risk management (drawdown limits, position sizing)</li>
+          <li>Kraken exchange adapter (more coming)</li>
+          <li>Real-time trading dashboard</li>
+          <li>Live operation proof logs</li>
+          <li>Strategy template + documentation</li>
         </ul>
-        <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: 10px; padding: 12px; margin-bottom: 15px; font-size: 0.9rem; color: #22c55e; text-align: center;">
-          ✓ Trade for 30 days first<br>
-          ✓ Pay after you see results<br>
-          ✓ Subscription from your profits
-        </div>
-        <button class="tier-button" onclick="checkout('core')" id="core-btn">
-          Start Trading
-        </button>
+        <button class="cta" id="core-btn" onclick="checkout('core')">Start Free Trial</button>
       </div>
-
-      <!-- ML Tier -->
-      <div class="pricing-card featured">
-        <div class="tier-name">ML</div>
-        <div class="tier-price">
-          <span class="price-amount">$1,499</span>
-          <span class="price-period">/month</span>
-          <div class="price-setup">+ $299 setup fee</div>
-        </div>
-        <div class="tier-description">
-          Core features + AI-assisted analysis with full decision transparency.
-        </div>
-        <ul class="features-list">
+      <div class="card featured">
+        <div class="tier-name">Pro</div>
+        <div class="price">$149 <span>/month</span></div>
+        <div class="trial">7-day free trial</div>
+        <div class="description">Full platform plus backtesting, pattern learning, and multi-timeframe analysis.</div>
+        <ul class="features">
           <li>Everything in Core</li>
-          <li class="premium">TRAI AI analysis</li>
-          <li class="premium">Priority alert visibility</li>
-          <li class="premium">Chain of thought display</li>
-          <li class="premium">Pattern recognition</li>
-          <li class="premium">Real-time AI analysis</li>
-          <li class="premium">Personal onboarding + proof walkthrough</li>
-          <li class="premium">Extended knowledge base</li>
+          <li class="highlight">Backtest engine with per-strategy attribution</li>
+          <li class="highlight">Pattern memory bank (learns from your trades)</li>
+          <li class="highlight">Volume profile analysis</li>
+          <li class="highlight">Market regime detection</li>
+          <li class="highlight">Fibonacci level detection</li>
+          <li class="highlight">Multi-timeframe adapter</li>
+          <li class="highlight">Pipeline diagnostic harness</li>
+          <li class="highlight">Priority support</li>
         </ul>
-        <button class="tier-button" onclick="checkout('ml')" id="ml-btn">
-          Get Started
-        </button>
+        <button class="cta" id="pro-btn" onclick="checkout('pro')">Start Free Trial</button>
       </div>
-
-
     </div>
-
-    <!-- Feature Comparison Table -->
-    <div class="comparison-table">
+    <div class="comparison">
       <h3>Feature Comparison</h3>
-
-      <div class="feature-comparison">
-      <div class="feature-name">Feature</div>
-      <div class="feature-value"><strong>Core</strong></div>
-      <div class="feature-value"><strong>ML</strong></div>
-      </div>
-
-      <div class="feature-comparison">
-      <div class="feature-name">Live Trading</div>
-      <div class="feature-value yes">✓</div>
-      <div class="feature-value yes">✓</div>
-      </div>
-
-      <div class="feature-comparison">
-        <div class="feature-name">Asset Support</div>
-        <div class="feature-value">15+ Cryptos</div>
-      <div class="feature-value premium">15+ Cryptos</div>
-      </div>
-
-      <div class="feature-comparison">
-      <div class="feature-name">AI Analysis</div>
-        <div class="feature-value">Indicators</div>
-        <div class="feature-value premium">TRAI + Pattern Recognition</div>
-      </div>
-
-      <div class="feature-comparison">
-      <div class="feature-name">Multi-Directional</div>
-      <div class="feature-value yes">✓</div>
-      <div class="feature-value yes">✓</div>
-      </div>
-
-      <div class="feature-comparison">
-      <div class="feature-name">Pattern Recognition</div>
-      <div class="feature-value">25 patterns</div>
-      <div class="feature-value premium">1000+ AI patterns</div>
-      </div>
-
-      <div class="feature-comparison">
-        <div class="feature-name">Chain of Thought</div>
-        <div class="feature-value">—</div>
-      <div class="feature-value premium">Full Transparency</div>
-      </div>
-
-      <div class="feature-comparison">
-        <div class="feature-name">Support Level</div>
-        <div class="feature-value">Standard</div>
-      <div class="feature-value premium">Priority + AI</div>
-      </div>
+      <div class="comp-row"><div class="comp-label"><strong>Feature</strong></div><div class="comp-val"><strong>Core</strong></div><div class="comp-val"><strong>Pro</strong></div></div>
+      <div class="comp-row"><div class="comp-label">Indicator Engine (15+)</div><div class="comp-val yes">&#10003;</div><div class="comp-val yes">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Strategy Orchestrator</div><div class="comp-val yes">&#10003;</div><div class="comp-val yes">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Exit Contract System</div><div class="comp-val yes">&#10003;</div><div class="comp-val yes">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Risk Management</div><div class="comp-val yes">&#10003;</div><div class="comp-val yes">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Live Dashboard</div><div class="comp-val yes">&#10003;</div><div class="comp-val yes">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Exchange Connection</div><div class="comp-val yes">&#10003;</div><div class="comp-val yes">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Backtest Engine</div><div class="comp-val no">&mdash;</div><div class="comp-val pro">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Pattern Memory Bank</div><div class="comp-val no">&mdash;</div><div class="comp-val pro">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Volume Profile</div><div class="comp-val no">&mdash;</div><div class="comp-val pro">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Market Regime Detection</div><div class="comp-val no">&mdash;</div><div class="comp-val pro">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Multi-Timeframe Analysis</div><div class="comp-val no">&mdash;</div><div class="comp-val pro">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Diagnostic Harness</div><div class="comp-val no">&mdash;</div><div class="comp-val pro">&#10003;</div></div>
+      <div class="comp-row"><div class="comp-label">Support</div><div class="comp-val">Standard</div><div class="comp-val pro">Priority</div></div>
     </div>
-
     <div style="text-align: center;">
-      <a href="/" class="back-link">← Back to Main Site</a>
-      <a href="proof/" class="back-link" style="margin-left: 20px;">View live system proof</a>
+      <a href="/" class="back">&larr; Back to OGZPrime</a>
+      <a href="proof/" class="back">View Live Proof</a>
     </div>
-
-    <!-- Lead Capture Modal for Live Demo Gate -->
-    <div id="leadModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
-      <div style="width: 95%; max-width: 520px; background:#0b0b0b; border:1px solid #dc2626; border-radius:12px; padding:22px; box-shadow: 0 20px 60px rgba(0,0,0,0.7);">
-        <h3 style="margin:0; color:#f87171;">Unlock Live Demo</h3>
-        <p style="color:#bbb; margin:8px 0 14px;">Enter your email to view the live trading dashboard. We'll send strategy insights and performance updates.</p>
-        <form id="leadForm" onsubmit="return submitLead(event)">
-          <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <input id="leadName" placeholder="Your name (optional)" style="flex:1; padding:12px; border-radius:8px; border:1px solid #333; background:#111; color:#fff;">
-          </div>
-          <div style="display:flex; gap:10px;">
-            <input id="leadEmail" placeholder="Email (required)" type="email" required style="flex:1; padding:12px; border-radius:8px; border:1px solid #333; background:#111; color:#fff;">
-          </div>
-          <div id="leadError" style="display:none; color:#f87171; margin-top:8px; font-size:0.95rem;"></div>
-          <div style="display:flex; gap:10px; margin-top:14px; align-items:center;">
-            <button id="leadSubmit" type="submit" style="flex:1; background: linear-gradient(45deg, #dc2626, #ff3333); padding: 12px; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Continue to Live Demo</button>
-            <button type="button" onclick="closeLeadModal()" style="background:transparent; border:1px solid #444; color:#aaa; padding:12px 16px; border-radius:8px; cursor:pointer;">Cancel</button>
-          </div>
-          <div style="margin-top:10px; color:#777; font-size:0.85rem;">We respect your inbox. Unsubscribe anytime.</div>
-          <input type="text" id="leadBot" style="position:absolute; left:-9999px; top:-9999px;" tabindex="-1" autocomplete="off">
-        </form>
-      </div>
-    </div>
+    <div class="footer">&copy; 2026 OGZPrime. All Rights Reserved. | <a href="legal.html">Legal</a> | <a href="mailto:support@ogzprime.com">Contact</a></div>
   </div>
-
-  <!-- Stripe Library -->
-  <script src="https://js.stripe.com/v3/"></script>
-
-  <!-- Enhanced Stripe Checkout Logic -->
   <script>
-    const stripe = Stripe("pk_test_51Rc2VnGai7JiFhNgT1aZdghugWMXbWoOnOVpNwr7QmojxxIau57wGKOB3f8rBi8yFWVuvIGGON7bjvuUtcm7SIm100ylS00sz6");
-
-    // Demo gate functions
-    function openDemoGate(e) {
-      try {
-        const ok = localStorage.getItem('ogz_lead_demo_ok');
-        if (ok) {
-          window.location.href = 'unified-dashboard.html';
-          return false;
-        }
-        document.getElementById('leadModal').style.display = 'flex';
-      } catch (_) {
-        document.getElementById('leadModal').style.display = 'flex';
-      }
-      return false;
-    }
-
-    function closeLeadModal() {
-      document.getElementById('leadModal').style.display = 'none';
-    }
-
-    function showLeadError(msg) {
-      const el = document.getElementById('leadError');
-      el.textContent = msg; el.style.display = 'block';
-    }
-
-    function hideLeadError() {
-      document.getElementById('leadError').style.display = 'none';
-    }
-
-    async function submitLead(ev) {
-      ev.preventDefault(); hideLeadError();
-      const email = document.getElementById('leadEmail').value.trim();
-      const name = document.getElementById('leadName').value.trim();
-      const honeypot = document.getElementById('leadBot').value;
-      if (honeypot) { return false; }
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLeadError('Please enter a valid email.'); return false; }
-      const btn = document.getElementById('leadSubmit');
-      btn.disabled = true; btn.textContent = 'Submitting...';
-      try {
-        const payload = {
-          email,
-          name,
-          type: 'demo_gate',
-          timestamp: new Date().toISOString(),
-          source: 'pricing',
-          page: window.location.href,
-          userAgent: navigator.userAgent
-        };
-        const res = await fetch('https://hook.us2.make.com/qvl54ugr24grkqgkbbm7i0xmfub3oh5a', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) {
-          throw new Error('Lead webhook failed');
-        }
-        try { localStorage.setItem('ogz_lead_demo_ok', String(Date.now())); } catch(_){}
-        window.location.href = 'unified-dashboard.html';
-      } catch (e) {
-        showLeadError('Could not submit. Please try again in a moment.');
-      } finally {
-        btn.disabled = false; btn.textContent = 'Continue to Live Demo';
-      }
-      return false;
-    }
-
+    const stripe = Stripe("pk_live_51T7M8wCRplnSOv5bMtioVeazlNJrCgChGElSEc0V2gcymGHklJbpxpJpwg3S2aIaga6LrTiQ956awcGQSVlBHLZb00eeut8r0h");
     function checkout(tier) {
-      // UPDATED FOR CORE/ML TIER SYSTEM
-      const priceMap = {
-        core: "price_core_placeholder",    // Professional trading features
-        ml: "price_ml_placeholder"         // Core + AI Analysis
-      };
-
-      // Show loading state
-      const button = document.getElementById(`${tier}-btn`);
-      const originalText = button.innerHTML;
-      button.disabled = true;
-      button.innerHTML = '<span class="loading"></span>Processing...';
-
+      const btn = document.getElementById(tier + '-btn');
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Processing...';
       fetch("/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: priceMap[tier]
-        })
+        body: JSON.stringify({ tier: tier })
       })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Server error: ${res.status} ${res.statusText}`);
-        }
+      .then(function(res) {
+        if (!res.ok) throw new Error("Server error: " + res.status);
         return res.json();
       })
-      .then(data => {
-        if (!data.sessionId) {
-          throw new Error("Missing session ID from server response");
-        }
-
-        // Track conversion attempt - UPDATED FOR CORE/ML TIERS
-        if (typeof gtag !== 'undefined') {
-          gtag('event', 'begin_checkout', {
-            'currency': 'USD',
-            'value': tier === 'core' ? 499 : 1499,
-            'items': [{
-              'item_id': tier,
-              'item_name': `OGZ Prime ${tier.toUpperCase()}`,
-              'category': 'Trading Software',
-              'quantity': 1
-            }]
-          });
-        }
-
-        return stripe.redirectToCheckout({ sessionId: data.sessionId });
+      .then(function(data) {
+        if (data.url) { window.location.href = data.url; }
+        else if (data.sessionId) { return stripe.redirectToCheckout({ sessionId: data.sessionId }); }
+        else { throw new Error("No checkout URL returned"); }
       })
-      .then(result => {
-        if (result.error) {
-          throw new Error(result.error.message);
-        }
-      })
-      .catch(err => {
+      .catch(function(err) {
         console.error('Checkout error:', err);
-        alert(`Checkout error: ${err.message}\n\nPlease try again or contact support if the issue persists.`);
+        alert('Checkout temporarily unavailable. Please try again in a moment.');
       })
-      .finally(() => {
-        // Reset button state
-        button.disabled = false;
-        button.innerHTML = originalText;
-      });
-    }
-
-    // Add visual feedback for better UX
-    document.querySelectorAll('.tier-button').forEach(button => {
-      button.addEventListener('mouseenter', function() {
-        this.style.transform = 'translateY(-3px) scale(1.02)';
-      });
-      
-      button.addEventListener('mouseleave', function() {
-        if (!this.disabled) {
-          this.style.transform = 'translateY(0) scale(1)';
-        }
-      });
-    });
-
-    // Track pricing page view
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'page_view', {
-        'page_title': 'OGZ Prime Pricing',
-        'page_location': window.location.href
+      .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = original;
       });
     }
   </script>

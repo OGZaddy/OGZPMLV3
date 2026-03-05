@@ -75,6 +75,10 @@ start() {
     pm2 start ogz-websocket --update-env 2>/dev/null || pm2 restart ogz-websocket --update-env
     wait_for_port 3010
 
+    echo -e "\n${YELLOW}[Start] Stripe checkout server...${NC}"
+    pm2 start public/stripe-checkout.js --name ogz-stripe --update-env 2>/dev/null || pm2 restart ogz-stripe --update-env
+    wait_for_port 3001
+
     # Reload nginx to clear stale upstream connections
     echo -e "${YELLOW}[Start] Reloading nginx...${NC}"
     sudo nginx -t >/dev/null 2>&1 && sudo systemctl reload nginx && echo -e "${GREEN}[Start] nginx reloaded${NC}"

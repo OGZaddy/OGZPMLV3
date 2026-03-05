@@ -196,12 +196,11 @@ function extractCode(filePath, issue, maxLines = MAX_CODE_LINES) {
     if (score > bestScore)                                                                                                                                                                                                                                                                                                                                                                                                                bestScore = score; bestStart = i; }
   }
   return { code: lines.slice(bestStart, bestStart + maxLines).join('\n'), startLine: bestStart + 1, full: false, lines: lines.length };
-}6
+}
 
 function findRelevantFiles(issue) {
   const files = [];
   const candidates = ['run-empire-v2.js', 'ogzprime-ssl-server.js', 'public/unified-dashboard.html'];
-sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
   const coreDir = path.join(PROJECT_DIR, 'core');
   if (fs.existsSync(coreDir)) {
     fs.readdirSync(coreDir).filter(f => f.endsWith('.js')).forEach(f => candidates.push(`core/${f}`));

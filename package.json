@@ -60,5 +60,9 @@
     "uuid": "^13.0.0",
     "ws": "^8.18.3"
   },
-  "private": false
+  "private": false,
+  "devDependencies": {
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-javascript": "^0.25.0"
+  }
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Legal Documentation - OGZ Prime Trading System</title>
+    <title>Legal - OGZ Prime Trading System</title>
     <style>
         :root {
             --primary-red: #dc2626;
@@ -166,17 +166,16 @@
         }
         
         .highlight {
-            background: rgba(220, 38, 38, 0.3);
+            background: rgba(220, 38, 38, 0.2);
             padding: 4px 8px;
             border-radius: 6px;
             color: var(--light-red);
-            font-weight: 700;
-            border: 1px solid var(--primary-red);
+            font-weight: 600;
         }
         
         .warning-box {
-            background: rgba(255, 68, 68, 0.15);
-            border: 3px solid #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            border: 2px solid #ff4444;
             border-radius: 12px;
             padding: 25px;
             margin: 25px 0;
@@ -197,12 +196,10 @@
             color: #ff4444;
             margin-bottom: 15px;
             font-size: 1.3rem;
-            font-weight: bold;
         }
 
         .warning-box p {
-            color: var(--text-primary);
-            font-weight: 600;
+            color: var(--text-secondary);
         }
         
         .back-link {
@@ -226,15 +223,15 @@
         }
 
         .contact-info {
-            background: rgba(34, 197, 94, 0.1);
+            background: rgba(220, 38, 38, 0.1);
             border-radius: 12px;
             padding: 25px;
             margin: 25px 0;
-            border: 1px solid #22c55e;
+            border: 1px solid var(--primary-red);
         }
 
         .contact-info h4 {
-            color: #22c55e;
+            color: var(--primary-red);
             margin-bottom: 15px;
         }
 
@@ -246,37 +243,24 @@
             color: var(--neon-red);
         }
 
-        .legal-notice {
-            background: rgba(220, 38, 38, 0.1);
-            border: 2px solid var(--primary-red);
-            border-radius: 12px;
+        .faq-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
             padding: 20px;
-            margin: 20px 0;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
+            margin: 15px 0;
+            border-left: 4px solid var(--primary-red);
         }
 
-        .final-sales {
-            background: rgba(255, 0, 0, 0.2);
-            border: 3px solid #ff0000;
-            border-radius: 15px;
-            padding: 30px;
-            margin: 30px 0;
-            text-align: center;
-        }
-
-        .final-sales h3 {
-            color: #ff0000;
-            font-size: 2rem;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .final-sales p {
-            color: var(--text-primary);
-            font-size: 1.2rem;
+        .faq-question {
+            color: var(--neon-red);
             font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .faq-answer {
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
         
         @media (max-width: 768px) {
@@ -312,217 +296,242 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛡️ OGZ Prime Legal Documentation</h1>
-            <p>Professionally Drafted Legal Terms - Binding Agreements</p>
+            <h1>🛡️ OGZ Prime Legal Center</h1>
+            <p>Professional Trading System - Legal Documentation & Transparency</p>
         </div>
         
         <div class="nav-tabs">
             <a href="#terms" class="nav-tab active" onclick="showContent('terms')">Terms & Conditions</a>
+            <a href="#privacy" class="nav-tab" onclick="showContent('privacy')">Privacy Policy</a>
             <a href="#risk" class="nav-tab" onclick="showContent('risk')">Risk Disclaimer</a>
+            <a href="#cookies" class="nav-tab" onclick="showContent('cookies')">Cookie Policy</a>
+            <a href="#copyright" class="nav-tab" onclick="showContent('copyright')">Copyright</a>
             <a href="#refund" class="nav-tab" onclick="showContent('refund')">Refund Policy</a>
-            <a href="#contact" class="nav-tab" onclick="showContent('contact')">Contact</a>
+            <a href="#eula" class="nav-tab" onclick="showContent('eula')">EULA</a>
+            <a href="#contact" class="nav-tab" onclick="showContent('contact')">Contact & FAQ</a>
         </div>
 
         <!-- Terms & Conditions -->
         <div id="terms" class="legal-content active">
-            <h2>📋 TERMS AND CONDITIONS - OGZPrime</h2>
-            <p><strong>Effective Date:</strong> June 8th, 2025</p>
+            <h2>📋 Terms and Conditions</h2>
+            <p><strong>Last Updated:</strong> [DATE]</p>
             
             <div class="warning-box">
-                <h4>🚨 LEGALLY BINDING AGREEMENT</h4>
-                <p>By accessing OGZPrime, you agree to be bound by these Terms. <span class="highlight">If you do not agree, you must not use the Platform.</span></p>
+                <h4>🚨 Important Trading Risk Notice</h4>
+                <p>Trading involves substantial risk of loss and is not suitable for all investors. Past performance does not guarantee future results. <span class="highlight">You could lose more than your initial investment.</span></p>
             </div>
             
             <h3>1. Acceptance of Terms</h3>
-            <p>Welcome to OGZPrime ("we," "us," "our," or "the Platform"). These Terms of Service ("Terms") constitute a <span class="highlight">legally binding agreement</span> between you ("you," "your," or "User") and OGZPrime, governing your access to and use of our proprietary software, dashboard interface, algorithms, services, and associated features.</p>
+            <p>By accessing and using OGZ Prime Trading System, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
             
-            <h3>2. Eligibility & User Obligations</h3>
-            <p>You may only use OGZPrime if you are <span class="highlight">at least 18 years old</span> and capable of entering into a legally binding agreement under applicable law.</p>
+            <h3>2. Service Description</h3>
+            <p>OGZ Prime provides automated trading signals, market analysis tools, and risk management features. Our service includes:</p>
             <ul>
-                <li>Use the Platform in compliance with all applicable laws and regulations</li>
-                <li>Provide accurate, current, and complete registration information</li>
-                <li>Not impersonate another person or entity</li>
-                <li>Maintain confidentiality of your account credentials</li>
+                <li><strong>Real-time market analysis</strong> using advanced AI algorithms</li>
+                <li><strong>Automated trading signals</strong> with confidence ratings</li>
+                <li><strong>Risk management tools</strong> including stop-loss and position sizing</li>
+                <li><strong>Performance tracking</strong> and detailed analytics</li>
+                <li><strong>Educational resources</strong> and market insights</li>
             </ul>
             
-            <h3>3. Platform Description & Services</h3>
-            <p>OGZPrime is a software-as-a-service (SaaS) platform offering <span class="highlight">algorithmic trading technology driven by artificial intelligence</span>. The Platform includes:</p>
+            <h3>3. User Responsibilities</h3>
+            <p>Users are responsible for:</p>
             <ul>
-                <li>Proprietary graphical interface (Valhalla)</li>
-                <li>Real-time market signal generation</li>
-                <li>Technical indicator modules</li>
-                <li>Paper trading and strategy simulation</li>
-                <li>Performance visualizations</li>
+                <li>Understanding the risks involved in cryptocurrency and financial trading</li>
+                <li>Only trading with capital they can afford to lose completely</li>
+                <li>Maintaining the confidentiality and security of their account credentials</li>
+                <li>Complying with all applicable laws and regulations in their jurisdiction</li>
+                <li>Conducting their own due diligence before making any trading decisions</li>
             </ul>
             
-            <div class="warning-box">
-                <h4>⚠️ NO FINANCIAL ADVICE</h4>
-                <p><span class="highlight">OGZPrime does not offer financial, investment, tax, or legal advice.</span> All content is purely informational and educational. You are solely responsible for your trading decisions.</p>
-            </div>
+            <h3>4. No Investment Advice</h3>
+            <p class="highlight">OGZ Prime provides technical analysis and trading signals for informational purposes only. This is NOT investment advice. All trading decisions remain solely with the user.</p>
             
-            <h3>8. Intellectual Property Ownership</h3>
-            <p>All intellectual property rights in and to the OGZPrime platform are and shall remain the <span class="highlight">sole and exclusive property of Edward Buhidar</span>, including:</p>
+            <h3>5. Limitation of Liability</h3>
+            <p>OGZ Prime shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from use of our service, including but not limited to trading losses, system downtime, or missed opportunities.</p>
+            
+            <h3>6. Modifications to Terms</h3>
+            <p>We reserve the right to modify these terms at any time. Users will be notified of significant changes. Continued use of the service constitutes acceptance of any modifications.</p>
+        </div>
+
+        <!-- Privacy Policy -->
+        <div id="privacy" class="legal-content">
+            <h2>🔒 Privacy Policy</h2>
+            <p><strong>Last Updated:</strong> [DATE]</p>
+            
+            <h3>1. Information We Collect</h3>
+            <p>We collect information you provide directly to us, such as:</p>
             <ul>
-                <li>Source code and proprietary algorithms</li>
-                <li>User interface design (Valhalla dashboard)</li>
-                <li>Trade logic and data structures</li>
-                <li>Documentation and branding</li>
+                <li><strong>Account Information:</strong> Name, email address, phone number</li>
+                <li><strong>Trading Data:</strong> Portfolio information, trading preferences, risk settings</li>
+                <li><strong>Communication Records:</strong> Support tickets, feedback, correspondence</li>
+                <li><strong>Payment Information:</strong> Billing details and transaction history</li>
+                <li><strong>Usage Data:</strong> Platform interactions, feature usage, performance metrics</li>
             </ul>
             
-            <h3>13. Refund & Cancellation Policy</h3>
-            <div class="final-sales">
-                <h3>🚫 ALL SALES ARE FINAL</h3>
-                <p>Due to the digital nature of our services, <span class="highlight">we do not offer refunds, exchanges, or credits</span> once access is granted.</p>
-            </div>
+            <h3>2. How We Use Your Information</h3>
+            <p>We use the information we collect to:</p>
+            <ul>
+                <li>Provide and maintain our trading services and platform</li>
+                <li>Process transactions and send related information</li>
+                <li>Send technical notices, updates, security alerts, and support messages</li>
+                <li>Improve our services and develop new features</li>
+                <li>Personalize your trading experience and optimize performance</li>
+                <li>Comply with legal obligations and prevent fraud</li>
+            </ul>
             
-            <h3>21. Arbitration & Dispute Resolution</h3>
-            <p><span class="highlight">Any unresolved dispute shall be submitted to binding arbitration</span> administered by the American Arbitration Association (AAA). The arbitration shall take place in <span class="highlight">Corpus Christi, Texas</span>.</p>
+            <h3>3. Information Sharing and Disclosure</h3>
+            <p class="highlight">We do not sell, trade, or otherwise transfer your personal information to third parties without your explicit consent, except as described in this policy.</p>
             
-            <p><strong>Class Action Waiver:</strong> You agree that any claims shall be brought solely in your individual capacity, and <span class="highlight">not as a class action</span>.</p>
+            <p>We may share your information in the following circumstances:</p>
+            <ul>
+                <li><strong>Service Providers:</strong> With trusted partners who assist in platform operations</li>
+                <li><strong>Legal Requirements:</strong> When required by law or to protect our rights</li>
+                <li><strong>Business Transfers:</strong> In connection with a merger, sale, or acquisition</li>
+                <li><strong>Emergency Situations:</strong> To protect the safety of users or the public</li>
+            </ul>
             
-            <h3>20. Governing Law & Jurisdiction</h3>
-            <p>These Terms shall be governed by the <span class="highlight">laws of the State of Texas, United States</span>. Any legal action shall be brought exclusively in the courts located in <span class="highlight">Corpus Christi, Texas</span>.</p>
+            <h3>4. Data Security</h3>
+            <p>We implement industry-standard security measures including:</p>
+            <ul>
+                <li>256-bit SSL encryption for all data transmission</li>
+                <li>Multi-factor authentication for account access</li>
+                <li>Regular security audits and penetration testing</li>
+                <li>Secure data storage with redundant backups</li>
+                <li>Employee background checks and access controls</li>
+            </ul>
+            
+            <h3>5. Your Privacy Rights</h3>
+            <p>You have the right to:</p>
+            <ul>
+                <li><strong>Access:</strong> Request a copy of your personal information</li>
+                <li><strong>Correct:</strong> Update or correct inaccurate information</li>
+                <li><strong>Delete:</strong> Request deletion of your personal information</li>
+                <li><strong>Port:</strong> Receive your data in a portable format</li>
+                <li><strong>Object:</strong> Opt-out of certain data processing activities</li>
+            </ul>
         </div>
 
         <!-- Risk Disclaimer -->
         <div id="risk" class="legal-content">
-            <h2>⚠️ OGZPRIME RISK DISCLAIMER</h2>
-            <p><strong>Effective Date:</strong> June 8th, 2025</p>
+            <h2>⚠️ Risk Disclaimer</h2>
             
             <div class="warning-box">
-                <h4>🚨 SUBSTANTIAL RISK OF LOSS</h4>
-                <p>Trading involves <span class="highlight">substantial risk and is not suitable for all users</span>. You may incur partial or total loss of capital.</p>
+                <h4>🚨 High Risk Investment Warning</h4>
+                <p>Trading in financial instruments and cryptocurrencies carries a high level of risk and may not be suitable for all investors. <span class="highlight">You could lose all of your invested capital.</span></p>
             </div>
             
-            <h3>1. No Financial or Investment Advice</h3>
-            <p><span class="highlight">OGZPrime does not provide financial, investment, tax, legal, or accounting advice.</span> All content and functionalities are strictly informational and educational in nature.</p>
+            <h3>General Risk Warning</h3>
+            <p>Cryptocurrency and financial market trading involves substantial risk of loss and is not suitable for all investors. You should carefully consider whether trading is suitable for you in light of your circumstances, knowledge, and financial resources.</p>
             
-            <h3>2. Market Risk and Volatility</h3>
-            <p>Trading in financial markets involves substantial risk:</p>
+            <h3>Specific Risk Factors</h3>
             <ul>
-                <li><span class="highlight">You may incur partial or total loss of capital</span></li>
-                <li>Markets may behave unpredictably despite algorithmic inputs</li>
-                <li>Even historically successful strategies can fail</li>
+                <li><strong>Market Risk:</strong> Prices can move rapidly against your position, resulting in significant losses</li>
+                <li><strong>Leverage Risk:</strong> Using leverage amplifies both potential gains and losses</li>
+                <li><strong>Technical Risk:</strong> System failures, internet outages, or platform issues may prevent trading</li>
+                <li><strong>Liquidity Risk:</strong> Some markets may have limited liquidity, affecting order execution</li>
+                <li><strong>Regulatory Risk:</strong> Changes in laws or regulations may impact trading activities</li>
+                <li><strong>Counterparty Risk:</strong> Risk of default by exchanges or other trading partners</li>
             </ul>
             
-            <p><span class="highlight">OGZPrime does not and cannot guarantee profitability, consistency, or performance</span> of any strategy or signal.</p>
+            <h3>No Guarantee of Profit</h3>
+            <p class="highlight">Past performance is not indicative of future results. No trading system, strategy, or AI algorithm has ever been developed that can guarantee profits or ensure freedom from losses.</p>
             
-            <h3>3. Automation Risk</h3>
-            <p>Automated trading tools carry additional operational risk:</p>
+            <h3>AI and Automated Trading Risks</h3>
+            <p>Additional risks specific to AI-powered trading include:</p>
             <ul>
-                <li>Slippage due to market movement</li>
-                <li>Latency and execution delay</li>
-                <li>Unintended trades triggered by flawed parameters</li>
-                <li>Software bugs or AI decision-making anomalies</li>
+                <li>Algorithm malfunctions or unexpected behavior</li>
+                <li>Over-optimization based on historical data</li>
+                <li>Black swan events not accounted for in training data</li>
+                <li>Network latency affecting trade execution timing</li>
+                <li>Model degradation in changing market conditions</li>
             </ul>
             
-            <h3>4. AI Limitations</h3>
-            <p>AI technologies have known limitations:</p>
-            <ul>
-                <li><span class="highlight">AI does not "predict" market events with certainty</span></li>
-                <li>Historical training data may not represent future conditions</li>
-                <li>Outputs may reflect biases or false signals</li>
-                <li>Performance simulations may be overfitted</li>
-            </ul>
-            
-            <h3>5. Past Performance Does Not Guarantee Future Results</h3>
-            <p><span class="highlight">All performance data shown on OGZPrime is hypothetical in nature.</span> You agree not to interpret past performance metrics as an indicator of future profitability.</p>
-            
-            <h3>10. Limitation of Liability</h3>
-            <p>Under no circumstances shall OGZPrime be liable for:</p>
-            <ul>
-                <li><span class="highlight">Direct or indirect trading losses</span></li>
-                <li>Missed opportunities or unexecuted trades</li>
-                <li>System failures, outages, or data errors</li>
-            </ul>
-            
-            <p><span class="highlight">All use of OGZPrime is at your own risk.</span></p>
+            <h3>Professional Advice Recommendation</h3>
+            <p>Before engaging in trading activities, you should seek independent financial, legal, and tax advice to ensure you fully understand the risks involved and determine if trading is appropriate for your financial situation.</p>
         </div>
 
-        <!-- Refund Policy -->
-        <div id="refund" class="legal-content">
-            <h2>💰 OGZPrime Refund Policy</h2>
-            <p><strong>Effective Date:</strong> June 8th, 2025</p>
-            
-            <div class="final-sales">
-                <h3>🚫 ALL SALES ARE FINAL</h3>
-                <p>Due to the digital nature of our services, automated trading capabilities, and immediate access to proprietary backend logic, <span class="highlight">all sales are final and non-refundable.</span></p>
-            </div>
-            
-            <h3>2. All Sales Are Final</h3>
-            <p>Once you have purchased a license or subscribed to OGZPrime, <span class="highlight">the transaction is non-refundable</span>, regardless of:</p>
-            <ul>
-                <li>Your usage patterns or time spent on the platform</li>
-                <li>The outcome or profitability of strategies employed</li>
-                <li>Unused features or modules</li>
-                <li>Perceived value or satisfaction with platform tools</li>
-                <li>Technical incompatibility on your device</li>
-            </ul>
-            
-            <p><span class="highlight">We do not offer refunds, chargebacks, or partial credits under any circumstance.</span></p>
-            
-            <h3>3. No Refund for Digital Access</h3>
-            <p>OGZPrime delivers immediate and irrevocable access to:</p>
-            <ul>
-                <li>Downloadable trade logic files and scripts</li>
-                <li>Proprietary interface modules</li>
-                <li>Confidential algorithmic components</li>
-            </ul>
-            
-            <p>Your purchase is considered a <span class="highlight">final sale of digital goods and intellectual property access</span>.</p>
-            
-            <h3>4. Responsibility of the User</h3>
-            <p>By purchasing access to OGZPrime, you acknowledge:</p>
-            <ul>
-                <li>You are solely responsible for evaluating suitability before purchase</li>
-                <li>You have read and understood the Terms of Service and Risk Disclaimer</li>
-                <li>You accept the potential for financial loss</li>
-                <li><span class="highlight">You agree not to initiate any payment dispute or chargeback</span></li>
-            </ul>
-            
-            <h3>5. Exceptions (If Applicable)</h3>
-            <p>While OGZPrime operates under a strict no-refund policy, we reserve the right at our sole discretion to consider rare exceptions:</p>
-            <ul>
-                <li>Duplicate charges (billed twice in error)</li>
-                <li>Proven fraudulent use of your payment method</li>
-                <li>Access failure due to OGZPrime system error for 15+ consecutive business days</li>
-            </ul>
-            
-            <p><span class="highlight">Refunds are never guaranteed</span> and will only be issued in accordance with this clause, if at all.</p>
-            
-            <h3>6. Subscription Cancellation</h3>
-            <p>You may cancel your subscription at any time. Cancellation takes effect at the end of your current billing cycle. <span class="highlight">No partial refunds or pro-rata credits will be issued</span> for unused time.</p>
-        </div>
-
-        <!-- Contact -->
+        <!-- Contact & FAQ -->
         <div id="contact" class="legal-content">
-            <h2>📞 Contact Information</h2>
+            <h2>📞 Contact & FAQ</h2>
             
             <div class="contact-info">
-                <h4>OGZ Prime Legal & Support</h4>
-                <p><strong>Email:</strong> support@ogzprime.com</p>
-                <p><strong>Legal Correspondent:</strong> Edward Buhidar</p>
-                <p><strong>Jurisdiction:</strong> Corpus Christi, Texas, United States</p>
-                <p><strong>Business Hours:</strong> Monday – Friday, 9:00am–5:00pm (Central Time)</p>
+                <h4>Contact Information</h4>
+                <p><strong>Email:</strong> <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="493a3c3939263b3d09262e33393b20242c672a2624">[email&#160;protected]</a></p>
+                <p><strong>Website:</strong> https://ogzprime.com</p>
+                <p><strong>Business Hours:</strong> Monday - Friday, 9 AM - 5 PM EST</p>
+                <p><strong>Response Time:</strong> 24-48 hours for standard inquiries</p>
+                <p><strong>Emergency Support:</strong> Critical system issues resolved within 4 hours</p>
             </div>
             
-            <div class="legal-notice">
-                <h4>Legal Notice</h4>
-                <p>These legal documents have been professionally drafted and constitute binding legal agreements. All intellectual property rights belong to Edward Buhidar. The platform operates under Texas state law with mandatory arbitration clauses.</p>
-                
-                <p><strong>Important:</strong> By using OGZPrime, you waive your right to participate in class action lawsuits and agree to individual arbitration for dispute resolution.</p>
-            </div>
+            <h3>Frequently Asked Questions</h3>
             
-            <div class="warning-box">
-                <h4>⚠️ Trading Risk Notice</h4>
-                <p>OGZPrime is a technology platform providing informational tools only. We are not a registered broker-dealer, financial advisor, or investment manager. <span class="highlight">All trading decisions and their consequences are solely your responsibility.</span></p>
+            <div class="faq-item">
+                <div class="faq-question">Q: How does OGZ Prime's AI trading system work?</div>
+                <div class="faq-answer">A: OGZ Prime uses advanced machine learning algorithms that analyze market data, price patterns, volume indicators, and sentiment analysis to generate trading signals. The AI continuously learns from market behavior and adapts its strategies accordingly.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: What markets and assets does OGZ Prime support?</div>
+                <div class="faq-answer">A: We currently support major cryptocurrency markets including BTC, ETH, and other top altcoins. Higher tier subscriptions include access to traditional markets like stocks, options, and futures.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Is there a minimum investment requirement?</div>
+                <div class="faq-answer">A: While there's no strict minimum, we recommend starting with at least $1,000 to properly implement risk management strategies and portfolio diversification. You can start with smaller amounts for learning purposes.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Can I cancel my subscription at any time?</div>
+                <div class="faq-answer">A: Yes, you can cancel your subscription at any time. Please refer to our refund policy for details on applicable refunds and the cancellation process.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: How secure is my trading data and personal information?</div>
+                <div class="faq-answer">A: We use enterprise-grade security measures including 256-bit SSL encryption, multi-factor authentication, and secure data storage. We never store your exchange API secret keys in plain text and follow strict data protection protocols.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: What's the difference between the demo and paid versions?</div>
+                <div class="faq-answer">A: The demo uses identical AI algorithms and analysis as the paid version, but with virtual money instead of real trading. The paid version includes direct broker integration, additional assets, mobile access, and premium support.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Do you provide investment advice?</div>
+                <div class="faq-answer">A: No, OGZ Prime provides technical analysis tools and trading signals for informational purposes only. We do not provide investment advice. All trading decisions remain solely with the user.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: What happens if the AI makes losing trades?</div>
+                <div class="faq-answer">A: Like all trading strategies, the AI will sometimes make losing trades. We implement strict risk management rules including stop-losses and position sizing to minimize losses. Past performance does not guarantee future results.</div>
             </div>
         </div>
 
-        <a href="/" class="back-link">← Back to OGZ Prime Dashboard</a>
+        <!-- Placeholder sections for other legal documents -->
+        <div id="cookies" class="legal-content">
+            <h2>🍪 Cookie Policy</h2>
+            <p>Cookie policy content would go here...</p>
+        </div>
+
+        <div id="copyright" class="legal-content">
+            <h2>© Copyright Policy</h2>
+            <p>Copyright policy content would go here...</p>
+        </div>
+
+        <div id="refund" class="legal-content">
+            <h2>💰 Refund Policy</h2>
+            <p>Refund policy content would go here...</p>
+        </div>
+
+        <div id="eula" class="legal-content">
+            <h2>📄 End User License Agreement</h2>
+            <p>EULA content would go here...</p>
+        </div>
+
+        <a href="/" class="back-link">← Back to Dashboard</a>
     </div>
 
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         function showContent(contentId) {
             // Hide all content sections
             const contents = document.querySelectorAll('.legal-content');
@@ -546,12 +555,4 @@
         }
 
         // Handle direct linking to sections
-        window.addEventListener('DOMContentLoaded', function() {
-            const hash = window.location.hash.substring(1);
-            if (hash && document.getElementById(hash)) {
-                showContent(hash);
-            }
-        });
-    </script>
-</body>
-</html>
+        window.addEventListener('DOMConte
