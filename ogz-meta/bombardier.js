@@ -464,6 +464,297 @@ class Bombardier {
       return false;
     }
   }
+
+  /**
+   * Find orphan functions (never called by anyone)
+   */
+  findOrphans(options = {}) {
+    const { excludeEntryPoints = true, minSize = 3 } = options;
+
+    // Known entry points that are legitimately uncalled
+    const entryPointPatterns = [
+      'main', 'start', 'init', 'setup', 'run', 'execute',
+      'constructor', 'render', 'componentDidMount', 'useEffect',
+      'module.exports', 'exports', 'default'
+    ];
+
+    const orphans = [];
+    const entryPoints = [];
+
+    for (const [id, func] of this.callGraph) {
+      // Skip if it has callers
+      if (func.calledBy.length > 0) continue;
+
+      // Check if it's an entry point
+      const isEntryPoint = entryPointPatterns.some(p =>
+        func.name.toLowerCase().includes(p.toLowerCase())
+      );
+
+      // Check if it's exported (appears in module.exports context)
+      const isExported = func.file && this._isExportedFunction(func);
+
+      if (isEntryPoint || isExported) {
+        if (!excludeEntryPoints) {
+          entryPoints.push(func);
+        }
+        continue;
+      }
+
+      // Skip tiny functions (likely helpers)
+      const size = func.endLine - func.line;
+      if (size < minSize) continue;
+
+      orphans.push({
+        name: func.name,
+        file: func.file,
+        line: func.line,
+        size: size,
+        calls: func.calls.length
+      });
+    }
+
+    // Sort by size (biggest orphans first - most code to review)
+    orphans.sort((a, b) => b.size - a.size);
+
+    return { orphans, entryPoints };
+  }
+
+  /**
+   * Check if function is likely exported
+   */
+  _isExportedFunction(func) {
+    // Simple heuristic: check if function name appears in common export patterns
+    const exportPatterns = ['Handler', 'Controller', 'Middleware', 'Router', 'API'];
+    return exportPatterns.some(p => func.name.includes(p));
+  }
+
+  /**
+   * Print orphan report
+   */
+  printOrphans(result) {
+    console.log('\n' + '='.repeat(60));
+    console.log('ORPHAN DETECTION REPORT');
+    console.log('='.repeat(60));
+
+    if (result.orphans.length === 0) {
+      console.log('\n✅ No orphan functions detected!');
+      console.log('All functions are either called or are entry points.\n');
+      return;
+    }
+
+    console.log(`\n⚠️  Found ${result.orphans.length} potential orphan functions:\n`);
+
+    // Group by file
+    const byFile = {};
+    for (const orphan of result.orphans) {
+      if (!byFile[orphan.file]) byFile[orphan.file] = [];
+      byFile[orphan.file].push(orphan);
+    }
+
+    for (const [file, funcs] of Object.entries(byFile)) {
+      console.log(`📁 ${file}:`);
+      for (const f of funcs) {
+        console.log(`   └─ ${f.name} (line ${f.line}, ${f.size} lines, calls ${f.calls} funcs)`);
+      }
+    }
+
+    console.log('\n' + '-'.repeat(60));
+    console.log('SUMMARY:');
+    console.log(`  Total orphans: ${result.orphans.length}`);
+    console.log(`  Total lines:   ${result.orphans.reduce((sum, o) => sum + o.size, 0)}`);
+    console.log(`  Files affected: ${Object.keys(byFile).length}`);
+    console.log('='.repeat(60) + '\n');
+  }
+
+  /**
+   * Generate call graph for a function (upstream + downstream)
+   */
+  getCallGraph(funcName, depth = 3) {
+    const funcIds = this.nameIndex.get(funcName) || [];
+    if (funcIds.length === 0) {
+      return { found: false, name: funcName };
+    }
+
+    const nodes = new Map();  // id -> { name, file, line, type }
+    const edges = [];         // { from, to, type }
+
+    // BFS to build graph
+    const visited = new Set();
+    const queue = [];
+
+    // Start with target functions
+    for (const id of funcIds) {
+      const func = this.callGraph.get(id);
+      if (func) {
+        nodes.set(id, {
+          name: func.name,
+          file: func.file,
+          line: func.line,
+          type: 'target'
+        });
+        queue.push({ id, depth: 0, direction: 'both' });
+      }
+    }
+
+    while (queue.length > 0) {
+      const { id, depth: currentDepth, direction } = queue.shift();
+
+      if (visited.has(id + direction) || currentDepth >= depth) continue;
+      visited.add(id + direction);
+
+      const func = this.callGraph.get(id);
+      if (!func) continue;
+
+      // Upstream (callers)
+      if (direction === 'both' || direction === 'up') {
+        for (const callerId of func.calledBy) {
+          const caller = this.callGraph.get(callerId);
+          if (caller) {
+            if (!nodes.has(callerId)) {
+              nodes.set(callerId, {
+                name: caller.name,
+                file: caller.file,
+                line: caller.line,
+                type: 'upstream'
+              });
+            }
+            edges.push({ from: callerId, to: id, type: 'calls' });
+            queue.push({ id: callerId, depth: currentDepth + 1, direction: 'up' });
+          }
+        }
+      }
+
+      // Downstream (callees)
+      if (direction === 'both' || direction === 'down') {
+        for (const call of func.calls) {
+          const targetIds = this.nameIndex.get(call.name) || [];
+          for (const targetId of targetIds) {
+            const target = this.callGraph.get(targetId);
+            if (target && targetId !== id) {
+              if (!nodes.has(targetId)) {
+                nodes.set(targetId, {
+                  name: target.name,
+                  file: target.file,
+                  line: target.line,
+                  type: 'downstream'
+                });
+              }
+              edges.push({ from: id, to: targetId, type: 'calls' });
+              queue.push({ id: targetId, depth: currentDepth + 1, direction: 'down' });
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      found: true,
+      name: funcName,
+      nodes: Array.from(nodes.entries()).map(([id, data]) => ({ id, ...data })),
+      edges
+    };
+  }
+
+  /**
+   * Generate Mermaid diagram from call graph
+   */
+  toMermaid(graphResult, options = {}) {
+    if (!graphResult.found) {
+      return `%% No function found: ${graphResult.name}`;
+    }
+
+    const { direction = 'TB', maxNodes = 50 } = options;
+
+    let mermaid = `flowchart ${direction}\n`;
+    mermaid += `  %% Call graph for: ${graphResult.name}\n`;
+    mermaid += `  %% Generated by bombardier.js\n\n`;
+
+    // Limit nodes if too many
+    const nodes = graphResult.nodes.slice(0, maxNodes);
+    const nodeIds = new Set(nodes.map(n => n.id));
+
+    // Style definitions
+    mermaid += `  classDef target fill:#f96,stroke:#333,stroke-width:3px\n`;
+    mermaid += `  classDef upstream fill:#6cf,stroke:#333,stroke-width:1px\n`;
+    mermaid += `  classDef downstream fill:#9f6,stroke:#333,stroke-width:1px\n\n`;
+
+    // Create node definitions with sanitized IDs
+    const idMap = new Map();
+    nodes.forEach((node, i) => {
+      const safeId = `n${i}`;
+      idMap.set(node.id, safeId);
+      const shortFile = node.file.split('/').pop();
+      mermaid += `  ${safeId}["${node.name}<br/><small>${shortFile}:${node.line}</small>"]\n`;
+    });
+
+    mermaid += '\n';
+
+    // Create edges
+    for (const edge of graphResult.edges) {
+      const fromId = idMap.get(edge.from);
+      const toId = idMap.get(edge.to);
+      if (fromId && toId) {
+        mermaid += `  ${fromId} --> ${toId}\n`;
+      }
+    }
+
+    mermaid += '\n';
+
+    // Apply styles
+    for (const node of nodes) {
+      const safeId = idMap.get(node.id);
+      mermaid += `  class ${safeId} ${node.type}\n`;
+    }
+
+    if (graphResult.nodes.length > maxNodes) {
+      mermaid += `\n  %% Note: Showing ${maxNodes} of ${graphResult.nodes.length} nodes\n`;
+    }
+
+    return mermaid;
+  }
+
+  /**
+   * Print call graph as text
+   */
+  printCallGraph(result) {
+    if (!result.found) {
+      console.log(`\nNo function found: ${result.name}`);
+      return;
+    }
+
+    console.log('\n' + '='.repeat(60));
+    console.log(`CALL GRAPH: ${result.name}`);
+    console.log('='.repeat(60));
+
+    // Separate by type
+    const targets = result.nodes.filter(n => n.type === 'target');
+    const upstream = result.nodes.filter(n => n.type === 'upstream');
+    const downstream = result.nodes.filter(n => n.type === 'downstream');
+
+    console.log(`\n📍 TARGET (${targets.length}):`);
+    for (const t of targets) {
+      console.log(`   ${t.name} @ ${t.file}:${t.line}`);
+    }
+
+    console.log(`\n⬆️  UPSTREAM/CALLERS (${upstream.length}):`);
+    for (const u of upstream.slice(0, 20)) {
+      console.log(`   ${u.name} @ ${u.file}:${u.line}`);
+    }
+    if (upstream.length > 20) {
+      console.log(`   ... and ${upstream.length - 20} more`);
+    }
+
+    console.log(`\n⬇️  DOWNSTREAM/CALLEES (${downstream.length}):`);
+    for (const d of downstream.slice(0, 20)) {
+      console.log(`   ${d.name} @ ${d.file}:${d.line}`);
+    }
+    if (downstream.length > 20) {
+      console.log(`   ... and ${downstream.length - 20} more`);
+    }
+
+    console.log(`\n📊 EDGES: ${result.edges.length} call relationships`);
+    console.log('='.repeat(60) + '\n');
+  }
 }
 
 /**
@@ -479,6 +770,9 @@ Usage:
   node bombardier.js <functionName>    Show blast radius for function by name
   node bombardier.js --build           Rebuild the call graph cache
   node bombardier.js --stats           Show graph statistics
+  node bombardier.js --orphans         Find dead/uncalled functions
+  node bombardier.js --callgraph <fn>  Show call graph for function
+  node bombardier.js --mermaid <fn>    Generate Mermaid diagram for function
 `);
     process.exit(0);
   }
@@ -500,6 +794,45 @@ Usage:
     console.log(`  Functions: ${bombardier.callGraph.size}`);
     console.log(`  Files: ${bombardier.fileIndex.size}`);
     console.log(`  Unique names: ${bombardier.nameIndex.size}`);
+    process.exit(0);
+  }
+
+  // Orphan detection
+  if (args[0] === '--orphans') {
+    const result = bombardier.findOrphans();
+    bombardier.printOrphans(result);
+    process.exit(0);
+  }
+
+  // Call graph
+  if (args[0] === '--callgraph') {
+    const funcName = args[1];
+    if (!funcName) {
+      console.error('Usage: --callgraph <functionName>');
+      process.exit(1);
+    }
+    const depth = parseInt(args[2]) || 3;
+    const result = bombardier.getCallGraph(funcName, depth);
+    bombardier.printCallGraph(result);
+    process.exit(0);
+  }
+
+  // Mermaid diagram
+  if (args[0] === '--mermaid') {
+    const funcName = args[1];
+    if (!funcName) {
+      console.error('Usage: --mermaid <functionName>');
+      process.exit(1);
+    }
+    const depth = parseInt(args[2]) || 3;
+    const result = bombardier.getCallGraph(funcName, depth);
+    const mermaid = bombardier.toMermaid(result);
+    console.log(mermaid);
+
+    // Also save to file
+    const outFile = path.join(__dirname, `callgraph-${funcName}.mmd`);
+    fs.writeFileSync(outFile, mermaid);
+    console.error(`\nSaved to: ${outFile}`);
     process.exit(0);
   }
 
