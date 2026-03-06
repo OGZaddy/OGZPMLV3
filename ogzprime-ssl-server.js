@@ -81,6 +81,19 @@ app.post('/api/ollama/chat', async (req, res) => {
   }
 });
 
+// CHANGE 2026-03-06: Restore /api/health endpoint for proof page
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    websockets: {
+      connections: wss.clients.size
+    },
+    timestamp: Date.now()
+  });
+});
+
 // HTTPS server removed - nginx handles SSL termination
 // All connections come through nginx proxy on port 3010
 
