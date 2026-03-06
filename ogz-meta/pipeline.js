@@ -61,13 +61,18 @@ const REFACTOR_PIPELINE = [
   '/warden'
 ];
 
-// Detect mode from issue prefix
+// Detect mode from issue prefix or CLI flags
 function detectMode(issue) {
   const lower = issue.toLowerCase();
   if (lower.startsWith('refactor:') || lower.startsWith('extract:')) {
     return 'refactor';
   }
   return 'bugfix';
+}
+
+// Check for --stay flag in args
+function hasStayFlag(issue) {
+  return issue.includes('--stay') || issue.includes('--refactor');
 }
 
 // Legacy export for backwards compatibility
@@ -78,14 +83,24 @@ const PIPELINE = BUGFIX_PIPELINE;
  */
 async function execute(issue) {
   const mode = detectMode(issue);
-  const pipeline = mode === 'refactor' ? REFACTOR_PIPELINE : BUGFIX_PIPELINE;
+  const stayOnBranch = hasStayFlag(issue);
+
+  // Clean issue text (remove flags)
+  const cleanIssue = issue.replace(/--stay|--refactor/g, '').trim();
+
+  // Build pipeline, inject --stay if needed
+  let pipeline = mode === 'refactor' ? [...REFACTOR_PIPELINE] : [...BUGFIX_PIPELINE];
+  if (stayOnBranch && mode !== 'refactor') {
+    // Replace /branch with /branch --stay for bugfix mode
+    pipeline = pipeline.map(cmd => cmd === '/branch' ? '/branch --stay' : cmd);
+  }
 
   console.log('🚀 CLAUDITO PIPELINE INITIATED');
   console.log('=' .repeat(50));
-  console.log(`🔧 Mode: ${mode.toUpperCase()}`);
+  console.log(`🔧 Mode: ${mode.toUpperCase()}${stayOnBranch ? ' (staying on branch)' : ''}`);
 
   // Start mission
-  let manifest = await route(`/start ${issue}`, {});
+  let manifest = await route(`/start ${cleanIssue}`, {});
   manifest.mode = mode;  // Store mode in manifest for downstream use
   console.log(`\n📋 Mission: ${manifest.mission_id}`);
   console.log(`📝 Issue: ${issue}`);
