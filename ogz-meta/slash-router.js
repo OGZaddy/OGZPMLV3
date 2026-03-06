@@ -95,14 +95,30 @@ async function route(command, args) {
 async function branch(manifest, params) {
   const missionBranch = `mission/${manifest.mission_id}`;
   const isRefactor = params.includes('--refactor') || manifest.mode === 'refactor';
+  const stayOnBranch = params.includes('--stay') || isRefactor;
+
+  // REFACTOR/STAY MODE: Stay on current branch, skip dirty check
+  // This allows working with WIP code without stashing
+  if (stayOnBranch) {
+    const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+    console.log(`✅ Branch: Staying on ${currentBranch} (${isRefactor ? 'refactor' : 'stay'} mode)`);
+    updateSection(manifest, 'branch', {
+      success: true,
+      branch: currentBranch,
+      mode: isRefactor ? 'refactor' : 'stay',
+      based_on: currentBranch
+    });
+    return manifest;
+  }
 
   // Safety: must be clean before branching (ignore untracked, manifests, submodules, data files)
   const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
     .split('\n')
     .filter(line => !line.startsWith('??'))  // Untracked files are not dirty
-    .filter(line => !line.includes('ogz-meta/manifests/'))
+    .filter(line => !line.includes('ogz-meta/'))  // All ogz-meta files (manifests, proposals, etc)
     .filter(line => !line.includes('prodlock-portable'))  // Submodule with untracked content
     .filter(line => !line.includes('data/'))  // Runtime data files
+    .filter(line => !line.includes('tuning/'))  // Tuning reports
     .filter(line => !line.includes('public/proof/'))  // Live trade proofs
     .join('\n')
     .trim();
@@ -114,19 +130,6 @@ async function branch(manifest, params) {
       dirty_preview: dirty.split('\n').slice(0, 10)
     });
     console.log('🛑 Branch: BLOCKED (dirty working tree)');
-    return manifest;
-  }
-
-  // REFACTOR MODE: Stay on current branch, don't checkout master
-  if (isRefactor) {
-    const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
-    console.log(`✅ Branch: Staying on ${currentBranch} (refactor mode)`);
-    updateSection(manifest, 'branch', {
-      success: true,
-      branch: currentBranch,
-      mode: 'refactor',
-      based_on: currentBranch
-    });
     return manifest;
   }
 
