@@ -65,6 +65,14 @@ class OrderExecutor {
       0.5 + (tradeConfidence - 0.5) * 4.0
     ));
     basePositionPercent = basePositionPercent * confidenceMultiplier;
+
+    // FIX 2026-03-06: ENFORCE MAX_POSITION_SIZE cap after confidence multiplier
+    // Bug: confidenceMultiplier (up to 2.5x) was pushing position above max
+    const maxPositionPercent = TradingConfig.get('positionSizing.maxPositionSize') * 2.5; // Allow up to 2.5x max for high confidence
+    if (basePositionPercent > maxPositionPercent) {
+      console.log(`⚠️ Position capped: ${(basePositionPercent * 100).toFixed(2)}% → ${(maxPositionPercent * 100).toFixed(2)}% (MAX_POSITION_SIZE limit)`);
+      basePositionPercent = maxPositionPercent;
+    }
     console.log(`📏 Confidence sizing: ${(tradeConfidence * 100).toFixed(0)}% → ${confidenceMultiplier.toFixed(1)}x → ${(basePositionPercent * 100).toFixed(2)}% of balance`);
 
     // Phase 4 REWRITE: AGGRESSIVE_LEARNING_MODE removed - use TradingConfig for all sizing

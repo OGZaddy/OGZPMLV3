@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Critical Fixes: Risk Enforcement + RSI Null Bug (2026-03-06)
+
+**Session Focus:** Wire up cosmetic env flags that were loaded but never enforced, fix RSI null on startup.
+
+#### Bug Fix #1: PAPER_TRADING Not Enforced ($50 Loss)
+- **File:** `core/OrderExecutor.js` lines 24-25, 106
+- **Problem:** `PAPER_TRADING=true` in .env but bot executed real trades
+- **Root Cause:** OrderExecutor only checked `BACKTEST_MODE`, ignored `PAPER_TRADING`
+- **Fix:** Added `PAPER_TRADING` check alongside `BACKTEST_MODE`
+- **Impact:** Live orders now blocked when PAPER_TRADING=true
+
+#### Bug Fix #2: MAX_DRAWDOWN + MAX_DAILY_LOSS Never Enforced
+- **File:** `core/TradingLoop.js` lines 421-462
+- **Problem:** RiskManager had `isTradingAllowed()` method but nobody called it
+- **Root Cause:** RiskManager was initialized but its enforcement methods were never invoked
+- **Fix:** Added `riskManager.isTradingAllowed()` and `assessTradeRisk()` checks before BUY decisions
+- **Impact:** Trading now stops when drawdown/daily loss limits exceeded
+
+#### Bug Fix #3: MAX_POSITION_SIZE Could Be Exceeded
+- **File:** `core/OrderExecutor.js` lines 67-72
+- **Problem:** Confidence multiplier (up to 2.5x) pushed position above MAX_POSITION_SIZE
+- **Fix:** Added cap after confidence multiplier: `Math.min(basePositionPercent, maxPositionPercent * 2.5)`
+- **Impact:** Position size now respects max limit even with high confidence
+
+#### Bug Fix #4: RSI Null on Startup (Confidence = 0%)
+- **File:** `run-empire-v2.js` lines 602-610
+- **Problem:** Bot showed `confidence = 0%` after restart, RSI always null
+- **Root Cause:** `priceHistory` loaded 97 candles from disk, but `IndicatorEngine` started empty
+- **Trace:** priceHistory.length=16 but IndicatorEngine.candles.length=3 (out of sync)
+- **Fix:** Replay saved candles through `indicatorEngine.computeBatch(priceHistory)` on startup
+- **Impact:** RSI and all indicators now calculate correctly from first candle
+
+#### Flag Audit Results
+| Flag | Status | Notes |
+|------|--------|-------|
+| PAPER_TRADING | ✅ Fixed | Now enforced in OrderExecutor |
+| MAX_DRAWDOWN | ✅ Fixed | Now checked via RiskManager |
+| MAX_DAILY_LOSS | ✅ Fixed | Now checked via RiskManager |
+| MAX_POSITION_SIZE | ✅ Fixed | Now capped after multiplier |
+| STOP_LOSS_PERCENT | ✅ Working | Via ExitContractManager |
+| MIN_TRADE_CONFIDENCE | ✅ Working | Via TradingLoop |
+
+---
+
 ### Critical Fix: MADynamicSR 123 Pattern - Sliding Window Index Bug (2026-03-04)
 
 **Session Focus:** Fix MADynamicSR detecting only 82 swings out of 45,743 candles due to sliding window index collision.

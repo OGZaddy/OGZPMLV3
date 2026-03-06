@@ -419,13 +419,46 @@ class TradingLoop {
         }
       }
     } else if (tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
-      // BUY when flat and orchestrator signals buy with sufficient confidence
-      console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${minConfidence}% | Direction: ${tradingDirection}`);
-      decision = {
-        action: 'BUY',
-        direction: 'long',
-        confidence: orchResult.confidence
-      };
+      // FIX 2026-03-06: ENFORCE MAX_DRAWDOWN + MAX_DAILY_LOSS via RiskManager
+      // These flags were loaded but never checked - wiring them now
+      if (this.ctx.riskManager) {
+        const riskCheck = this.ctx.riskManager.isTradingAllowed();
+        if (!riskCheck.allowed) {
+          console.log(`🛑 RISK BLOCK: ${riskCheck.reason} - Trade rejected`);
+          decision = { action: 'HOLD', confidence: 0, blockReason: riskCheck.reason };
+        } else {
+          // Also run full risk assessment for position sizing guidance
+          const riskAssessment = this.ctx.riskManager.assessTradeRisk({
+            confidence: orchResult.confidence / 100,
+            direction: tradingDirection
+          });
+          if (!riskAssessment.approved) {
+            console.log(`🛑 RISK BLOCK: ${riskAssessment.reason} - Trade rejected`);
+            decision = { action: 'HOLD', confidence: 0, blockReason: riskAssessment.reason };
+          } else {
+            // BUY when flat and orchestrator signals buy with sufficient confidence
+            console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${minConfidence}% | Direction: ${tradingDirection}`);
+            if (riskAssessment.riskLevel !== 'LOW') {
+              console.log(`   ⚠️ Risk level: ${riskAssessment.riskLevel} - ${riskAssessment.recommendation}`);
+            }
+            decision = {
+              action: 'BUY',
+              direction: 'long',
+              confidence: orchResult.confidence,
+              riskLevel: riskAssessment.riskLevel,
+              riskRecommendation: riskAssessment.recommendation
+            };
+          }
+        }
+      } else {
+        // Fallback if riskManager not available (shouldn't happen)
+        console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${minConfidence}% | Direction: ${tradingDirection}`);
+        decision = {
+          action: 'BUY',
+          direction: 'long',
+          confidence: orchResult.confidence
+        };
+      }
     }
 
     // Store for PipelineSnapshot

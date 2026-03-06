@@ -599,6 +599,16 @@ class OGZPrimeV14Bot {
     this.candleSaveCounter = 0; // CHANGE 2026-01-28: Track candles for periodic save
     this.loadCandleHistory(); // CHANGE 2026-01-28: Load saved candles on startup
 
+    // FIX 2026-03-06: Replay saved candles through IndicatorEngine on startup
+    // Bug: priceHistory loaded from disk but IndicatorEngine started empty
+    // Result: RSI was null because IndicatorEngine had 0 candles while priceHistory had 16
+    // Fix: Use computeBatch() to replay all saved candles through indicator calculations
+    if (this.priceHistory.length > 0) {
+      console.log(`🔄 Replaying ${this.priceHistory.length} saved candles through IndicatorEngine...`);
+      indicatorEngine.computeBatch(this.priceHistory);
+      console.log(`✅ IndicatorEngine synced with priceHistory (RSI: ${indicatorEngine.getSnapshot().rsi?.toFixed(1) || 'warming up'})`);
+    }
+
     // CHANGE 2026-01-29: Multi-timeframe candle storage for dashboard
     // Each timeframe has its own history from native Kraken data
     this.timeframeHistories = {
