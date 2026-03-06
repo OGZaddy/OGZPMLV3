@@ -22,6 +22,7 @@ const stateManager = getStateManager();
 // BACKTEST_FAST: Skip notifications during backtest
 const BACKTEST_FAST = process.env.BACKTEST_FAST === 'true';
 const BACKTEST_MODE = process.env.BACKTEST_MODE === 'true';
+const PAPER_TRADING = process.env.PAPER_TRADING === 'true';
 
 class OrderExecutor {
   constructor(ctx) {
@@ -100,10 +101,11 @@ class OrderExecutor {
       // Generate decisionId for pattern attribution (join key to trai-decisions.log)
       const decisionId = decision.decisionId || `dec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
-      // Phase 4 REWRITE: executionLayer deleted - use orderRouter for live, simulate for backtest
+      // Phase 4 REWRITE: executionLayer deleted - use orderRouter for live, simulate for backtest/paper
       let tradeResult;
-      if (BACKTEST_MODE) {
-        // Backtest: Simulate trade execution
+      if (BACKTEST_MODE || PAPER_TRADING) {
+        // Backtest/Paper: Simulate trade execution
+        if (PAPER_TRADING) console.log('📝 PAPER MODE: Simulating order (no real execution)');
         tradeResult = {
           success: true,
           orderId: `SIM_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
