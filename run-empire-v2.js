@@ -940,8 +940,9 @@ class OGZPrimeV14Bot {
         console.log('ðŸ“Š BACKTEST MODE: Loading historical data...');
         await this.loadHistoricalDataAndBacktest();
       } else {
-        console.log('ðŸ“¡ LIVE/PAPER MODE: Connecting to real-time data...');
-        // V2 ARCHITECTURE: Get market data from BrokerFactory
+        console.log('ðŸ"¡ LIVE/PAPER MODE: Connecting to real-time data...');
+        // V2 ARCHITECTURE: Connect broker first to load asset pairs
+        await this.kraken.connect();
         // Subscribe to broker events instead of direct connection
         this.subscribeToMarketData();
 

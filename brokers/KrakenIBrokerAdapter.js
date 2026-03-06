@@ -99,9 +99,9 @@ class KrakenIBrokerAdapter extends IBrokerAdapter {
   async placeBuyOrder(symbol, amount, price = null, options = {}) {
     const order = {
       symbol: symbol,
-      action: 'buy',
-      orderType: price ? 'limit' : 'market',
-      size: amount,
+      side: 'buy',
+      type: price ? 'limit' : 'market',
+      quantity: amount,
       price: price,
       ...options
     };
@@ -117,9 +117,9 @@ class KrakenIBrokerAdapter extends IBrokerAdapter {
   async placeSellOrder(symbol, amount, price = null, options = {}) {
     const order = {
       symbol: symbol,
-      action: 'sell',
-      orderType: price ? 'limit' : 'market',
-      size: amount,
+      side: 'sell',
+      type: price ? 'limit' : 'market',
+      quantity: amount,
       price: price,
       ...options
     };
@@ -149,9 +149,9 @@ class KrakenIBrokerAdapter extends IBrokerAdapter {
     // Call underlying placeOrder with V2 metadata preserved
     const order = {
       symbol: marketData.symbol,
-      action: direction.toLowerCase(),
-      orderType: 'market',
-      size: positionSize,
+      side: direction.toLowerCase(),
+      type: 'market',
+      quantity: positionSize,
       decisionId: decisionId,  // CRITICAL: Pass through for TRAI learning
       confidence: confidence,
       meta: meta

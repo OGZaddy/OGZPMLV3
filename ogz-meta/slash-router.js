@@ -91,35 +91,70 @@ async function route(command, args) {
 
 /**
  * Branch: Creates a mission branch off master (read-only master rule)
+ *
+ * Three modes:
+ * - --stay: Skip dirty check, skip branching, work on current branch as-is
+ * - --refactor: Require clean tree, stay on current branch
+ * - No flag (bugfix): Require clean tree, checkout master, create mission branch
  */
 async function branch(manifest, params) {
   const missionBranch = `mission/${manifest.mission_id}`;
   const isRefactor = params.includes('--refactor') || manifest.mode === 'refactor';
-  const stayOnBranch = params.includes('--stay') || isRefactor;
+  const isStay = params.includes('--stay');
 
-  // REFACTOR/STAY MODE: Stay on current branch, skip dirty check
-  // This allows working with WIP code without stashing
-  if (stayOnBranch) {
+  // STAY MODE: Skip dirty check and branching — work on current branch as-is
+  if (isStay) {
     const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
-    console.log(`✅ Branch: Staying on ${currentBranch} (${isRefactor ? 'refactor' : 'stay'} mode)`);
+    console.log(`✅ Branch: Staying on ${currentBranch} (stay mode)`);
     updateSection(manifest, 'branch', {
       success: true,
       branch: currentBranch,
-      mode: isRefactor ? 'refactor' : 'stay',
+      mode: 'stay',
       based_on: currentBranch
     });
     return manifest;
   }
 
-  // Safety: must be clean before branching (ignore untracked, manifests, submodules, data files)
+  // REFACTOR MODE: Stay on current branch but require clean tree
+  if (isRefactor) {
+    const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
+      .split('\n')
+      .filter(line => !line.startsWith('??'))
+      .filter(line => !line.includes('ogz-meta/manifests/'))
+      .filter(line => !line.includes('prodlock-portable'))
+      .filter(line => !line.includes('data/'))
+      .filter(line => !line.includes('public/proof/'))
+      .join('\n')
+      .trim();
+    if (dirty) {
+      manifest.stop_conditions.warden_blocked = true;
+      updateSection(manifest, 'branch', {
+        blocked: true,
+        reason: 'Working tree not clean; refusing to branch',
+        dirty_preview: dirty.split('\n').slice(0, 10)
+      });
+      console.log('🛑 Branch: BLOCKED (dirty working tree)');
+      return manifest;
+    }
+    const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+    console.log(`✅ Branch: Staying on ${currentBranch} (refactor mode)`);
+    updateSection(manifest, 'branch', {
+      success: true,
+      branch: currentBranch,
+      mode: 'refactor',
+      based_on: currentBranch
+    });
+    return manifest;
+  }
+
+  // BUG FIX MODE: Require clean tree, base off latest master
   const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
     .split('\n')
-    .filter(line => !line.startsWith('??'))  // Untracked files are not dirty
-    .filter(line => !line.includes('ogz-meta/'))  // All ogz-meta files (manifests, proposals, etc)
-    .filter(line => !line.includes('prodlock-portable'))  // Submodule with untracked content
-    .filter(line => !line.includes('data/'))  // Runtime data files
-    .filter(line => !line.includes('tuning/'))  // Tuning reports
-    .filter(line => !line.includes('public/proof/'))  // Live trade proofs
+    .filter(line => !line.startsWith('??'))
+    .filter(line => !line.includes('ogz-meta/manifests/'))
+    .filter(line => !line.includes('prodlock-portable'))
+    .filter(line => !line.includes('data/'))
+    .filter(line => !line.includes('public/proof/'))
     .join('\n')
     .trim();
   if (dirty) {
@@ -133,7 +168,6 @@ async function branch(manifest, params) {
     return manifest;
   }
 
-  // BUG FIX MODE: Base off latest master
   try {
     execSync('git checkout master', { stdio: 'pipe' });
     execSync('git pull origin master', { stdio: 'pipe' });
@@ -148,11 +182,9 @@ async function branch(manifest, params) {
     return manifest;
   }
 
-  // Create/switch mission branch
   try {
     execSync(`git checkout -b ${missionBranch}`, { stdio: 'pipe' });
   } catch (e) {
-    // If it already exists locally, switch to it
     try {
       execSync(`git checkout ${missionBranch}`, { stdio: 'pipe' });
     } catch (e2) {
