@@ -609,6 +609,23 @@ class OGZPrimeV14Bot {
       console.log(`✅ IndicatorEngine synced with priceHistory (RSI: ${indicatorEngine.getSnapshot().rsi?.toFixed(1) || 'warming up'})`);
     }
 
+    // FIX 2026-03-06: Replay saved candles through signal modules on startup
+    // Same bug as IndicatorEngine - these modules are stateful and need history replayed
+    // EMASMACrossoverSignal: crossoverState, prevSpreads, divergenceHistory
+    // MADynamicSR: swings, srLevels, pattern123, barCount
+    if (this.priceHistory.length > 0 && this.emaCrossover && this.maDynamicSR) {
+      console.log(`🔄 Replaying ${this.priceHistory.length} saved candles through signal modules...`);
+      for (let i = 0; i < this.priceHistory.length; i++) {
+        const candle = this.priceHistory[i];
+        const historyUpToNow = this.priceHistory.slice(0, i + 1);
+        this.emaCrossover.update(candle, historyUpToNow);
+        this.maDynamicSR.update(candle, historyUpToNow);
+      }
+      const emaSnap = this.emaCrossover.getSnapshot();
+      const srSnap = this.maDynamicSR.getSnapshot();
+      console.log(`✅ Signal modules synced (EMA states: ${Object.values(emaSnap.crossoverState).filter(s => s.side !== 'none').length}, SR swings: ${srSnap.swings?.length || 0})`);
+    }
+
     // CHANGE 2026-01-29: Multi-timeframe candle storage for dashboard
     // Each timeframe has its own history from native Kraken data
     this.timeframeHistories = {

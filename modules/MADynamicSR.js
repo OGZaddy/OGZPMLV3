@@ -72,13 +72,21 @@ class MADynamicSR {
    * Main update - call on each candle
    */
   update(candle, priceHistory) {
-    // Need enough history for 200 EMA + swing detection
+    // FIX 2026-03-06: Swing detection only needs 7 candles, EMA needs 200
+    // Always run swing detection to build state, even if we can't signal yet
+    this.barCount++;
+
+    // Detect swings early (only needs swingLookback * 2 + 1 = 7 candles)
+    if (priceHistory && priceHistory.length >= this.swingLookback * 2 + 1) {
+      this._detectSwings(priceHistory);
+      this._updateSRLevels();
+    }
+
+    // Need enough history for 200 EMA to generate actual signals
     const minBars = Math.max(this.emaPeriod, this.trendEmaPeriod) + 20;
     if (!priceHistory || priceHistory.length < minBars) {
       return this._emptySignal();
     }
-
-    this.barCount++;
     const closes = priceHistory.map(x => c(x));
     const price = c(candle);
     const high = h(candle);
@@ -100,11 +108,7 @@ class MADynamicSR {
     if (trendBullish) this.diag.trendBullish++;
     if (trendBearish) this.diag.trendBearish++;
 
-    // Step 1: Detect swing highs and lows
-    this._detectSwings(priceHistory);
-
-    // Step 2: Build S/R levels from swings
-    this._updateSRLevels();
+    // Step 1-2: Swing detection moved to start of update() to run even during warmup
 
     // Step 3: Check for 123 pattern
     const pattern = this._detect123Pattern();

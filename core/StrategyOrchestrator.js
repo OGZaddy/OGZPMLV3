@@ -376,6 +376,7 @@ class StrategyOrchestrator {
         };
       }
     });
+
   }
 
   /**
@@ -437,6 +438,14 @@ class StrategyOrchestrator {
 
     // ─── Step 2: Sort by confidence (highest first) ───
     results.sort((a, b) => b.confidence - a.confidence);
+
+    // DEBUG 2026-03-06: Why is confidence 0?
+    if (results.length > 0) {
+      console.log(`🔍 [ORCH] ${results.length} strategies returned signals:`);
+      results.slice(0, 5).forEach(r => console.log(`   - ${r.strategyName}: ${(r.confidence * 100).toFixed(1)}% ${r.direction}`));
+    } else {
+      console.log(`🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)`);
+    }
 
     // ─── Step 3: Filter by minimum confidence threshold ───
     const qualified = results.filter(r => r.confidence >= this.minStrategyConfidence);

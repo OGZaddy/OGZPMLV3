@@ -39,6 +39,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fix:** Replay saved candles through `indicatorEngine.computeBatch(priceHistory)` on startup
 - **Impact:** RSI and all indicators now calculate correctly from first candle
 
+#### Bug Fix #5: Signal Modules Out of Sync on Startup
+- **File:** `run-empire-v2.js` lines 612-626
+- **Problem:** EMASMACrossover and MADynamicSR strategies never fired after restart
+- **Root Cause:** Same bug as IndicatorEngine - these modules are stateful (crossoverState, swings, srLevels) but started empty while priceHistory loaded 103 candles from disk
+- **Fix:** Replay saved candles through `emaCrossover.update()` and `maDynamicSR.update()` on startup
+- **Impact:** EMASMACrossover and MADynamicSR strategies now have correct state immediately after restart
+
+#### Bug Fix #6: MADynamicSR Swing Detection Never Called
+- **File:** `modules/MADynamicSR.js` lines 74-85
+- **Problem:** MADynamicSR detected 0 swings even after replaying 200+ candles
+- **Root Cause:** `minBars = max(50, 200) + 20 = 220` check blocked execution BEFORE `_detectSwings()` was ever called
+- **Fix:** Move `_detectSwings()` and `_updateSRLevels()` to start of `update()` BEFORE the minBars check
+- **Impact:** Swings now accumulate during warmup (35 swings from 200 candles vs 0 before)
+
 #### Flag Audit Results
 | Flag | Status | Notes |
 |------|--------|-------|
