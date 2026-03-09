@@ -507,9 +507,18 @@ class OGZPrimeV14Bot {
       });
     }
 
+    const liqConfig = TradingConfig.get('strategies.LiquiditySweep') || {};
     this.liquiditySweep = new LiquiditySweepDetector({
-      // FIX 2026-02-18: Disable session check for 24/7 crypto - scan for sweeps anytime
-      disableSessionCheck: true,
+      sweepLookbackBars: liqConfig.sweepLookbackBars || 50,
+      sweepMinExtensionPct: liqConfig.sweepMinExtensionPct || 0.1,
+      atrMultiplier: liqConfig.atrMultiplier || 0.25,
+      atrPeriod: liqConfig.atrPeriod || 14,
+      entryWindowBars: liqConfig.entryWindowBars || 18,
+      hammerBodyMaxPct: liqConfig.hammerBodyMaxPct || 0.35,
+      hammerWickMinRatio: liqConfig.hammerWickMinRatio || 2.0,
+      engulfMinRatio: liqConfig.engulfMinRatio || 1.0,
+      stopBufferPct: liqConfig.stopBufferPct || 0.05,
+      disableSessionCheck: liqConfig.disableSessionCheck ?? true,
     });
 
     // CHANGE 2026-02-23: Volume Profile (Fabio Valentino / Auction Market Theory)
