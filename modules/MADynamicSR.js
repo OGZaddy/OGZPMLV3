@@ -1,15 +1,24 @@
 /**
- * MADynamicSR.js — Trader DNA Strategy Implementation
- * =====================================================
+ * MADynamicSR.js — Trader DNA Strategy Implementation (CORRECTED)
+ * ================================================================
  * Based on "3 EMA Strategies That NEVER LOSE" by Trader DNA
  *
- * ENTRY REQUIREMENTS (ALL must be true):
- * 1. 123 Pattern confirmed (HH/HL for longs, LH/LL for shorts)
- * 2. Price pulls back to 50 EMA
- * 3. 50 EMA aligns with previous S/R zone (tested multiple times)
- * 4. Confirmation candle appears (hammer, engulfing, shooting star)
+ * CORRECTED INTERPRETATION:
+ * - 20 MA = The entire trend system. Rising + under price = uptrend. Falling + over price = downtrend.
+ * - 200 MA = Dynamic support/resistance level. Floor or ceiling. NOT for trend direction.
  *
- * EXIT: 1:3 Risk/Reward ratio
+ * ENTRY REQUIREMENTS (ALL must be true):
+ * 1. 20 MA must be TRENDING (rising or falling), not flat
+ * 2. Price must NOT be extended (too far from 20 MA)
+ * 3. Skip first touch after parabolic extension
+ * 4. 123 Pattern confirmed (HH/HL for longs, LH/LL for shorts)
+ * 5. Price pulls back to 20 MA
+ * 6. Confirmation candle appears (hammer, engulfing, etc.)
+ * 7. Acceleration filter (candle range > 1.2x ATR)
+ *
+ * EXIT: 1:3 R:R, BUT capped at 200 MA if it's in the way
+ *
+ * Rewritten: 2026-03-09 per Trader DNA spec correction
  */
 
 'use strict';
@@ -18,40 +27,54 @@ const { c, o, h, l } = require('../core/CandleHelper');
 
 class MADynamicSR {
   constructor(config = {}) {
-    // EMA periods per Trader DNA / EMACalibrator results
-    // 50 EMA for entries (pullback trigger)
-    // 200 EMA for trend direction (big picture)
-    this.emaPeriod = config.emaPeriod || 50;
-    this.trendEmaPeriod = config.trendEmaPeriod || 200;
-    this.fastMaPeriod = config.fastMaPeriod || 20;  // For structural TP target
-    this.atrPeriod = config.atrPeriod || 14;        // For SL buffer
+    // MA periods per CORRECTED Trader DNA interpretation
+    this.entryMaPeriod = config.entryMaPeriod || 20;     // 20 MA — the trend + entry line
+    this.srMaPeriod = config.srMaPeriod || 200;          // 200 MA — support/resistance level (NOT trend)
+    this.atrPeriod = config.atrPeriod || 14;             // For SL buffer and acceleration
 
     // Swing detection settings
-    this.swingLookback = config.swingLookback || 3;   // Bars to confirm swing (3 for 15m)
-    this.srTestCount = config.srTestCount || 2;       // Times a level must be tested
-    this.srZonePct = config.srZonePct || 1.0;         // Zone width as % of price (FIX: widened)
+    this.swingLookback = config.swingLookback || 3;      // Bars to confirm swing (3 for 15m)
+    this.srTestCount = config.srTestCount || 2;          // Times a level must be tested
+    this.srZonePct = config.srZonePct || 1.0;            // Zone width as % of price
 
-    // Touch detection - FIX: 0.6% allows more touches without threading needle
-    this.touchZonePct = config.touchZonePct || 0.6;
+    // Touch detection
+    this.touchZonePct = config.touchZonePct || 0.6;      // % distance to count as "touching"
 
     // Pattern persistence
-    this.patternPersistBars = config.patternPersistBars || 15;  // Pattern stays valid for N bars
+    this.patternPersistBars = config.patternPersistBars || 15;
+
+    // NEW: 20 MA slope detection
+    this.slopeLookback = config.slopeLookback || 5;      // Compare current 20 MA to 5 bars ago
+    this.minSlopePct = config.minSlopePct || 0.03;       // 20 MA must move >= 0.03% to count as trending
+
+    // NEW: Extension detection (distance from 20 MA that's "too far")
+    this.extensionPct = config.extensionPct || 2.0;      // If price > 2% from 20 MA = extended/exhausted
+
+    // NEW: First-touch skip after extension
+    this.skipFirstTouch = config.skipFirstTouch ?? true;
 
     // State tracking
     this.swings = [];           // Array of { type: 'high'|'low', price, bar, wick }
     this.srLevels = [];         // Array of { price, tests, lastTest }
     this.pattern123 = null;     // Current 123 pattern state
-    this.patternDetectedBar = 0; // When pattern was detected
+    this.patternDetectedBar = 0;
     this.lastSignal = null;
     this.barCount = 0;
 
     // Structure-based cooldown: one trade per pullback
-    this.inPullbackTaken = false;  // True if we've fired a signal during current touch zone
+    this.inPullbackTaken = false;
+
+    // NEW: Extension state tracking
+    this._wasExtended = false;
+    this._firstTouchAfterExtension = false;
 
     // Diagnostic counters
     this.diag = {
-      trendBullish: 0,
-      trendBearish: 0,
+      trendBullish: 0,      // Now means "20 MA rising"
+      trendBearish: 0,      // Now means "20 MA falling"
+      trendFlat: 0,         // NEW: 20 MA flat (no trade)
+      extensionSkips: 0,    // NEW: Skipped due to extension
+      firstTouchSkips: 0,   // NEW: Skipped first touch after extension
       patternUptrend: 0,
       patternDowntrend: 0,
       patternNull: 0,
@@ -62,18 +85,24 @@ class MADynamicSR {
       confirmBullish: 0,
       confirmBearish: 0,
       allAlignedLong: 0,
-      allAlignedShort: 0
+      allAlignedShort: 0,
+      // Sanity check failures (after allAligned)
+      rrCappedFail: 0,      // 200 MA cap killed R:R
+      slInvalid: 0,         // SL >= price (long) or SL <= price (short)
+      tpInvalid: 0,         // TP <= price (long) or TP >= price (short)
+      rrTooLow: 0,          // actualRR < MIN_RR
+      tpTooSmall: 0,        // tpDistance < MIN_TP_PCT
+      signalsEmitted: 0     // Signals that passed ALL checks
     };
 
-    console.log(`📐 MADynamicSR initialized (Trader DNA strategy) - Entry EMA: ${this.emaPeriod}, Trend EMA: ${this.trendEmaPeriod}`);
+    console.log(`📐 MADynamicSR initialized (Trader DNA CORRECTED) - Entry MA: ${this.entryMaPeriod}, S/R MA: ${this.srMaPeriod}`);
   }
 
   /**
    * Main update - call on each candle
+   * REWRITTEN 2026-03-09: Corrected Trader DNA implementation
    */
   update(candle, priceHistory) {
-    // FIX 2026-03-06: Swing detection only needs 7 candles, EMA needs 200
-    // Always run swing detection to build state, even if we can't signal yet
     this.barCount++;
 
     // Detect swings early (only needs swingLookback * 2 + 1 = 7 candles)
@@ -82,105 +111,147 @@ class MADynamicSR {
       this._updateSRLevels();
     }
 
-    // Need enough history for 200 EMA to generate actual signals
-    const minBars = Math.max(this.emaPeriod, this.trendEmaPeriod) + 20;
+    // Need enough history for 200 MA + slope lookback to generate signals
+    const minBars = Math.max(this.entryMaPeriod, this.srMaPeriod) + this.slopeLookback + 20;
     if (!priceHistory || priceHistory.length < minBars) {
       return this._emptySignal();
     }
+
     const closes = priceHistory.map(x => c(x));
     const price = c(candle);
     const high = h(candle);
     const low = l(candle);
-    const open = o(candle);
 
-    // Calculate EMAs
-    const ema50 = this._ema(closes, this.emaPeriod);
-    const ema200 = this._ema(closes, this.trendEmaPeriod);
-    const sma20 = this._sma(closes, this.fastMaPeriod);
+    // Calculate MAs
+    const ma20 = this._ema(closes, this.entryMaPeriod);     // Entry + trend line
+    const ma200 = this._ema(closes, this.srMaPeriod);       // S/R level (NOT trend gate)
     const atr = this._atr(priceHistory, this.atrPeriod);
-    if (!ema50 || !ema200) return this._emptySignal();
+    if (!ma20) return this._emptySignal();
+    // ma200 can be null if not enough data — that's okay, we just skip S/R features
 
-    // 200 EMA determines overall trend direction
-    const trendBullish = price > ema200;
-    const trendBearish = price < ema200;
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 1: 20 MA SLOPE — Is the 20 MA trending or flat?
+    // Trader DNA: "20 MA flat, moving through candles = not useful"
+    // If flat, don't trade. Period.
+    // ═══════════════════════════════════════════════════════════════════
+    const maSlope = this._getMaSlope(closes, this.entryMaPeriod);
 
-    // Track diagnostics
-    if (trendBullish) this.diag.trendBullish++;
-    if (trendBearish) this.diag.trendBearish++;
+    if (maSlope === 'rising') this.diag.trendBullish++;
+    else if (maSlope === 'falling') this.diag.trendBearish++;
+    else this.diag.trendFlat++;
 
-    // Step 1-2: Swing detection moved to start of update() to run even during warmup
+    if (maSlope === 'flat') {
+      return this._emptySignal();  // 20 MA is flat — strategy is useless in chop
+    }
 
-    // Step 3: Check for 123 pattern
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: EXTENSION CHECK — Is price too far from the 20 MA?
+    // Trader DNA: "If prices are super far from the 20 MA, don't buy"
+    // ═══════════════════════════════════════════════════════════════════
+    const extended = this._isExtended(price, ma20);
+
+    if (extended) {
+      this._wasExtended = true;
+      this.diag.extensionSkips++;
+      return this._emptySignal();  // Don't enter when extended
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3: FIRST-TOUCH SKIP after extension
+    // Trader DNA: "Always pass on the first touch of the 20 MA after
+    // a huge parabolic run where you were extended"
+    // ═══════════════════════════════════════════════════════════════════
+    const touchingMA = this._isTouchingEMA(price, ma20);
+
+    if (this._wasExtended && touchingMA && this.skipFirstTouch) {
+      this._firstTouchAfterExtension = true;
+      this._wasExtended = false;  // Reset — we've seen the first touch
+      this.diag.firstTouchSkips++;
+      return this._emptySignal();  // Skip this touch
+    }
+
+    // If touching and it's NOT the first touch after extension, allow it
+    if (touchingMA && this._firstTouchAfterExtension) {
+      this._firstTouchAfterExtension = false;  // Second touch — we're clear
+    }
+
+    if (touchingMA) this.diag.emaTouches++;
+
+    // Structure-based cooldown: one trade per pullback
+    if (!touchingMA && this.inPullbackTaken) {
+      this.inPullbackTaken = false;
+    }
+    if (touchingMA && this.inPullbackTaken) {
+      return this._emptySignal();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 4: 123 PATTERN — Trend structure confirmation
+    // ═══════════════════════════════════════════════════════════════════
     const pattern = this._detect123Pattern();
     this.pattern123 = pattern;
     if (pattern === 'uptrend') this.diag.patternUptrend++;
     else if (pattern === 'downtrend') this.diag.patternDowntrend++;
     else this.diag.patternNull++;
 
-    // Step 4: Check if price is touching 50 EMA
-    const touchingEMA = this._isTouchingEMA(price, ema50);
-    if (touchingEMA) this.diag.emaTouches++;
-
-    // Structure-based cooldown: one trade per pullback
-    // Reset when price LEAVES the touch zone (new pullback = fresh eligibility)
-    if (!touchingEMA && this.inPullbackTaken) {
-      this.inPullbackTaken = false;  // Price left zone, next pullback is fresh
-    }
-    // Skip signal generation if we already took this pullback
-    if (touchingEMA && this.inPullbackTaken) {
-      return this._emptySignal();
-    }
-
-    // Step 5: Check if current price aligns with S/R zone
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 5: S/R ALIGNMENT (bonus, not required)
+    // ═══════════════════════════════════════════════════════════════════
     const srAlignment = this._checkSRAlignment(price);
     if (srAlignment.aligned) this.diag.srAligned++;
 
-    // Step 6: Check for confirmation candle
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: CONFIRMATION CANDLE
+    // ═══════════════════════════════════════════════════════════════════
     const confirmation = this._checkConfirmationCandle(candle, priceHistory);
     if (confirmation.bullish) this.diag.confirmBullish++;
     if (confirmation.bearish) this.diag.confirmBearish++;
 
-    // Step 7: Acceleration filter - confirmation candle must show real momentum
-    // Small candles = weak bounce = fees eat the profit
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 7: ACCELERATION — Candle must show real momentum
+    // ═══════════════════════════════════════════════════════════════════
     const candleRange = high - low;
-    const accelerating = atr ? (candleRange > atr * 1.2) : true;  // Require 1.2x ATR range
+    const accelerating = atr ? (candleRange > atr * 1.2) : true;
     const strongAcceleration = atr ? (candleRange > atr * 1.5) : false;
 
-    // Build signal
+    // ═══════════════════════════════════════════════════════════════════
+    // ENTRY DECISION (CORRECTED Trader DNA method)
+    //
+    // LONG:  20 MA rising + price touching 20 MA + 123 uptrend +
+    //        confirmation candle + acceleration
+    // SHORT: 20 MA falling + price touching 20 MA + 123 downtrend +
+    //        confirmation candle + acceleration
+    //
+    // The 200 MA is NOT a gate. It's used below for targets and R:R.
+    // ═══════════════════════════════════════════════════════════════════
     let direction = 'neutral';
     let confidence = 0;
     let reason = '';
 
-    // Per Trader DNA: 200 EMA = trend, 50 EMA = entries
-    // "uptrend above 200 EMA, wait for pullback to 50 EMA,
-    // if the 50 EMA is on support/resistance zone and you get bullish engulfing = money"
-    //
-    // FILTER STACK:
-    // 1. 200 EMA trend filter (price above = bullish, below = bearish)
-    // 2. 123 pattern confirmed (HH/HL or LH/LL)
-    // 3. Price touching 50 EMA (the "pullback")
-    // 4. Confirmation candle
-    // 5. Acceleration (candle range > 1.2x ATR) ← NEW: rubber band snapping
-    // BONUS: S/R zone alignment
-
-    // LONG SETUP - must be in bullish trend (above 200 EMA) + ACCELERATING
-    if (trendBullish && pattern === 'uptrend' && touchingEMA && confirmation.bullish && accelerating) {
+    // LONG: 20 MA rising + touching + uptrend structure + confirmation + momentum
+    if (maSlope === 'rising' && pattern === 'uptrend' && touchingMA && confirmation.bullish && accelerating) {
       this.diag.allAlignedLong++;
       direction = 'buy';
-      confidence = 0.55;  // Base confidence for core setup
+      confidence = 0.55;
       confidence += confirmation.strength * 0.20;
       if (srAlignment.aligned) {
         confidence += Math.min(0.20, srAlignment.tests * 0.08);
       }
       if (strongAcceleration) {
-        confidence += 0.05;  // Extra strong candle = extra confidence
+        confidence += 0.05;
       }
-      const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
-      const accNote = strongAcceleration ? ' + STRONG ACCEL' : '';
-      reason = `SNIPER LONG: 200 EMA bullish + 123 uptrend + 50 EMA pullback + ${confirmation.pattern}${srNote}${accNote}`;
+      // 200 MA confluence bonus: if 200 MA is nearby and acting as support
+      if (ma200 && Math.abs(price - ma200) / ma200 * 100 < 1.0 && price > ma200) {
+        confidence += 0.10;
+        reason = `SNIPER LONG: 20 MA rising + 123 uptrend + pullback + ${confirmation.pattern} + 200 MA support`;
+      } else {
+        const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
+        const accNote = strongAcceleration ? ' + STRONG ACCEL' : '';
+        reason = `SNIPER LONG: 20 MA rising + 123 uptrend + pullback + ${confirmation.pattern}${srNote}${accNote}`;
+      }
     }
-    // SHORT SETUP - must be in bearish trend (below 200 EMA) + ACCELERATING
-    else if (trendBearish && pattern === 'downtrend' && touchingEMA && confirmation.bearish && accelerating) {
+    // SHORT: 20 MA falling + touching + downtrend structure + confirmation + momentum
+    else if (maSlope === 'falling' && pattern === 'downtrend' && touchingMA && confirmation.bearish && accelerating) {
       this.diag.allAlignedShort++;
       direction = 'sell';
       confidence = 0.55;
@@ -191,72 +262,70 @@ class MADynamicSR {
       if (strongAcceleration) {
         confidence += 0.05;
       }
-      const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
-      const accNote = strongAcceleration ? ' + STRONG ACCEL' : '';
-      reason = `SNIPER SHORT: 200 EMA bearish + 123 downtrend + 50 EMA pullback + ${confirmation.pattern}${srNote}${accNote}`;
+      // 200 MA confluence bonus: if 200 MA is nearby and acting as resistance
+      if (ma200 && Math.abs(price - ma200) / ma200 * 100 < 1.0 && price < ma200) {
+        confidence += 0.10;
+        reason = `SNIPER SHORT: 20 MA falling + 123 downtrend + retracement + ${confirmation.pattern} + 200 MA resistance`;
+      } else {
+        const srNote = srAlignment.aligned ? ` + S/R (${srAlignment.tests}x)` : '';
+        const accNote = strongAcceleration ? ' + STRONG ACCEL' : '';
+        reason = `SNIPER SHORT: 20 MA falling + 123 downtrend + retracement + ${confirmation.pattern}${srNote}${accNote}`;
+      }
     }
 
-    // Calculate STRUCTURAL levels - Trader DNA 1:3 R:R
-    // FIX 2026-02-23: Fixed R:R from structural stop, NOT next MA level
+    // ═══════════════════════════════════════════════════════════════════
+    // STRUCTURAL SL/TP
+    //
+    // SL: Below the 20 MA minus ATR buffer
+    // TP: 1:3 R:R from stop, BUT capped at 200 MA if it's in the way
+    //
+    // Trader DNA: "If the 200 is directly above, I don't really have
+    // solid risk-to-reward... so I'm going to pass on this setup"
+    // ═══════════════════════════════════════════════════════════════════
     let stopLoss = null;
     let takeProfit = null;
-    const atrBuffer = atr ? atr * 1.0 : price * 0.01; // Full ATR buffer, fallback 1%
-    const MIN_TP_PCT = 0.007;  // 0.7% minimum TP distance (fees eat anything smaller)
-    const MIN_RR = 1.5;        // Minimum risk:reward ratio
+    const atrBuffer = atr ? atr * 1.0 : price * 0.01;
+    const MIN_TP_PCT = 0.007;
+    const MIN_RR = 1.5;
 
     if (direction !== 'neutral') {
       if (direction === 'buy') {
-        // LONG: SL below 50 EMA, TP at 1:3 R:R
-        stopLoss = ema50 - atrBuffer;
+        stopLoss = ma20 - atrBuffer;
         const risk = price - stopLoss;
-        takeProfit = price + (risk * 3);  // 1:3 R:R per Trader DNA
+        takeProfit = price + (risk * 3);  // 1:3 R:R
 
-        // Sanity checks - reject bad setups
+        // 200 MA is used for CONFLUENCE BONUS only (handled above in confidence calc)
+        // NOT as a trade killer — on 15m charts, 200 MA is perpetually nearby
+        // The core filters (20 MA slope, 123 pattern, confirmation, acceleration) do quality control
+
+        // Sanity checks with diagnostics
+        if (stopLoss >= price) { this.diag.slInvalid++; return this._emptySignal(); }
+        if (takeProfit <= price) { this.diag.tpInvalid++; return this._emptySignal(); }
         const tpDistance = (takeProfit - price) / price;
         const actualRR = risk > 0 ? (takeProfit - price) / risk : 0;
+        if (actualRR < MIN_RR) { this.diag.rrTooLow++; return this._emptySignal(); }
+        if (tpDistance < MIN_TP_PCT) { this.diag.tpTooSmall++; return this._emptySignal(); }
 
-        if (stopLoss >= price) {
-          // SL must be BELOW entry for longs
-          return this._emptySignal();
-        }
-        if (takeProfit <= price) {
-          // TP must be ABOVE entry for longs
-          return this._emptySignal();
-        }
-        if (actualRR < MIN_RR) {
-          // R:R too small
-          return this._emptySignal();
-        }
-        if (tpDistance < MIN_TP_PCT) {
-          // TP too close - fees will eat the win
-          return this._emptySignal();
-        }
       } else {
-        // SHORT: SL above 50 EMA, TP at 1:3 R:R
-        stopLoss = ema50 + atrBuffer;
+        // SHORT
+        stopLoss = ma20 + atrBuffer;
         const risk = stopLoss - price;
-        takeProfit = price - (risk * 3);  // 1:3 R:R per Trader DNA
+        takeProfit = price - (risk * 3);  // 1:3 R:R
 
-        // Sanity checks for shorts
+        // 200 MA is used for CONFLUENCE BONUS only (handled above in confidence calc)
+        // NOT as a trade killer — on 15m charts, 200 MA is perpetually nearby
+
+        // Sanity checks with diagnostics
+        if (stopLoss <= price) { this.diag.slInvalid++; return this._emptySignal(); }
+        if (takeProfit >= price) { this.diag.tpInvalid++; return this._emptySignal(); }
         const tpDistance = (price - takeProfit) / price;
         const actualRR = risk > 0 ? (price - takeProfit) / risk : 0;
-
-        if (stopLoss <= price) {
-          return this._emptySignal();
-        }
-        if (takeProfit >= price) {
-          return this._emptySignal();
-        }
-        if (actualRR < MIN_RR) {
-          return this._emptySignal();
-        }
-        if (tpDistance < MIN_TP_PCT) {
-          return this._emptySignal();
-        }
+        if (actualRR < MIN_RR) { this.diag.rrTooLow++; return this._emptySignal(); }
+        if (tpDistance < MIN_TP_PCT) { this.diag.tpTooSmall++; return this._emptySignal(); }
       }
 
-      // Mark pullback as taken - no more signals until price leaves touch zone
       this.inPullbackTaken = true;
+      this.diag.signalsEmitted++;
     }
 
     const signal = {
@@ -265,19 +334,20 @@ class MADynamicSR {
       confidence,
       reason,
       pattern,
-      touchingEMA,
+      touchingMA,
       srAlignment,
       confirmation,
       levels: {
-        ema50,
-        ema200,
-        sma20,
+        ma20,
+        ma200,
         atr,
         stopLoss,
         takeProfit,
-        riskReward: stopLoss && takeProfit ? Math.abs(takeProfit - price) / Math.abs(price - stopLoss) : null
+        riskReward: stopLoss && takeProfit ? Math.abs(takeProfit - price) / Math.abs(price - stopLoss) : null,
+        maSlope,
+        extended,
       },
-      trend: trendBullish ? 'bullish' : trendBearish ? 'bearish' : 'neutral',
+      trend: maSlope === 'rising' ? 'bullish' : maSlope === 'falling' ? 'bearish' : 'flat',
       swingCount: this.swings.length,
       srLevelCount: this.srLevels.length
     };
@@ -442,7 +512,42 @@ class MADynamicSR {
   }
 
   /**
-   * Check if price is touching the 50 EMA
+   * Calculate 20 MA slope — is it trending or flat?
+   * Trader DNA: "20 MA flat, moving through candles = useless, don't trade"
+   *
+   * @returns {'rising'|'falling'|'flat'}
+   */
+  _getMaSlope(closes, period) {
+    if (closes.length < period + this.slopeLookback) return 'flat';
+
+    const currentMa = this._ema(closes, period);
+
+    // Calculate MA value from slopeLookback bars ago
+    const olderCloses = closes.slice(0, closes.length - this.slopeLookback);
+    const olderMa = this._ema(olderCloses, period);
+
+    if (!currentMa || !olderMa || olderMa === 0) return 'flat';
+
+    const slopePct = ((currentMa - olderMa) / olderMa) * 100;
+
+    if (slopePct > this.minSlopePct) return 'rising';
+    if (slopePct < -this.minSlopePct) return 'falling';
+    return 'flat';
+  }
+
+  /**
+   * Check if price is extended (too far) from the 20 MA
+   * Trader DNA: "distance between price and 20 MA = extension = overbought"
+   * "I would never be buying up here because we're super far away from the 20 MA"
+   */
+  _isExtended(price, ma20) {
+    if (!ma20 || ma20 === 0) return false;
+    const distancePct = Math.abs(price - ma20) / ma20 * 100;
+    return distancePct > this.extensionPct;
+  }
+
+  /**
+   * Check if price is touching the 20 MA
    */
   _isTouchingEMA(price, ema) {
     const distance = Math.abs(price - ema) / ema * 100;
@@ -611,15 +716,26 @@ class MADynamicSR {
 
   printDiagnostics() {
     const d = this.diag;
+    const totalAligned = d.allAlignedLong + d.allAlignedShort;
+    const totalFiltered = d.rrCappedFail + d.slInvalid + d.tpInvalid + d.rrTooLow + d.tpTooSmall;
     console.log('\n===== MADynamicSR DIAGNOSTICS =====');
     console.log(`Total bars processed: ${this.barCount}`);
     console.log(`Swings detected: ${d.swingHighs} highs, ${d.swingLows} lows`);
-    console.log(`Trend EMA: ${d.trendBullish} bullish, ${d.trendBearish} bearish`);
+    console.log(`20 MA slope: ${d.trendBullish} rising, ${d.trendBearish} falling, ${d.trendFlat} flat`);
+    console.log(`Extension skips: ${d.extensionSkips} (too far from 20 MA)`);
+    console.log(`First-touch skips: ${d.firstTouchSkips} (after extension)`);
     console.log(`123 pattern: ${d.patternUptrend} up, ${d.patternDowntrend} down, ${d.patternNull} null`);
     console.log(`Entry EMA touch: ${d.emaTouches} times`);
     console.log(`S/R aligned: ${d.srAligned} times`);
     console.log(`Confirm candle: ${d.confirmBullish} bullish, ${d.confirmBearish} bearish`);
-    console.log(`ALL ALIGNED: ${d.allAlignedLong} long, ${d.allAlignedShort} short`);
+    console.log(`ALL ALIGNED: ${d.allAlignedLong} long, ${d.allAlignedShort} short (${totalAligned} total)`);
+    console.log(`--- POST-ALIGN FILTERS (${totalFiltered} rejected) ---`);
+    console.log(`  200 MA cap killed R:R: ${d.rrCappedFail}`);
+    console.log(`  SL invalid (wrong side): ${d.slInvalid}`);
+    console.log(`  TP invalid (wrong side): ${d.tpInvalid}`);
+    console.log(`  R:R too low (<1.5): ${d.rrTooLow}`);
+    console.log(`  TP too small (<0.7%): ${d.tpTooSmall}`);
+    console.log(`SIGNALS EMITTED: ${d.signalsEmitted}`);
     console.log('====================================\n');
   }
 

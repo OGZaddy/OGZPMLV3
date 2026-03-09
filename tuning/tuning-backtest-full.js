@@ -89,7 +89,14 @@ try {
 const indicatorEngine = new IndicatorEngine({ warmupCandles: 50 });
 const exitContractManager = getExitContractManager();
 const emaCrossover = new EMASMACrossoverSignal();
-const maDynamicSR = new MADynamicSR({ emaPeriod: 20, trendEmaPeriod: 50 });
+const maDynamicSR = new MADynamicSR({
+  entryMaPeriod: 20,
+  srMaPeriod: 200,
+  slopeLookback: 5,
+  minSlopePct: 0.03,
+  extensionPct: 2.0,
+  skipFirstTouch: true,
+});
 const liquiditySweep = new LiquiditySweepDetector();
 const breakAndRetest = new BreakAndRetest();
 const mtfAdapter = new MultiTimeframeAdapter();

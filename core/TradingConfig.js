@@ -204,14 +204,19 @@ const BASE_CONFIG = {
   // =========================================================================
   strategies: {
     MADynamicSR: {
-      // Trader DNA strategy - pullbacks to dynamic S/R
-      entryEma: env('MASR_ENTRY_EMA', 20),             // EMA for pullback entries (was hardcoded 50)
-      trendEma: env('MASR_TREND_EMA', 50),             // EMA for trend direction (was hardcoded 200)
+      // Trader DNA CORRECTED - 20 MA for trend/entry, 200 MA for S/R level
+      entryMaPeriod: env('MASR_ENTRY_MA', 20),         // 20 MA — trend + entry line
+      srMaPeriod: env('MASR_SR_MA', 200),              // 200 MA — support/resistance level (NOT trend)
       touchZonePct: env('MASR_TOUCH_ZONE', 0.6),       // % distance to count as "touching"
       srTestCount: env('MASR_SR_TESTS', 2),            // Min S/R zone touches
-      atrAcceleration: env('MASR_ATR_ACCEL', 1.2),     // Candle range must exceed this × ATR
       swingLookback: env('MASR_SWING_LOOKBACK', 3),    // Bars to confirm a swing
       srZonePct: env('MASR_SR_ZONE_PCT', 1.0),         // Zone width as % of price
+      slopeLookback: env('MASR_SLOPE_LOOKBACK', 5),    // Bars to compare 20 MA slope
+      minSlopePct: env('MASR_MIN_SLOPE', 0.03),        // Min slope % to count as trending
+      extensionPct: env('MASR_EXTENSION_PCT', 2.0),    // Max distance from 20 MA (%)
+      skipFirstTouch: true,                            // Skip first touch after extension
+      atrPeriod: env('MASR_ATR_PERIOD', 14),           // ATR for SL buffer
+      patternPersistBars: env('MASR_PATTERN_PERSIST', 15),
       enabled: true,
     },
     EMACrossover: {

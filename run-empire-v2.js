@@ -489,12 +489,18 @@ class OGZPrimeV14Bot {
 
     const masrConfig = TradingConfig.get('strategies.MADynamicSR') || {};
     this.maDynamicSR = new MADynamicSR({
-      emaPeriod: masrConfig.entryEma || 20,           // Entry EMA (was 50)
-      trendEmaPeriod: masrConfig.trendEma || 50,      // Trend EMA (was 200)
+      entryMaPeriod: masrConfig.entryMaPeriod || 20,
+      srMaPeriod: masrConfig.srMaPeriod || 200,
       touchZonePct: masrConfig.touchZonePct || 0.6,
       srTestCount: masrConfig.srTestCount || 2,
       swingLookback: masrConfig.swingLookback || 3,
       srZonePct: masrConfig.srZonePct || 1.0,
+      slopeLookback: masrConfig.slopeLookback || 5,
+      minSlopePct: masrConfig.minSlopePct || 0.03,
+      extensionPct: masrConfig.extensionPct || 2.0,
+      skipFirstTouch: masrConfig.skipFirstTouch ?? true,
+      atrPeriod: masrConfig.atrPeriod || 14,
+      patternPersistBars: masrConfig.patternPersistBars || 15,
     });
 
     this.breakAndRetest = new BreakAndRetest();
