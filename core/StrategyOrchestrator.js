@@ -113,27 +113,10 @@ class StrategyOrchestrator {
         if (conf < 0.05) return null;
 
         // ─── MAExtensionFilter Gate ───
-        // Get price data for filter update
+        // DISABLED 2026-03-09: MADynamicSR now handles extension detection internally
+        // (slope detection, extension skip, first-touch skip per Trader DNA rewrite)
+        // Having two extension filters stacked was killing 362 out of 383 signals.
         const price = ctx.extras?.price || (ctx.priceHistory?.length > 0 ? ctx.priceHistory[ctx.priceHistory.length - 1]?.c : null);
-        const lastCandle = ctx.priceHistory?.length > 0 ? ctx.priceHistory[ctx.priceHistory.length - 1] : null;
-        const sma20 = sig.levels?.sma20 || ctx.indicators?.ema20;
-        const sma200 = sig.levels?.sma200 || ctx.indicators?.sma200;
-        const atr = ctx.indicators?.atr || 0;
-
-        if (lastCandle && sma20 && sma200) {
-          // Update filter with full candle (for consolidation zone tracking)
-          orchestrator.maExtensionFilter.updateWithCandle(lastCandle, sma20, sma200, atr);
-
-          // Check if filter allows this signal
-          const filterCheck = sig.direction === 'buy'
-            ? orchestrator.maExtensionFilter.shouldTakeLong(price, sma20, atr)
-            : orchestrator.maExtensionFilter.shouldTakeShort(price, sma20, atr);
-
-          if (!filterCheck.take) {
-            console.log(`📐 MAExtensionFilter: Skipping ${sig.direction} (${filterCheck.reason})`);
-            return null;  // Filter says NO
-          }
-        }
 
         // Fib level boost: bounce at MA + fib level = very strong S/R
         const fib = ctx.extras?.nearestFibLevel;

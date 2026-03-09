@@ -45,6 +45,7 @@ const POSITION_SIZE_PCT = parseFloat(process.env.POSITION_SIZE_PCT) || 4;
 const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0;
 const ENABLE_SHORTS = process.env.ENABLE_SHORTS === 'true';
 const MIN_CONFLUENCE = parseInt(process.env.MIN_CONFLUENCE) || 1;
+const ISOLATE_STRATEGY = process.env.ISOLATE || null;  // e.g. 'MADynamicSR' to test one strategy alone
 
 // Exit config from TradingConfig (reads env vars)
 const STOP_LOSS_PCT = parseFloat(process.env.STOP_LOSS_PERCENT) || TradingConfig.get('exits.stopLossPercent') || 2.0;
@@ -59,6 +60,9 @@ console.log('='.repeat(60));
 console.log(`Candle file:    ${CANDLE_FILE}`);
 console.log(`Min confidence: ${MIN_CONFIDENCE}%`);
 console.log(`Min confluence: ${MIN_CONFLUENCE}`);
+if (ISOLATE_STRATEGY) {
+  console.log(`\n>>> ISOLATION MODE: Testing ${ISOLATE_STRATEGY} ONLY <<<\n`);
+}
 console.log(`Stop loss:      ${STOP_LOSS_PCT}%`);
 console.log(`Take profit:    ${TAKE_PROFIT_PCT}%`);
 console.log(`Profit tiers:   ${(TIER1*100).toFixed(1)}% / ${(TIER2*100).toFixed(1)}% / ${(TIER3*100).toFixed(1)}%`);
@@ -293,7 +297,7 @@ for (let i = 0; i < candles.length; i++) {
   // ── Step 4: Check entry if flat ──
   if (!position) {
     // Build extras object — EXACTLY what CandleProcessor feeds to TradingLoop
-    const extras = {
+    let extras = {
       emaCrossoverSignal: emaCrossoverSignal || null,
       maDynamicSRSignal: maDynamicSRSignal || null,
       breakRetestSignal: breakRetestSignal || null,
@@ -303,7 +307,33 @@ for (let i = 0; i < candles.length; i++) {
       price: price,
     };
 
-    // Run orchestrator with FULL extras
+    // ISOLATE mode: null out all strategies except the one we're testing
+    if (ISOLATE_STRATEGY) {
+      const isolateMap = {
+        'MADynamicSR': 'maDynamicSRSignal',
+        'EMASMACrossover': 'emaCrossoverSignal',
+        'LiquiditySweep': 'liquiditySweepSignal',
+        'BreakAndRetest': 'breakRetestSignal',
+        'RSI': null,  // RSI is built-in, handled via indicators
+      };
+      const keepKey = isolateMap[ISOLATE_STRATEGY];
+
+      // Null out extras-based strategies
+      extras = {
+        ...extras,
+        emaCrossoverSignal: keepKey === 'emaCrossoverSignal' ? extras.emaCrossoverSignal : null,
+        maDynamicSRSignal: keepKey === 'maDynamicSRSignal' ? extras.maDynamicSRSignal : null,
+        breakRetestSignal: keepKey === 'breakRetestSignal' ? extras.breakRetestSignal : null,
+        liquiditySweepSignal: keepKey === 'liquiditySweepSignal' ? extras.liquiditySweepSignal : null,
+      };
+
+      // If not isolating RSI, disable it by setting RSI to neutral (50)
+      if (ISOLATE_STRATEGY !== 'RSI' && indicators.rsi !== undefined) {
+        indicators.rsi = 50;  // Neutral RSI = no signal
+      }
+    }
+
+    // Run orchestrator with FULL extras (or isolated extras)
     const orchResult = orchestrator.evaluate(
       indicators,           // indicators
       [],                   // patterns (empty for now — Phase 2)
