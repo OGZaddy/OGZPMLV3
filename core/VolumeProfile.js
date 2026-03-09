@@ -58,7 +58,8 @@ class VolumeProfile {
     this.recalcInterval = config.recalcInterval || 5;
 
     // How far outside VA to consider "out of balance" (% beyond VAH/VAL)
-    this.outOfBalancePct = config.outOfBalancePct || 0.1;
+    // FIX 2026-03-06: Was 0.1% (too tight), changed to 0.5% per STRATEGY-REWRITE-SPEC
+    this.outOfBalancePct = config.outOfBalancePct || 0.5;
 
     // ─── INTERNAL STATE ───
     this.profile = null;          // Current computed profile

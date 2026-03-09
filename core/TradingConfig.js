@@ -200,32 +200,48 @@ const BASE_CONFIG = {
   },
 
   // =========================================================================
-  // STRATEGY-SPECIFIC PARAMETERS
+  // STRATEGY-SPECIFIC PARAMETERS (per STRATEGY-REWRITE-SPEC.md)
   // =========================================================================
   strategies: {
     MADynamicSR: {
-      lookback: 20,                                              // MA lookback period
-      srTolerance: 0.002,                                        // 0.2% tolerance for S/R levels
-      minTouches: 2,                                             // minimum touches for valid S/R
+      // Trader DNA strategy - pullbacks to dynamic S/R
+      entryEma: env('MASR_ENTRY_EMA', 20),             // EMA for pullback entries (was hardcoded 50)
+      trendEma: env('MASR_TREND_EMA', 50),             // EMA for trend direction (was hardcoded 200)
+      touchZonePct: env('MASR_TOUCH_ZONE', 0.6),       // % distance to count as "touching"
+      srTestCount: env('MASR_SR_TESTS', 2),            // Min S/R zone touches
+      atrAcceleration: env('MASR_ATR_ACCEL', 1.2),     // Candle range must exceed this × ATR
+      swingLookback: env('MASR_SWING_LOOKBACK', 3),    // Bars to confirm a swing
+      srZonePct: env('MASR_SR_ZONE_PCT', 1.0),         // Zone width as % of price
       enabled: true,
     },
-    EMASMACrossover: {
-      fastPeriod: 9,                                             // fast EMA period
-      slowPeriod: 20,                                            // slow SMA period
-      signalConfirmBars: 2,                                      // bars to confirm crossover
+    EMACrossover: {
+      // EMA/SMA crossover with snapback detection
+      decayBars: env('EMA_DECAY_BARS', 10),            // Signal decay (bars until fade)
+      snapbackThreshold: env('EMA_SNAPBACK_PCT', 2.5), // % spread for snapback signal
+      blowoffThreshold: env('EMA_BLOWOFF_ACCEL', 0.15),// Acceleration threshold
       enabled: true,
     },
     LiquiditySweep: {
-      sweepThreshold: 0.003,                                     // 0.3% beyond level = sweep
-      recoveryBars: 3,                                           // bars to recover for valid sweep
-      minVolumeSpike: 1.5,                                       // 1.5x avg volume required
+      // Marco-style liquidity grabs (needs 24/7 rewrite)
+      lookbackCandles: env('LIQSWEEP_LOOKBACK', 50),   // Rolling lookback for levels
+      sweepWickMinPct: env('LIQSWEEP_WICK_MIN', 0.1),  // Min wick beyond level
+      confirmBodyMinPct: env('LIQSWEEP_CONFIRM_BODY', 0.3), // Min body on confirmation
       enabled: true,
     },
     RSI: {
-      period: 14,                                                // RSI period
-      overbought: 70,                                            // overbought threshold
-      oversold: 30,                                              // oversold threshold
-      divergenceEnabled: true,                                   // check for divergences
+      // RSI mean reversion on extremes
+      period: 14,                                       // Standard RSI period
+      oversoldLevel: env('RSI_OVERSOLD', 25),          // Oversold threshold
+      overboughtLevel: env('RSI_OVERBOUGHT', 75),      // Overbought threshold
+      enabled: true,
+    },
+    VolumeProfile: {
+      // Fabio Valentino - Auction Market Theory
+      sessionLookback: env('VP_SESSION_LOOKBACK', 96), // 24h of 15m candles
+      numBins: env('VP_NUM_BINS', 50),                 // Price bins for profile
+      valueAreaPct: env('VP_VALUE_AREA_PCT', 0.70),    // 70% value area
+      outOfBalancePct: env('VP_OUT_OF_BALANCE_PCT', 0.5), // Was 0.1%, needs 0.5%
+      recalcInterval: env('VP_RECALC_INTERVAL', 5),    // Candles between recalc
       enabled: true,
     },
   },

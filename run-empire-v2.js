@@ -479,8 +479,24 @@ class OGZPrimeV14Bot {
       minSwitchIntervalMs: 5 * 60 * 1000,          // 5 min minimum between switches
     });
 
-    this.emaCrossover = new EMASMACrossoverSignal();
-    this.maDynamicSR = new MADynamicSR();
+    // Wire strategies to TradingConfig (per STRATEGY-REWRITE-SPEC.md)
+    const emaConfig = TradingConfig.get('strategies.EMACrossover') || {};
+    this.emaCrossover = new EMASMACrossoverSignal({
+      decayBars: emaConfig.decayBars || 10,
+      snapbackThresholdPct: emaConfig.snapbackThreshold || 2.5,
+      blowoffAccelThreshold: emaConfig.blowoffThreshold || 0.15,
+    });
+
+    const masrConfig = TradingConfig.get('strategies.MADynamicSR') || {};
+    this.maDynamicSR = new MADynamicSR({
+      emaPeriod: masrConfig.entryEma || 20,           // Entry EMA (was 50)
+      trendEmaPeriod: masrConfig.trendEma || 50,      // Trend EMA (was 200)
+      touchZonePct: masrConfig.touchZonePct || 0.6,
+      srTestCount: masrConfig.srTestCount || 2,
+      swingLookback: masrConfig.swingLookback || 3,
+      srZonePct: masrConfig.srZonePct || 1.0,
+    });
+
     this.breakAndRetest = new BreakAndRetest();
 
     // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking
@@ -498,11 +514,13 @@ class OGZPrimeV14Bot {
 
     // CHANGE 2026-02-23: Volume Profile (Fabio Valentino / Auction Market Theory)
     // Filters out trend strategies when market is BALANCED (inside value area = chop)
+    const vpConfig = TradingConfig.get('strategies.VolumeProfile') || {};
     this.volumeProfile = new VolumeProfile({
-      sessionLookback: 96,    // 96 x 15min = 24 hours
-      numBins: 50,
-      valueAreaPct: 0.70,
-      recalcInterval: 5,      // Recalculate every 5 candles
+      sessionLookback: vpConfig.sessionLookback || 96,    // 96 x 15min = 24 hours
+      numBins: vpConfig.numBins || 50,
+      valueAreaPct: vpConfig.valueAreaPct || 0.70,
+      outOfBalancePct: vpConfig.outOfBalancePct || 0.5,   // FIX: Was 0.1%, needs 0.5%
+      recalcInterval: vpConfig.recalcInterval || 5,
     });
 
     console.log('ðŸ"Š Modular Entry System: MTF + Crossovers + S/R + Liquidity initialized');
