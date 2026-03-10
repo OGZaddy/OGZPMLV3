@@ -333,28 +333,48 @@ async function bombardier(manifest, params) {
 }
 
 /**
- * Entomologist: FINDS bugs only
+ * Entomologist: FINDS bugs via code scanning + RAG
  */
 async function entomologist(manifest, params) {
   const { ragQuery } = require('./rag-query');
-
-  // Use RAG to search for relevant issues
-  const ragResults = ragQuery(manifest.issue);
+  const issue = manifest.issue || '';
   const bugs = [];
 
-  // Analyze RAG results for bug patterns
-  if (ragResults.reports.length > 0) {
+  // 1. SCAN CODE: Parse issue for file/line/pattern references
+  const codeScans = parseIssueForCodeRefs(issue);
+  for (const scan of codeScans) {
+    try {
+      const found = scanCodeForBug(scan);
+      if (found) {
+        bugs.push({
+          type: 'CODE_SCAN',
+          location: `${found.file}:${found.line}`,
+          description: found.description,
+          code: found.code,
+          fix_hint: scan.fixHint || null
+        });
+      }
+    } catch (err) {
+      console.log(`   ⚠️  Scan error: ${err.message}`);
+    }
+  }
+
+  // 2. Query RAG for known similar issues
+  const ragResults = ragQuery(issue);
+
+  // 3. Add RAG results if no code scan found bugs
+  if (ragResults.reports.length > 0 && bugs.length === 0) {
     ragResults.reports.slice(0, 3).forEach(report => {
       bugs.push({
         type: 'DOCUMENTED',
-        location: report.file,
+        location: report.file || 'unknown',
         description: report.excerpt || 'See report for details',
         score: report.score
       });
     });
   }
 
-  // Check for common patterns not in ledger
+  // 4. Check for common patterns not in ledger (existing functionality)
   if (manifest.issue.includes('trade') && !manifest.commander?.known_issues?.some(i => i.symptom?.includes('trade'))) {
     bugs.push({
       type: 'RATE_LIMIT',
@@ -374,11 +394,200 @@ async function entomologist(manifest, params) {
   updateSection(manifest, 'entomologist', {
     bugs_found: bugs,
     classifications: bugs.map(b => b.type),
+    code_scans: codeScans,
     rag_reports: ragResults.reports.slice(0, 3)
   });
 
-  console.log(`✅ Entomologist: Found ${bugs.length} bugs (${ragResults.reports.length} reports)`);
+  console.log(`✅ Entomologist: Found ${bugs.length} bugs (${codeScans.length} code scans, ${ragResults.reports.length} RAG reports)`);
   return manifest;
+}
+
+/**
+ * Parse issue text for file names, line numbers, patterns to search
+ */
+function parseIssueForCodeRefs(issue) {
+  const refs = [];
+
+  // Pattern: "FileName line XXX" or "FileName:XXX"
+  const fileLineMatch = issue.match(/(\w+(?:\.js)?)\s*(?:line\s*|:)(\d+)/i);
+  if (fileLineMatch) {
+    const fileName = fileLineMatch[1].replace(/\.js$/, '');
+    const lineNum = parseInt(fileLineMatch[2], 10);
+    refs.push({ file: fileName, line: lineNum, type: 'exact' });
+  }
+
+  // Pattern: "hardcoded X.XXX" or "hardcoded 'value'"
+  const hardcodedMatch = issue.match(/hardcoded\s+['"]?([0-9.]+|[^'"]+)['"]?/i);
+  if (hardcodedMatch && refs.length > 0) {
+    refs[0].pattern = hardcodedMatch[1];
+    refs[0].bugType = 'HARDCODED_VALUE';
+  }
+
+  // Pattern: "→ TradingConfig" or "-> TradingConfig" - fix hint
+  const fixHintMatch = issue.match(/[→\->]+\s*(\w+)/);
+  if (fixHintMatch && refs.length > 0) {
+    refs[0].fixHint = `Replace with ${fixHintMatch[1]}`;
+  }
+
+  // Pattern: look for common bug keywords
+  if (issue.match(/fee|fees/i) && refs.length > 0) {
+    refs[0].bugType = refs[0].bugType || 'FEE_MISMATCH';
+  }
+
+  return refs;
+}
+
+/**
+ * Actually scan the codebase for the bug
+ */
+function scanCodeForBug(scan) {
+  const projectRoot = path.resolve(__dirname, '..');
+
+  // Find the file
+  let filePath = null;
+  const possiblePaths = [
+    `core/${scan.file}.js`,
+    `modules/${scan.file}.js`,
+    `brokers/${scan.file}.js`,
+    `${scan.file}.js`,
+    `core/${scan.file}`,
+    `modules/${scan.file}`
+  ];
+
+  for (const p of possiblePaths) {
+    const full = path.join(projectRoot, p);
+    if (fs.existsSync(full)) {
+      filePath = full;
+      break;
+    }
+  }
+
+  if (!filePath) {
+    console.log(`   📂 File not found: ${scan.file}`);
+    return null;
+  }
+
+  // Read the file and check the specific line
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = content.split('\n');
+
+  if (scan.line && scan.line <= lines.length) {
+    const lineContent = lines[scan.line - 1];
+
+    // Check if the pattern exists on this line
+    if (scan.pattern && lineContent.includes(scan.pattern)) {
+      return {
+        file: path.relative(projectRoot, filePath),
+        line: scan.line,
+        code: lineContent.trim(),
+        description: `Found hardcoded '${scan.pattern}' at line ${scan.line}`,
+        bugType: scan.bugType || 'HARDCODED_VALUE'
+      };
+    }
+
+    // Even without pattern match, return the line for review
+    return {
+      file: path.relative(projectRoot, filePath),
+      line: scan.line,
+      code: lineContent.trim(),
+      description: `Line ${scan.line} flagged for review`,
+      bugType: scan.bugType || 'REVIEW_NEEDED'
+    };
+  }
+
+  // If no specific line, grep for the pattern
+  if (scan.pattern) {
+    try {
+      const grepResult = execSync(
+        `grep -n "${scan.pattern}" "${filePath}" | head -5`,
+        { encoding: 'utf8', timeout: 5000 }
+      ).trim();
+
+      if (grepResult) {
+        const firstMatch = grepResult.split('\n')[0];
+        const [lineNum, ...codeParts] = firstMatch.split(':');
+        return {
+          file: path.relative(projectRoot, filePath),
+          line: parseInt(lineNum, 10),
+          code: codeParts.join(':').trim(),
+          description: `Found '${scan.pattern}' via grep`,
+          bugType: scan.bugType || 'PATTERN_MATCH'
+        };
+      }
+    } catch (e) {
+      // grep returned no results
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Apply a code fix based on bug info
+ */
+function applyCodeFix(bug) {
+  const projectRoot = path.resolve(__dirname, '..');
+
+  // Parse location "file:line"
+  const [relFile, lineStr] = bug.location.split(':');
+  const lineNum = parseInt(lineStr, 10);
+  const filePath = path.join(projectRoot, relFile);
+
+  if (!fs.existsSync(filePath)) {
+    return { success: false, error: `File not found: ${relFile}` };
+  }
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+
+    if (lineNum < 1 || lineNum > lines.length) {
+      return { success: false, error: `Line ${lineNum} out of range` };
+    }
+
+    const originalLine = lines[lineNum - 1];
+
+    // Generate the fix based on fix_hint
+    let newLine = originalLine;
+
+    // Handle "Replace with TradingConfig" pattern
+    if (bug.fix_hint && bug.fix_hint.includes('TradingConfig')) {
+      // Common patterns for TradingConfig replacement
+      if (bug.code.includes('0.0052') || bug.code.includes('fees')) {
+        newLine = originalLine.replace(
+          /\*\s*0\.0052\s*,?\s*(\/\/.*)?$/,
+          `* TradingConfig.get('fees.totalRoundTrip'),  // From TradingConfig`
+        );
+      } else if (bug.code.match(/\*\s*0\.\d+/)) {
+        // Generic hardcoded multiplier
+        const match = bug.code.match(/\*\s*(0\.\d+)/);
+        if (match) {
+          newLine = originalLine.replace(
+            new RegExp(`\\*\\s*${match[1].replace('.', '\\.')}\\s*,?\\s*(\\/\\/.*)?$`),
+            `* TradingConfig.get('fees.totalRoundTrip'),  // From TradingConfig`
+          );
+        }
+      }
+    }
+
+    // If no change was made, return failure
+    if (newLine === originalLine) {
+      return { success: false, error: 'Could not determine fix transformation' };
+    }
+
+    // Apply the fix
+    lines[lineNum - 1] = newLine;
+    fs.writeFileSync(filePath, lines.join('\n'));
+
+    return {
+      success: true,
+      newCode: newLine.trim(),
+      originalCode: originalLine.trim()
+    };
+
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 /**
@@ -433,21 +642,41 @@ async function exterminator(manifest, params) {
       return manifest;
     }
 
-    bugs.forEach(bug => {
-      fixes.push({
-        bug_id: bug.type,
-        patch: `Fix for ${bug.type} at ${bug.location}`,
-        applied: true
-      });
-    });
+    // Actually apply fixes for CODE_SCAN bugs
+    for (const bug of bugs) {
+      if (bug.type === 'CODE_SCAN' && bug.code && bug.fix_hint) {
+        const result = applyCodeFix(bug);
+        fixes.push({
+          bug_id: bug.type,
+          location: bug.location,
+          original: bug.code,
+          patch: result.newCode || 'N/A',
+          applied: result.success,
+          error: result.error || null
+        });
+        if (result.success) {
+          console.log(`   ✅ Fixed: ${bug.location}`);
+        } else {
+          console.log(`   ❌ Failed: ${bug.location} - ${result.error}`);
+        }
+      } else {
+        // Non-scannable bugs get placeholder
+        fixes.push({
+          bug_id: bug.type,
+          patch: `Manual fix needed for ${bug.type} at ${bug.location}`,
+          applied: false
+        });
+      }
+    }
 
     updateSection(manifest, 'exterminator', {
       fixes_applied: fixes,
-      patches: fixes.map(f => f.patch),
+      patches: fixes.filter(f => f.applied).map(f => f.patch),
       proposals: proposals
     });
 
-    console.log(`✅ Exterminator: Applied ${fixes.length} fixes (EXECUTE MODE - APPROVED)`);
+    const applied = fixes.filter(f => f.applied).length;
+    console.log(`✅ Exterminator: Applied ${applied}/${fixes.length} fixes (EXECUTE MODE - APPROVED)`);
   }
 
   return manifest;
