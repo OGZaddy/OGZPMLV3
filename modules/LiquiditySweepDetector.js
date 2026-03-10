@@ -4,17 +4,20 @@
  * Detects institutional liquidity grabs at session open.
  * 7-step system: ATR filter → manip candle → box → exit → reversal → entry → SL/TP
  *
- * V2 FIXES:
- *   • Single entry point: feedCandle(candle) takes 1m candles in V2 format { c, o, h, l, v, t }
- *   • Auto-aggregates 1m → 5m and 1m → 15m internally
- *   • Auto-builds daily candles from 1m data for ATR calculation
+ * V2 FIXES (2026-03-10):
+ *   • Single entry point: feedCandle(candle) takes 15m candles directly
+ *   • NO internal aggregation - accepts 15m candles as-is (production timeframe)
+ *   • Opening candle = first 15m candle of session (immediate processing)
+ *   • Box exit detection on each 15m candle directly
+ *   • Entry window: 6 bars (6 × 15m = 90min real time)
+ *   • Auto-builds daily candles from 15m data for ATR calculation
  *   • Auto-detects session boundaries (configurable UTC hour/minute)
  *   • Bounded arrays throughout
  *   • Returns unified signal compatible with calculateRealConfidence()
  *
  * Integration:
  *   const sweep = new LiquiditySweepDetector({ sessionOpenHour: 14, sessionOpenMinute: 30 });
- *   // In your 1m candle loop:
+ *   // In your 15m candle loop:
  *   const signal = sweep.feedCandle(candle);
  *   // signal = { module, hasSignal, direction, confidence, ... }
  */
@@ -29,7 +32,7 @@ class LiquiditySweepDetector {
     this.config = {
       atrMultiplier: config.atrMultiplier || 0.25,
       atrPeriod: config.atrPeriod || 14,
-      entryWindowBars: config.entryWindowBars || 18,       // 18 × 5min = 90min
+      entryWindowBars: config.entryWindowBars || 6,        // 6 × 15min = 90min (FIX 2026-03-10)
       hammerBodyMaxPct: config.hammerBodyMaxPct || 0.35,
       hammerWickMinRatio: config.hammerWickMinRatio || 2.0,
       engulfMinRatio: config.engulfMinRatio || 1.0,
@@ -50,13 +53,10 @@ class LiquiditySweepDetector {
       disableSessionCheck: config.disableSessionCheck || false,
     };
 
-    // Internal aggregation buffers
-    this._minuteBuffer5m = [];    // collect 1m candles, flush every 5
-    this._minuteBuffer15m = [];   // collect 1m candles, flush at 15
+    // FIX 2026-03-10: Removed 1m aggregation buffers - now accepts 15m candles directly
     this._dailyCandle = null;     // current day's running OHLCV
     this._currentDay = null;      // 'YYYY-MM-DD'
     this._openingCandleFed = false;
-    this._minutesSinceOpen = 0;
 
     this.reset();
 
@@ -98,10 +98,10 @@ class LiquiditySweepDetector {
 
   // ─── UNIFIED ENTRY POINT ────────────────────────────────────
   /**
-   * Feed a 1-minute candle in V2 format.
-   * Handles all aggregation and state management internally.
+   * Feed a 15-minute candle directly.
+   * FIX 2026-03-10: Removed internal 1m→15m aggregation. Production sends 15m candles.
    *
-   * @param {Object} candle — { c, o, h, l, v, t } (V2 Kraken)
+   * @param {Object} candle — { c, o, h, l, v, t } (V2 Kraken 15m)
    * @returns {Object} signal
    */
   feedCandle(candle) {
@@ -120,65 +120,46 @@ class LiquiditySweepDetector {
     }
     this._currentDay = dayStr;
 
-    // ── Build running daily candle ──
+    // ── Build running daily candle (works with any timeframe) ──
     this._updateDailyCandle(candle);
 
-    // ── Detect session open ──
-    const isSessionOpenMinute = (utcHour === this.config.sessionOpenHour &&
-                                  utcMinute === this.config.sessionOpenMinute);
+    // ── Detect session open (check if this 15m candle IS the session open) ──
+    // For 15m candles, session open candle contains the open minute
+    const isSessionOpenCandle = (utcHour === this.config.sessionOpenHour &&
+                                  utcMinute <= this.config.sessionOpenMinute &&
+                                  utcMinute + 15 > this.config.sessionOpenMinute);
 
-    if (isSessionOpenMinute && this.state.phase === 'waiting_for_open') {
-      // Start collecting the opening range
+    if (isSessionOpenCandle && this.state.phase === 'waiting_for_open') {
+      // This 15m candle IS the opening candle - process immediately
       this.state.phase = 'building_box';
-      this._minuteBuffer15m = [];
-      this._minutesSinceOpen = 0;
       this._openingCandleFed = false;
     }
 
-    // ── Aggregate into 15m for opening candle ──
-    if (this.state.phase === 'building_box') {
-      this._minuteBuffer15m.push(candle);
-      this._minutesSinceOpen++;
-
-      if (this._minutesSinceOpen >= 15 && !this._openingCandleFed) {
-        const candle15m = this._aggregate(this._minuteBuffer15m);
-        this._processOpeningCandle(candle15m);
-        this._openingCandleFed = true;
-        this._minuteBuffer5m = [];  // reset 5m buffer
-      }
+    // ── Opening candle: process immediately (no aggregation needed) ──
+    if (this.state.phase === 'building_box' && !this._openingCandleFed) {
+      this._processOpeningCandle(candle);  // Direct 15m candle
+      this._openingCandleFed = true;
       return this.getSignal();
     }
 
-    // ── Aggregate into 5m for box exit + pattern detection ──
+    // ── Box exit + pattern detection: each 15m candle directly ──
+    // FIX 2026-03-10: No 5m aggregation - process each 15m candle directly
     if (this.state.phase === 'watching_for_exit' || this.state.phase === 'watching_for_pattern') {
-      this._minuteBuffer5m.push(candle);
-
-      if (this._minuteBuffer5m.length >= 5) {
-        const candle5m = this._aggregate(this._minuteBuffer5m);
-        this._minuteBuffer5m = [];
-        this._process5mCandle(candle5m);
-      }
+      this._process5mCandle(candle);  // Method name kept for compatibility, now processes 15m directly
     }
 
-    // DEEP DIAGNOSTIC: Trace LiquiditySweep internals every 1000 candles
+    // DEEP DIAGNOSTIC: Trace LiquiditySweep internals
     if (process.env.BACKTEST_VERBOSE) {
       const candleTs = candle?.t ? new Date(candle.t).toISOString() : 'unknown';
-      const utcH = candle?.t ? new Date(candle.t).getUTCHours() : -1;
-      const utcM = candle?.t ? new Date(candle.t).getUTCMinutes() : -1;
-      // Log every 1000th candle OR on state transitions
       if ((this.stats?.totalSessionsAnalyzed || 0) % 10 === 0 || this.state.phase !== 'waiting_for_open') {
-        console.log(`[DEEP-LIQSWEEP] ═══════════════════════════════════════`);
-        console.log(`[DEEP-LIQSWEEP] candleTime=${candleTs} utcHour=${utcH} utcMin=${utcM}`);
-        console.log(`[DEEP-LIQSWEEP] sessionOpenRequired=${this.config.sessionOpenHour}:${this.config.sessionOpenMinute} (14:30 UTC)`);
-        console.log(`[DEEP-LIQSWEEP] currentDay=${this._currentDay} phase=${this.state.phase}`);
-        console.log(`[DEEP-LIQSWEEP] dailyCandles=${this.state.dailyCandles?.length||0} need=15 for ATR`);
-        console.log(`[DEEP-LIQSWEEP] dailyATR=${this.state.dailyATR?.toFixed(4)||'null'} manipThreshold=${this.state.manipThreshold?.toFixed(4)||'null'}`);
-        console.log(`[DEEP-LIQSWEEP] WHY_PHASE: ${this.state.phase === 'done' ? 'ATR failed or manip candle rejected' : this.state.phase === 'waiting_for_open' ? 'waiting for 14:30 UTC' : 'active'}`);
+        console.log(`[LIQSWEEP-15M] candle=${candleTs} phase=${this.state.phase} dailyATR=${this.state.dailyATR?.toFixed(2)||'null'}`);
       }
     }
 
     return this.getSignal();
   }
+
+
 
   // ─── AGGREGATION ────────────────────────────────────────────
   _aggregate(candles) {

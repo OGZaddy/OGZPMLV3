@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### LiquiditySweep 15m Candle Fix (2026-03-10)
+
+**Session Focus:** Fix timeframe mismatch - feedCandle() expected 1m but production sends 15m candles.
+
+#### Fix #8: feedCandle() 15m Direct Processing
+- **File:** `modules/LiquiditySweepDetector.js:107`
+- **Problem:** feedCandle() had internal 1m→15m aggregation but production sends 15m candles directly
+- **Root Cause:** Original design assumed 1m input with internal aggregation to 15m. Production OHLC websocket sends 15m.
+- **Symptom:** Opening candle collected 15×15min = 225min (should be 15min). Entry window timing 15x wrong.
+- **Fix:** Removed aggregation buffers, process 15m candles directly:
+  - Session open detection checks if 15m candle contains the open minute
+  - Opening candle processed immediately (no aggregation)
+  - Box exit uses 15m candles directly
+- **Impact:** Trade count **21 → 159** (7.6x increase). LiquiditySweep alone: 96 trades.
+- **Pipeline:** First STRUCTURAL fix applied via Claudito pipeline with replacement blocks
+
+---
+
 ### Hardcoded Fee Centralization (2026-03-10)
 
 **Session Focus:** Final elimination of hardcoded fee values - TradingConfig is now single source of truth.

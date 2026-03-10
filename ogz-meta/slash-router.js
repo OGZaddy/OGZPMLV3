@@ -351,7 +351,10 @@ async function entomologist(manifest, params) {
           location: `${found.file}:${found.line}`,
           description: found.description,
           code: found.code,
-          fix_hint: scan.fixHint || null
+          fix_hint: scan.fixHint || null,
+          bugType: found.bugType || 'LINE',  // STRUCTURAL, SEMANTIC, or LINE
+          semantic: found.semantic || null,
+          function_name: scan.function || null
         });
       }
     } catch (err) {
@@ -403,17 +406,62 @@ async function entomologist(manifest, params) {
 }
 
 /**
- * Parse issue text for file names, line numbers, patterns to search
+ * Parse issue text for file names, line numbers, functions, patterns to search
+ * UPGRADED: Now handles semantic issues like "File.js function() expects X but receives Y"
  */
 function parseIssueForCodeRefs(issue) {
   const refs = [];
 
-  // Pattern: "FileName line XXX" or "FileName:XXX"
+  // Pattern 1: "FileName line XXX" or "FileName:XXX" (exact line reference)
   const fileLineMatch = issue.match(/(\w+(?:\.js)?)\s*(?:line\s*|:)(\d+)/i);
   if (fileLineMatch) {
     const fileName = fileLineMatch[1].replace(/\.js$/, '');
     const lineNum = parseInt(fileLineMatch[2], 10);
     refs.push({ file: fileName, line: lineNum, type: 'exact' });
+  }
+
+  // Pattern 2: "FileName.js functionName()" - file + function reference (NEW)
+  const fileFuncMatch = issue.match(/(\w+\.js)\s+(\w+)\(\)/i);
+  if (fileFuncMatch && refs.length === 0) {
+    const fileName = fileFuncMatch[1].replace(/\.js$/, '');
+    const funcName = fileFuncMatch[2];
+    refs.push({
+      file: fileName,
+      function: funcName,
+      type: 'function',
+      bugType: 'STRUCTURAL'
+    });
+  }
+
+  // Pattern 3: Just "FileName.js" with semantic description (NEW)
+  if (refs.length === 0) {
+    const fileOnlyMatch = issue.match(/(\w+\.js)/i);
+    if (fileOnlyMatch) {
+      const fileName = fileOnlyMatch[1].replace(/\.js$/, '');
+      refs.push({
+        file: fileName,
+        type: 'semantic',
+        description: issue,
+        bugType: 'SEMANTIC'
+      });
+    }
+  }
+
+  // Extract semantic context from issue (NEW)
+  const semanticPatterns = {
+    timeframeMismatch: /expects?\s+(\d+)m?\s+(?:candles?)?\s+but\s+receives?\s+(\d+)m/i,
+    wrongAggregation: /aggregat(?:ion|e|ing)\s+(?:is\s+)?(\d+)x?\s+wrong/i,
+    expectedVsActual: /should\s+be\s+(\d+)\s*(?:min|m|bars?)?\s*(?:not|instead\s+of|vs)?\s*(\d+)/i,
+    removePattern: /remove\s+(?:internal\s+)?([^,.]+)/i,
+    changeValue: /(\d+)\s*[→\->]+\s*(\d+)/,
+  };
+
+  for (const [key, pattern] of Object.entries(semanticPatterns)) {
+    const match = issue.match(pattern);
+    if (match && refs.length > 0) {
+      refs[0].semantic = refs[0].semantic || {};
+      refs[0].semantic[key] = match.slice(1);
+    }
   }
 
   // Pattern: "hardcoded X.XXX" or "hardcoded 'value'"
@@ -439,6 +487,7 @@ function parseIssueForCodeRefs(issue) {
 
 /**
  * Actually scan the codebase for the bug
+ * UPGRADED: Now handles function references and semantic analysis
  */
 function scanCodeForBug(scan) {
   const projectRoot = path.resolve(__dirname, '..');
@@ -467,10 +516,57 @@ function scanCodeForBug(scan) {
     return null;
   }
 
-  // Read the file and check the specific line
+  // Read the file
   const content = fs.readFileSync(filePath, 'utf8');
   const lines = content.split('\n');
 
+  // NEW: Handle function reference - find the function definition
+  if (scan.type === 'function' && scan.function) {
+    const funcPatterns = [
+      new RegExp(`^\\s*${scan.function}\\s*\\(`),                    // functionName(
+      new RegExp(`^\\s*async\\s+${scan.function}\\s*\\(`),           // async functionName(
+      new RegExp(`^\\s*${scan.function}\\s*=\\s*(?:async\\s+)?\\(`), // functionName = (
+      new RegExp(`\\s${scan.function}\\s*\\([^)]*\\)\\s*\\{`),       // method definition
+    ];
+
+    for (let i = 0; i < lines.length; i++) {
+      for (const pattern of funcPatterns) {
+        if (pattern.test(lines[i])) {
+          // Found the function - extract context (function body start)
+          const funcStart = i + 1;
+          const codeSnippet = lines.slice(i, Math.min(i + 10, lines.length)).join('\n');
+
+          return {
+            file: path.relative(projectRoot, filePath),
+            line: funcStart,
+            code: lines[i].trim(),
+            codeContext: codeSnippet,
+            description: `Found function '${scan.function}' at line ${funcStart}`,
+            bugType: scan.bugType || 'STRUCTURAL',
+            semantic: scan.semantic || null
+          };
+        }
+      }
+    }
+    console.log(`   📂 Function '${scan.function}' not found in ${scan.file}`);
+  }
+
+  // NEW: Handle semantic scan - analyze file structure
+  if (scan.type === 'semantic') {
+    // Return file info for semantic analysis by higher-level code
+    return {
+      file: path.relative(projectRoot, filePath),
+      line: 1,
+      code: `// Full file scan: ${scan.file}`,
+      description: scan.description || 'Semantic analysis required',
+      bugType: 'SEMANTIC',
+      fullContent: content,
+      lineCount: lines.length,
+      semantic: scan.semantic || null
+    };
+  }
+
+  // Handle exact line reference
   if (scan.line && scan.line <= lines.length) {
     const lineContent = lines[scan.line - 1];
 
@@ -524,6 +620,12 @@ function scanCodeForBug(scan) {
 
 /**
  * Apply a code fix based on bug info
+ * UPGRADED 2026-03-10: Supports function-level and block replacements
+ *
+ * Fix types:
+ *   - LINE: Single line replacement (original behavior)
+ *   - FUNCTION: Replace entire function body
+ *   - BLOCK: Replace a section between markers
  */
 function applyCodeFix(bug) {
   const projectRoot = path.resolve(__dirname, '..');
@@ -541,25 +643,63 @@ function applyCodeFix(bug) {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n');
 
+    // Create backup before any changes
+    const backupPath = filePath + '.pipeline-backup';
+    fs.writeFileSync(backupPath, content);
+
+    // Determine fix type
+    const fixType = bug.fix_type || (bug.replacement_block ? 'FUNCTION' : 'LINE');
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FUNCTION-LEVEL REPLACEMENT (NEW)
+    // ═══════════════════════════════════════════════════════════════════
+    if (fixType === 'FUNCTION' && bug.replacement_block) {
+      const funcName = bug.function_name || bug.description?.match(/function '(\w+)'/)?.[1];
+      if (!funcName) {
+        return { success: false, error: 'Function name required for FUNCTION fix type' };
+      }
+
+      // Find function boundaries
+      const funcBounds = findFunctionBoundaries(lines, funcName, lineNum);
+      if (!funcBounds) {
+        return { success: false, error: `Could not find function boundaries for '${funcName}'` };
+      }
+
+      // Replace the function
+      const before = lines.slice(0, funcBounds.start);
+      const after = lines.slice(funcBounds.end + 1);
+      const newContent = [...before, bug.replacement_block, ...after].join('\n');
+
+      fs.writeFileSync(filePath, newContent);
+
+      return {
+        success: true,
+        fix_type: 'FUNCTION',
+        function_name: funcName,
+        lines_replaced: funcBounds.end - funcBounds.start + 1,
+        backup_path: backupPath,
+        originalCode: lines.slice(funcBounds.start, funcBounds.end + 1).join('\n').substring(0, 200) + '...'
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // LINE-LEVEL REPLACEMENT (original behavior)
+    // ═══════════════════════════════════════════════════════════════════
     if (lineNum < 1 || lineNum > lines.length) {
       return { success: false, error: `Line ${lineNum} out of range` };
     }
 
     const originalLine = lines[lineNum - 1];
-
-    // Generate the fix based on fix_hint
     let newLine = originalLine;
 
     // Handle "Replace with TradingConfig" pattern
     if (bug.fix_hint && bug.fix_hint.includes('TradingConfig')) {
-      // Common patterns for TradingConfig replacement
       if (bug.code.includes('0.0052') || bug.code.includes('fees')) {
         newLine = originalLine.replace(
           /\*\s*0\.0052\s*,?\s*(\/\/.*)?$/,
           `* TradingConfig.get('fees.totalRoundTrip'),  // From TradingConfig`
         );
       } else if (bug.code.match(/\*\s*0\.\d+/)) {
-        // Generic hardcoded multiplier
         const match = bug.code.match(/\*\s*(0\.\d+)/);
         if (match) {
           newLine = originalLine.replace(
@@ -581,12 +721,151 @@ function applyCodeFix(bug) {
 
     return {
       success: true,
+      fix_type: 'LINE',
       newCode: newLine.trim(),
-      originalCode: originalLine.trim()
+      originalCode: originalLine.trim(),
+      backup_path: backupPath
     };
 
   } catch (err) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Find the start and end line indices of a function
+ * Uses brace matching to find the complete function body
+ */
+function findFunctionBoundaries(lines, funcName, hintLine) {
+  // Start searching from hint line or beginning
+  const searchStart = Math.max(0, (hintLine || 1) - 5);
+
+  // Patterns to find function definition
+  const funcPatterns = [
+    new RegExp(`^\\s*${funcName}\\s*\\([^)]*\\)\\s*\\{`),           // method(args) {
+    new RegExp(`^\\s*async\\s+${funcName}\\s*\\([^)]*\\)\\s*\\{`),  // async method(args) {
+    new RegExp(`^\\s*${funcName}\\s*=\\s*(?:async\\s+)?function`),  // name = function
+    new RegExp(`^\\s*${funcName}\\s*=\\s*(?:async\\s+)?\\(`),       // name = (args) =>
+  ];
+
+  let funcStart = -1;
+
+  // Find function start
+  for (let i = searchStart; i < lines.length; i++) {
+    for (const pattern of funcPatterns) {
+      if (pattern.test(lines[i])) {
+        funcStart = i;
+        break;
+      }
+    }
+    if (funcStart >= 0) break;
+  }
+
+  if (funcStart < 0) return null;
+
+  // Find function end using brace matching
+  let braceCount = 0;
+  let funcEnd = funcStart;
+  let started = false;
+
+  for (let i = funcStart; i < lines.length; i++) {
+    const line = lines[i];
+    for (const char of line) {
+      if (char === '{') {
+        braceCount++;
+        started = true;
+      } else if (char === '}') {
+        braceCount--;
+      }
+    }
+    if (started && braceCount === 0) {
+      funcEnd = i;
+      break;
+    }
+  }
+
+  return { start: funcStart, end: funcEnd };
+}
+
+/**
+ * Rollback a fix using the backup file
+ */
+function rollbackFix(filePath) {
+  const backupPath = filePath + '.pipeline-backup';
+  if (fs.existsSync(backupPath)) {
+    fs.copyFileSync(backupPath, filePath);
+    fs.unlinkSync(backupPath);
+    return { success: true };
+  }
+  return { success: false, error: 'No backup found' };
+}
+
+/**
+ * Load replacement blocks from manifest or replacement files
+ */
+function loadReplacementBlocks(manifest) {
+  const replacements = {};
+
+  // 1. Check manifest for inline replacement_blocks
+  if (manifest.replacement_blocks) {
+    Object.assign(replacements, manifest.replacement_blocks);
+  }
+
+  // 2. Check for replacement file specified in params
+  if (manifest.replacement_file) {
+    const filePath = path.join(__dirname, 'replacements', manifest.replacement_file);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      // Parse the replacement file - format: location as filename, content as body
+      const location = manifest.entomologist?.bugs_found?.[0]?.location;
+      if (location) {
+        replacements[location] = content;
+      }
+    }
+  }
+
+  // 3. Check for mission-specific replacement file
+  const missionReplacementPath = path.join(__dirname, 'replacements', `${manifest.mission_id}.js`);
+  if (fs.existsSync(missionReplacementPath)) {
+    const content = fs.readFileSync(missionReplacementPath, 'utf8');
+    const location = manifest.entomologist?.bugs_found?.[0]?.location;
+    if (location) {
+      replacements[location] = content;
+      console.log(`   📦 Loaded replacement from: ${missionReplacementPath}`);
+    }
+  }
+
+  return replacements;
+}
+
+/**
+ * Run the smoke test to verify fixes
+ */
+function runSmokeTest() {
+  const projectRoot = path.resolve(__dirname, '..');
+  const smokeTestPath = path.join(projectRoot, 'scripts', 'smoke-test.js');
+
+  if (!fs.existsSync(smokeTestPath)) {
+    console.log(`   ⚠️  Smoke test not found: ${smokeTestPath}`);
+    return { success: true, skipped: true };  // Don't block if no smoke test
+  }
+
+  try {
+    const result = execSync(`node "${smokeTestPath}"`, {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      timeout: 60000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    // Check for failure indicators
+    if (result.includes('FAILED') || result.includes('Error:')) {
+      return { success: false, output: result };
+    }
+
+    return { success: true, output: result };
+  } catch (err) {
+    return { success: false, error: err.message, output: err.stdout || '' };
   }
 }
 
@@ -642,25 +921,78 @@ async function exterminator(manifest, params) {
       return manifest;
     }
 
-    // Actually apply fixes for CODE_SCAN bugs
+    // Load replacement blocks from manifest or file
+    const replacements = loadReplacementBlocks(manifest);
+
+    // Track files modified for potential rollback
+    const modifiedFiles = [];
+
+    // Actually apply fixes
     for (const bug of bugs) {
-      if (bug.type === 'CODE_SCAN' && bug.code && bug.fix_hint) {
-        const result = applyCodeFix(bug);
+      // Check if we have a replacement block for this bug
+      const replacement = replacements[bug.location] || manifest.replacement_blocks?.[bug.location];
+
+      // STRUCTURAL/FUNCTION fixes require replacement block
+      if (bug.bugType === 'STRUCTURAL' || bug.bugType === 'SEMANTIC') {
+        if (!replacement) {
+          fixes.push({
+            bug_id: bug.type,
+            location: bug.location,
+            patch: 'BLOCKED: Structural fix requires replacement_block',
+            applied: false,
+            error: 'No replacement_block provided for structural fix'
+          });
+          console.log(`   ⚠️  Skipped: ${bug.location} - needs replacement_block`);
+          continue;
+        }
+
+        // Apply function-level replacement
+        const enrichedBug = {
+          ...bug,
+          replacement_block: replacement,
+          fix_type: 'FUNCTION',
+          function_name: bug.description?.match(/function '(\w+)'/)?.[1]
+        };
+
+        const result = applyCodeFix(enrichedBug);
+        modifiedFiles.push({ path: bug.location.split(':')[0], backup: result.backup_path });
+
         fixes.push({
           bug_id: bug.type,
           location: bug.location,
+          fix_type: 'FUNCTION',
+          lines_replaced: result.lines_replaced,
+          applied: result.success,
+          error: result.error || null
+        });
+
+        if (result.success) {
+          console.log(`   ✅ Fixed (FUNCTION): ${bug.location} - replaced ${result.lines_replaced} lines`);
+        } else {
+          console.log(`   ❌ Failed: ${bug.location} - ${result.error}`);
+        }
+      }
+      // LINE-level fixes (original behavior)
+      else if (bug.type === 'CODE_SCAN' && bug.code && bug.fix_hint) {
+        const result = applyCodeFix(bug);
+        modifiedFiles.push({ path: bug.location.split(':')[0], backup: result.backup_path });
+
+        fixes.push({
+          bug_id: bug.type,
+          location: bug.location,
+          fix_type: 'LINE',
           original: bug.code,
           patch: result.newCode || 'N/A',
           applied: result.success,
           error: result.error || null
         });
+
         if (result.success) {
-          console.log(`   ✅ Fixed: ${bug.location}`);
+          console.log(`   ✅ Fixed (LINE): ${bug.location}`);
         } else {
           console.log(`   ❌ Failed: ${bug.location} - ${result.error}`);
         }
       } else {
-        // Non-scannable bugs get placeholder
         fixes.push({
           bug_id: bug.type,
           patch: `Manual fix needed for ${bug.type} at ${bug.location}`,
@@ -669,10 +1001,40 @@ async function exterminator(manifest, params) {
       }
     }
 
+    // Run smoke test if any fixes were applied
+    const appliedFixes = fixes.filter(f => f.applied);
+    if (appliedFixes.length > 0) {
+      console.log(`\n🧪 Running smoke test after ${appliedFixes.length} fixes...`);
+      const smokeResult = runSmokeTest();
+
+      if (!smokeResult.success) {
+        console.log(`   ❌ Smoke test FAILED - rolling back all changes`);
+        // Rollback all modified files
+        for (const mod of modifiedFiles) {
+          if (mod.backup) {
+            const fullPath = path.join(__dirname, '..', mod.path);
+            rollbackFix(fullPath);
+            console.log(`   ↩️  Rolled back: ${mod.path}`);
+          }
+        }
+        manifest.stop_conditions.smoke_test_failed = true;
+        fixes.forEach(f => { if (f.applied) { f.applied = false; f.error = 'Rolled back due to smoke test failure'; } });
+      } else {
+        console.log(`   ✅ Smoke test PASSED`);
+        // Clean up backup files
+        for (const mod of modifiedFiles) {
+          if (mod.backup && fs.existsSync(mod.backup)) {
+            fs.unlinkSync(mod.backup);
+          }
+        }
+      }
+    }
+
     updateSection(manifest, 'exterminator', {
       fixes_applied: fixes,
-      patches: fixes.filter(f => f.applied).map(f => f.patch),
-      proposals: proposals
+      patches: fixes.filter(f => f.applied).map(f => f.patch || f.fix_type),
+      proposals: proposals,
+      smoke_test: appliedFixes.length > 0 ? (manifest.stop_conditions.smoke_test_failed ? 'FAILED' : 'PASSED') : 'SKIPPED'
     });
 
     const applied = fixes.filter(f => f.applied).length;
@@ -762,8 +1124,14 @@ Or manually apply the changes following the architect plan.
 
 /**
  * Generate proposal document for human review
+ * UPGRADED 2026-03-10: Supports replacement blocks for structural fixes
  */
 function generateProposalDocument(manifest, proposals) {
+  // Check for structural bugs
+  const structuralBugs = manifest.entomologist?.bugs_found?.filter(
+    b => b.bugType === 'STRUCTURAL' || b.bugType === 'SEMANTIC'
+  ) || [];
+
   const doc = `# PROPOSAL: ${manifest.mission_id}
 Generated: ${new Date().toISOString()}
 
@@ -784,6 +1152,8 @@ ${manifest.entomologist?.bugs_found?.map((b, i) => `
 ### Bug ${i + 1}: ${b.type}
 - **Location**: ${b.location}
 - **Description**: ${b.description || 'See analysis'}
+- **Fix Type**: ${b.bugType || 'LINE'}${b.semantic ? `
+- **Semantic**: \`${JSON.stringify(b.semantic)}\`` : ''}
 - **Score**: ${b.score || 'N/A'}
 `).join('\n') || 'No bugs identified'}
 
@@ -793,13 +1163,35 @@ ${proposals.map((p, i) => `
 - **Location**: ${p.location}
 - **Proposed Change**: ${p.proposed_fix}
 - **Status**: ${p.status}
-
+${p.replacement_block ? `
+#### Replacement Block (ready to apply)
+\`\`\`javascript
+${p.replacement_block}
+\`\`\`
+` : `
 \`\`\`
 // BEFORE: [Current code at ${p.location}]
-// AFTER:  [Proposed change - see detailed analysis]
+// AFTER:  [Provide replacement_block to apply]
 \`\`\`
-`).join('\n')}
+`}`).join('\n')}
+${structuralBugs.length > 0 ? `
+## ⚠️ STRUCTURAL FIX REQUIRED
 
+This proposal requires a replacement block. To provide the fix:
+
+**Option 1: Inline in manifest**
+\`\`\`bash
+# Add replacement_block to ogz-meta/manifests/${manifest.mission_id}.json
+# Then re-run: node ogz-meta/pipeline.js --execute "${manifest.issue}"
+\`\`\`
+
+**Option 2: Via replacement file**
+\`\`\`bash
+# Create: ogz-meta/replacements/${manifest.mission_id}.js
+# Contains the new function/code block
+# Then: node ogz-meta/pipeline.js --execute --replacement-file "${manifest.mission_id}.js" "${manifest.issue}"
+\`\`\`
+` : ''}
 ## Impact Analysis
 - Files potentially affected: ${manifest.architect?.system_map?.join(', ') || 'Unknown'}
 - Dependencies: ${manifest.architect?.dependencies?.join(', ') || 'Unknown'}

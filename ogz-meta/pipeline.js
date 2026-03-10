@@ -106,12 +106,37 @@ async function execute(issue) {
   console.log(`🔧 Pipeline: ${pipelineType.toUpperCase()}${stayOnBranch ? ' (staying on branch)' : ''}`);
   console.log(`📋 Mode: ${executeMode ? 'EXECUTE (will apply changes)' : 'ADVISORY (proposals only)'}`);
 
-  // Start mission
-  let manifest = await route(`/start ${cleanIssue}`, {});
-  manifest.pipeline_type = pipelineType;  // Store pipeline type (bugfix/refactor)
-  manifest.mode = executeMode ? 'EXECUTE' : 'ADVISORY';  // Store execution mode
+  let manifest;
+
+  // In EXECUTE mode, load the approved manifest instead of creating new
+  if (executeMode) {
+    const { loadManifest, saveManifest } = require('./manifest-schema');
+    const currentPath = require('path').join(__dirname, 'manifests', 'current.json');
+    const fs = require('fs');
+
+    if (fs.existsSync(currentPath)) {
+      manifest = loadManifest(currentPath);
+      if (manifest.approval?.status === 'APPROVED') {
+        console.log(`\n✅ Loaded approved mission: ${manifest.mission_id}`);
+        manifest.mode = 'EXECUTE';  // Ensure execute mode
+        saveManifest(manifest, currentPath);  // Save so all commands see EXECUTE mode
+      } else {
+        console.log(`\n❌ Current mission not approved. Run: node ogz-meta/approve.js ${manifest.mission_id}`);
+        return;
+      }
+    } else {
+      console.log(`\n❌ No current mission found. Run pipeline in ADVISORY mode first.`);
+      return;
+    }
+  } else {
+    // Start new mission in ADVISORY mode
+    manifest = await route(`/start ${cleanIssue}`, {});
+    manifest.pipeline_type = pipelineType;
+    manifest.mode = 'ADVISORY';
+  }
+
   console.log(`\n📋 Mission: ${manifest.mission_id}`);
-  console.log(`📝 Issue: ${issue}`);
+  console.log(`📝 Issue: ${manifest.issue || issue}`);
 
   // Execute pipeline
   let debuggerRuns = 0;
