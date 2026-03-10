@@ -599,7 +599,25 @@ class Bombardier {
    * Find orphan functions (never called by anyone)
    */
   findOrphans(options = {}) {
-    const { excludeEntryPoints = true, minSize = 3 } = options;
+    const {
+      excludeEntryPoints = true,
+      minSize = 3,
+      excludePaths = true,  // Exclude worktrees, archive, test files
+      coreOnly = false      // Only show core/ and modules/ orphans
+    } = options;
+
+    // Paths to exclude (false positives)
+    const excludePathPatterns = [
+      '.claude/worktrees/',
+      'archive/',
+      'node_modules/',
+      'test/',
+      'tests/',
+      '__tests__/',
+      '.backup',
+      'backup-',
+      'prodlock-portable/'
+    ];
 
     // Known entry points that are legitimately uncalled
     const entryPointPatterns = [
@@ -610,10 +628,22 @@ class Bombardier {
 
     const orphans = [];
     const entryPoints = [];
+    const excluded = { paths: 0, entryPoints: 0, exported: 0, classMethod: 0 };
 
     for (const [id, func] of this.callGraph) {
       // Skip if it has callers
       if (func.calledBy.length > 0) continue;
+
+      // Skip excluded paths
+      if (excludePaths && excludePathPatterns.some(p => func.file.includes(p))) {
+        excluded.paths++;
+        continue;
+      }
+
+      // Core only filter
+      if (coreOnly && !func.file.startsWith('core/') && !func.file.startsWith('modules/')) {
+        continue;
+      }
 
       // Check if it's an entry point
       const isEntryPoint = entryPointPatterns.some(p =>
@@ -623,10 +653,22 @@ class Bombardier {
       // Check if it's exported (appears in module.exports context)
       const isExported = func.file && this._isExportedFunction(func);
 
-      if (isEntryPoint || isExported) {
-        if (!excludeEntryPoints) {
-          entryPoints.push(func);
-        }
+      // Check if it's a class method (likely called via this.methodName)
+      const isClassMethod = this._isLikelyClassMethod(func);
+
+      if (isEntryPoint) {
+        excluded.entryPoints++;
+        if (!excludeEntryPoints) entryPoints.push(func);
+        continue;
+      }
+
+      if (isExported) {
+        excluded.exported++;
+        continue;
+      }
+
+      if (isClassMethod) {
+        excluded.classMethod++;
         continue;
       }
 
@@ -646,7 +688,81 @@ class Bombardier {
     // Sort by size (biggest orphans first - most code to review)
     orphans.sort((a, b) => b.size - a.size);
 
-    return { orphans, entryPoints };
+    return { orphans, entryPoints, excluded };
+  }
+
+  /**
+   * Check if function is likely a class method called via this.
+   */
+  _isLikelyClassMethod(func) {
+    // Check if this function name is called via this. anywhere in the same file
+    const fileFunctions = this.fileIndex.get(func.file) || [];
+
+    for (const funcId of fileFunctions) {
+      const otherFunc = this.callGraph.get(funcId);
+      if (!otherFunc || otherFunc.id === func.id) continue;
+
+      // Check if any call in otherFunc matches this.funcName
+      for (const call of otherFunc.calls || []) {
+        if (call.name === `this.${func.name}` || call.name === func.name) {
+          return true;
+        }
+      }
+    }
+
+    // Common class method patterns
+    const classMethodPatterns = [
+      /^_/,           // Private methods like _helper
+      /^#/,           // Private fields
+      /Callback$/,    // Callbacks
+      /^on[A-Z]/,     // Event handlers
+      /^handle[A-Z]/, // Event handlers
+      /^render/,      // Render methods
+      /^update/,      // Update methods
+      /^process/,     // Processing methods
+      /^calculate/,   // Calculation methods
+      /^validate/,    // Validation methods
+      /^parse/,       // Parsing methods
+      /^format/,      // Formatting methods
+      /^build/,       // Builder methods
+      /^create/,      // Factory methods
+      /^load/,        // Loading methods
+      /^save/,        // Saving methods
+      /^fetch/,       // Fetching methods
+      /^send/,        // Sending methods
+      /^emit/,        // Event emitting
+      /^broadcast/,   // Broadcasting
+      /^notify/,      // Notifications
+      /^log/,         // Logging
+      /^debug/,       // Debugging
+      /^trace/,       // Tracing
+      /^check/,       // Checking methods
+      /^verify/,      // Verification methods
+      /^assert/,      // Assertions
+      /^ensure/,      // Ensuring methods
+      /^apply/,       // Application methods
+      /^execute/,     // Execution methods
+      /^invoke/,      // Invocation methods
+      /^dispatch/,    // Dispatching methods
+      /^route/,       // Routing methods
+      /^register/,    // Registration methods
+      /^subscribe/,   // Subscription methods
+      /^unsubscribe/, // Unsubscription methods
+      /^add/,         // Adding methods
+      /^remove/,      // Removing methods
+      /^delete/,      // Deletion methods
+      /^clear/,       // Clearing methods
+      /^reset/,       // Reset methods
+      /^cleanup/,     // Cleanup methods
+      /^destroy/,     // Destruction methods
+      /^dispose/,     // Disposal methods
+      /^close/,       // Closing methods
+      /^open/,        // Opening methods
+      /^connect/,     // Connection methods
+      /^disconnect/,  // Disconnection methods
+    ];
+
+    return classMethodPatterns.some(p => p.test(func.name));
   }
 
   /**
@@ -702,6 +818,18 @@ class Bombardier {
     console.log('\n' + '='.repeat(60));
     console.log('ORPHAN DETECTION REPORT');
     console.log('='.repeat(60));
+
+    // Show exclusion stats if available
+    if (result.excluded) {
+      console.log('\n📊 Exclusions (false positives filtered):');
+      console.log(`   Excluded paths (archive/worktrees): ${result.excluded.paths}`);
+      console.log(`   Entry points:                       ${result.excluded.entryPoints}`);
+      console.log(`   Exported functions:                 ${result.excluded.exported}`);
+      console.log(`   Class methods:                      ${result.excluded.classMethod}`);
+      const total = Object.values(result.excluded).reduce((a, b) => a + b, 0);
+      console.log(`   ─────────────────────────────────────`);
+      console.log(`   Total filtered:                     ${total}`);
+    }
 
     if (result.orphans.length === 0) {
       console.log('\n✅ No orphan functions detected!');
@@ -938,6 +1066,8 @@ Usage:
   node bombardier.js --build           Rebuild the call graph cache
   node bombardier.js --stats           Show graph statistics
   node bombardier.js --orphans         Find dead/uncalled functions
+  node bombardier.js --orphans --core  Only show core/ and modules/ orphans
+  node bombardier.js --orphans --all   Include archive/worktrees (all false positives)
   node bombardier.js --callgraph <fn>  Show call graph for function
   node bombardier.js --mermaid <fn>    Generate Mermaid diagram for function
 `);
@@ -966,7 +1096,12 @@ Usage:
 
   // Orphan detection
   if (args[0] === '--orphans') {
-    const result = bombardier.findOrphans();
+    const coreOnly = args.includes('--core');
+    const includeAll = args.includes('--all');
+    const result = bombardier.findOrphans({
+      coreOnly: coreOnly,
+      excludePaths: !includeAll
+    });
     bombardier.printOrphans(result);
     process.exit(0);
   }
