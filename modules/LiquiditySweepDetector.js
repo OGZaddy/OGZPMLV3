@@ -212,14 +212,14 @@ class LiquiditySweepDetector {
   }
 
   _processOpeningCandle(openingCandle) {
-    if (!openingCandle || !this.state.dailyATR) { this.state.phase = 'done'; return; }
+    if (!openingCandle) { this.state.phase = 'done'; return; }
     const candleHigh = h(openingCandle);
     const candleLow = l(openingCandle);
     const candleOpen = o(openingCandle);
     const candleClose = c(openingCandle);
     const range = candleHigh - candleLow;
-    const threshold = this.config.atrMultiplier * this.state.dailyATR;
-    const isManipCandle = range >= threshold;
+    const threshold = this.state.dailyATR ? this.config.atrMultiplier * this.state.dailyATR : null;
+    const isManipCandle = threshold === null ? true : range >= threshold;
     this.stats.totalSessionsAnalyzed++;
     this.state.box = {
       high: candleHigh, low: candleLow, range, open: candleOpen, close: candleClose,

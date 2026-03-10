@@ -411,8 +411,9 @@ function parseIssueForCodeRefs(issue) {
     return refs;  // Full file replacement takes precedence
   }
 
-  // Pattern 1: "FileName line XXX" or "FileName:XXX" (exact line reference)
-  const fileLineMatch = issue.match(/(\w+(?:\.js)?)\s*(?:line\s*|:)(\d+)/i);
+  // Pattern 1: "FileName.js line XXX" or "FileName.js:XXX" (exact line reference)
+  // NOTE: .js extension is REQUIRED to avoid matching config keys like "entryWindowBars:18"
+  const fileLineMatch = issue.match(/(\w+\.js)\s*(?:line\s*|:)(\d+)/i);
   if (fileLineMatch) {
     const fileName = fileLineMatch[1].replace(/\.js$/, '');
     const lineNum = parseInt(fileLineMatch[2], 10);
@@ -705,8 +706,19 @@ function applyCodeFix(bug) {
     const originalLine = lines[lineNum - 1];
     let newLine = originalLine;
 
+    // Generic newCode replacement (NEW)
+    if (bug.newCode && bug.code) {
+      // Direct line replacement - use bug.code as search pattern, bug.newCode as replacement
+      if (originalLine.includes(bug.code.trim())) {
+        newLine = originalLine.replace(bug.code.trim(), bug.newCode.trim());
+      } else {
+        // Fuzzy match - just replace the whole line with newCode (preserve indentation)
+        const indent = originalLine.match(/^(\s*)/)?.[1] || '';
+        newLine = indent + bug.newCode.trim();
+      }
+    }
     // Handle "Replace with TradingConfig" pattern
-    if (bug.fix_hint && bug.fix_hint.includes('TradingConfig')) {
+    else if (bug.fix_hint && bug.fix_hint.includes('TradingConfig')) {
       if (bug.code.includes('0.0052') || bug.code.includes('fees')) {
         newLine = originalLine.replace(
           /\*\s*0\.0052\s*,?\s*(\/\/.*)?$/,
@@ -1036,7 +1048,7 @@ async function exterminator(manifest, params) {
           ...bug,
           replacement_block: replacement,
           fix_type: 'FUNCTION',
-          function_name: bug.description?.match(/function '(\w+)'/)?.[1]
+          function_name: bug.function_name || bug.description?.match(/[Ff]unction '(\w+)'/)?.[1]
         };
 
         const result = applyCodeFix(enrichedBug);
@@ -1057,8 +1069,8 @@ async function exterminator(manifest, params) {
           console.log(`   ❌ Failed: ${bug.location} - ${result.error}`);
         }
       }
-      // LINE-level fixes (original behavior)
-      else if (bug.type === 'CODE_SCAN' && bug.code && bug.fix_hint) {
+      // LINE-level fixes (original behavior + newCode support)
+      else if (bug.type === 'CODE_SCAN' && bug.code && (bug.fix_hint || bug.newCode)) {
         const result = applyCodeFix(bug);
         modifiedFiles.push({ path: bug.location.split(':')[0], backup: result.backup_path });
 

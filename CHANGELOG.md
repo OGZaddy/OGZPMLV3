@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ATR Warmup Fix (2026-03-10)
+
+**Session Focus:** LiquiditySweep blocked all signals during ATR warmup period (~15 daily candles).
+
+#### Fix #9: Skip ATR Manipulation Filter During Warmup
+- **Files:** `modules/LiquiditySweepDetector.js:215,221,222`
+- **Problem:** LiquiditySweep required dailyATR to be populated before processing any signals
+- **Root Cause:** Line 215 blocked entry if dailyATR was null. Lines 221-222 calculated NaN threshold when dailyATR was null.
+- **Symptom:** 0 trades generated during first ~15 days of backtest (ATR needs 15 daily candles to compute)
+- **Fix:**
+  - Line 215: Remove `|| !this.state.dailyATR` check
+  - Line 221: `const threshold = this.state.dailyATR ? ... : null`
+  - Line 222: `const isManipCandle = threshold === null ? true : range >= threshold`
+- **Impact:** Trade count **0 → 37** during warmup period. Signals now generated from day 1.
+- **Pipeline:** Applied via Claudito pipeline with 3 LINE fixes
+
+#### Pipeline Improvements
+- `ogz-meta/slash-router.js`: Added `newCode` support for generic line replacements
+- `ogz-meta/slash-router.js`: Fixed function_name extraction to use bug.function_name if present
+- `ogz-meta/slash-router.js`: Fixed Pattern 1 regex to require .js extension (was matching config keys like `entryWindowBars:18`)
+
+---
+
 ### LiquiditySweep 15m Candle Fix (2026-03-10)
 
 **Session Focus:** Fix timeframe mismatch - feedCandle() expected 1m but production sends 15m candles.
