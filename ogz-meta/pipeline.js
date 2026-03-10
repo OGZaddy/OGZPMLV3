@@ -75,6 +75,11 @@ function hasStayFlag(issue) {
   return issue.includes('--stay') || issue.includes('--refactor');
 }
 
+// Check for --execute flag in args (runs with approval, applies changes)
+function hasExecuteFlag(issue) {
+  return issue.includes('--execute');
+}
+
 // Legacy export for backwards compatibility
 const PIPELINE = BUGFIX_PIPELINE;
 
@@ -82,26 +87,29 @@ const PIPELINE = BUGFIX_PIPELINE;
  * Execute full pipeline
  */
 async function execute(issue) {
-  const mode = detectMode(issue);
+  const pipelineType = detectMode(issue);
   const stayOnBranch = hasStayFlag(issue);
+  const executeMode = hasExecuteFlag(issue);
 
-  // Clean issue text (remove flags)
-  const cleanIssue = issue.replace(/--stay|--refactor/g, '').trim();
+  // Clean issue text (remove all flags)
+  const cleanIssue = issue.replace(/--stay|--refactor|--execute/g, '').trim();
 
   // Build pipeline, inject --stay if needed
-  let pipeline = mode === 'refactor' ? [...REFACTOR_PIPELINE] : [...BUGFIX_PIPELINE];
-  if (stayOnBranch && mode !== 'refactor') {
+  let pipeline = pipelineType === 'refactor' ? [...REFACTOR_PIPELINE] : [...BUGFIX_PIPELINE];
+  if (stayOnBranch && pipelineType !== 'refactor') {
     // Replace /branch with /branch --stay for bugfix mode
     pipeline = pipeline.map(cmd => cmd === '/branch' ? '/branch --stay' : cmd);
   }
 
   console.log('🚀 CLAUDITO PIPELINE INITIATED');
   console.log('=' .repeat(50));
-  console.log(`🔧 Mode: ${mode.toUpperCase()}${stayOnBranch ? ' (staying on branch)' : ''}`);
+  console.log(`🔧 Pipeline: ${pipelineType.toUpperCase()}${stayOnBranch ? ' (staying on branch)' : ''}`);
+  console.log(`📋 Mode: ${executeMode ? 'EXECUTE (will apply changes)' : 'ADVISORY (proposals only)'}`);
 
   // Start mission
   let manifest = await route(`/start ${cleanIssue}`, {});
-  manifest.mode = mode;  // Store mode in manifest for downstream use
+  manifest.pipeline_type = pipelineType;  // Store pipeline type (bugfix/refactor)
+  manifest.mode = executeMode ? 'EXECUTE' : 'ADVISORY';  // Store execution mode
   console.log(`\n📋 Mission: ${manifest.mission_id}`);
   console.log(`📝 Issue: ${issue}`);
 
@@ -151,13 +159,14 @@ async function execute(issue) {
 
   if (manifest.state === 'COMPLETE') {
     console.log('   ✅ SUCCESS: Pipeline completed');
-    if (mode === 'bugfix') {
+    if (manifest.pipeline_type === 'bugfix') {
       console.log(`   Bugs found: ${manifest.entomologist?.bugs_found?.length || 0}`);
       console.log(`   Fixes applied: ${manifest.exterminator?.fixes_applied?.length || 0}`);
     } else {
-      console.log(`   Mode: REFACTOR/EXTRACTION`);
+      console.log(`   Pipeline: REFACTOR/EXTRACTION`);
       console.log(`   Changes applied: ${manifest.fixer?.changes_applied?.length || 'N/A'}`);
     }
+    console.log(`   Execution mode: ${manifest.mode || 'ADVISORY'}`)
     console.log(`   Tests passed: ${manifest.debugger?.results?.filter(r => r.passed).length || 0}`);
     console.log(`   Warden approved: ${manifest.warden?.final_approval ? 'YES' : 'NO'}`);
   } else {
@@ -174,10 +183,21 @@ if (require.main === module) {
 
   if (!issue) {
     console.log('🚀 Claudito Pipeline');
-    console.log('\nUsage: node ogz-meta/pipeline.js "<issue description>"');
-    console.log('\nMODES:');
+    console.log('\nUsage: node ogz-meta/pipeline.js "<issue description>" [flags]');
+    console.log('\nFLAGS:');
+    console.log('  --execute  Apply fixes instead of just proposing (requires prior approval)');
+    console.log('  --stay     Stay on current branch (don\'t create mission branch)');
+    console.log('\nPIPELINE TYPES:');
     console.log('  BUG FIX (default): Any issue without prefix');
     console.log('  REFACTOR: Start with "refactor:" or "extract:"');
+    console.log('\nEXECUTION MODES:');
+    console.log('  ADVISORY (default): Generates proposals, does not modify code');
+    console.log('  EXECUTE (--execute): Applies fixes after human approval');
+    console.log('\nWORKFLOW:');
+    console.log('  1. Run pipeline (advisory):  node ogz-meta/pipeline.js "fix issue"');
+    console.log('  2. Review proposal in ogz-meta/proposals/');
+    console.log('  3. Approve: node ogz-meta/approve.js <mission_id>');
+    console.log('  4. Execute: node ogz-meta/pipeline.js --execute "fix issue"');
     console.log('\nBUG FIX PIPELINE:');
     BUGFIX_PIPELINE.forEach((cmd, i) => {
       console.log(`  ${i + 1}. ${cmd}`);

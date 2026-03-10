@@ -596,7 +596,7 @@ class OrderExecutor {
                 // Financial results
                 pnl: completeTradeResult.pnlDollars || 0,
                 pnlPercent: pnl || 0,
-                fees: (buyTrade.size * price) * 0.0052,  // FIX 2026-02-25: Actual round-trip fees (0.26% * 2)
+                fees: (buyTrade.size * price) * TradingConfig.get('fees.totalRoundTrip'),  // From TradingConfig
 
                 // Timing
                 entryTime: new Date(buyTrade.entryTime).toISOString(),
