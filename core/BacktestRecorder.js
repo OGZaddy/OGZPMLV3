@@ -14,11 +14,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const TradingConfig = require('./TradingConfig');
 
 class BacktestRecorder {
     constructor(config = {}) {
         this.startingBalance = config.startingBalance || 25000;
-        this.feePerSide = config.feePerSide || 0.0026;  // 0.26%
+        this.feePerSide = config.feePerSide || TradingConfig.get('fees.makerFee');  // From TradingConfig
         this.roundTripFee = this.feePerSide * 2;        // 0.52%
 
         this.balance = this.startingBalance;

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Hardcoded Fee Centralization (2026-03-10)
+
+**Session Focus:** Final elimination of hardcoded fee values - TradingConfig is now single source of truth.
+
+#### Fix #7: Remaining Hardcoded Fees → TradingConfig
+- **Files:** `core/BacktestRecorder.js`, `core/PnLCalculator.js`, `core/MaxProfitManager.js`, `core/StateManager.js`
+- **Problem:** 5 files still had hardcoded fee values (0.0026, 0.0035, 0.0052) instead of TradingConfig
+- **Root Cause:** Historical fixes applied piecemeal, never centralized
+- **Fixes Applied:**
+  - BacktestRecorder.js:21 - `0.0026` → `TradingConfig.get('fees.makerFee')`
+  - PnLCalculator.js:21 - `0.0052` → `TradingConfig.get('fees.totalRoundTrip')`
+  - MaxProfitManager.js:747 - `0.0035` → `TradingConfig.get('fees.takerFee')`
+  - StateManager.js:312 - `0.0026` → `TradingConfig.get('fees.makerFee')`
+  - StateManager.js:397 - `0.0026` → `TradingConfig.get('fees.takerFee')`
+- **Impact:** All fee calculations now from TradingConfig. Changing fees in one place updates entire system.
+
+---
+
 ### Gate Audit + Backtest Sync (2026-03-10)
 
 **Session Focus:** Close the gap between backtest and production. Every number from this point forward is real.

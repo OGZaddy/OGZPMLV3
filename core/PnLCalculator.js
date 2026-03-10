@@ -14,11 +14,12 @@
 
 'use strict';
 
+const TradingConfig = require('./TradingConfig');
+
 class PnLCalculator {
   constructor(options = {}) {
-    // Round-trip fee: 0.26% maker + 0.26% taker = 0.52% total
-    // Using 0.32% as conservative estimate (Kraken fees vary)
-    this.feePercent = options.feePercent || 0.0052;
+    // Round-trip fee from TradingConfig (maker + taker)
+    this.feePercent = options.feePercent || TradingConfig.get('fees.totalRoundTrip');
     this.feeBuffer = options.feeBuffer || 0.35; // % profit needed to cover fees
 
     console.log('[PnLCalculator] Initialized (Phase 13)');

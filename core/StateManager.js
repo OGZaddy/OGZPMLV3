@@ -67,6 +67,9 @@
  * @property {boolean} state.isTrading - Whether trading is active
  * @property {boolean} state.recoveryMode - Emergency recovery mode flag
  */
+
+const TradingConfig = require('./TradingConfig');
+
 class StateManager {
   /**
    * Creates a new StateManager instance.
@@ -305,8 +308,8 @@ class StateManager {
     this.state.activeTrades.set(tradeId, trade);
     console.log(`✅ [StateManager] Added trade ${tradeId} to activeTrades (now ${this.state.activeTrades.size} trades)`);
 
-    // FIX 2026-02-05: Deduct trading fee on entry (Kraken 0.26% per side)
-    const entryFee = usdCost * 0.0026;
+    // FIX 2026-02-05: Deduct trading fee on entry (from TradingConfig)
+    const entryFee = usdCost * TradingConfig.get('fees.makerFee');
     const updates = {
       position: this.state.position + size,  // Track BTC position
       positionCount: this.state.positionCount + 1,
@@ -390,8 +393,8 @@ class StateManager {
     // Correct: balance + (closeSize * price) → balance + 101 = right!
     const usdValueReturned = closeSize * price;  // What we get back in USD
 
-    // FIX 2026-02-05: Deduct trading fee on exit (Kraken 0.26% per side)
-    const exitFee = usdValueReturned * 0.0026;
+    // FIX 2026-02-05: Deduct trading fee on exit (from TradingConfig)
+    const exitFee = usdValueReturned * TradingConfig.get('fees.takerFee');
 
     // Calculate USD that was locked in position (at entry price)
     const usdCostLocked = closeSize * this.state.entryPrice;
