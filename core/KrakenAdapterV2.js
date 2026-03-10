@@ -47,6 +47,7 @@
 const IBrokerAdapter = require('../brokers/IBrokerAdapter');
 const KrakenAdapterSimple = require('../kraken_adapter_simple');
 const { getStateManager } = require('./StateManager');
+const TradingConfig = require('./TradingConfig');
 
 class KrakenAdapterV2 extends IBrokerAdapter {
   constructor(config = {}) {
@@ -325,8 +326,8 @@ class KrakenAdapterV2 extends IBrokerAdapter {
 
   getFees() {
     return {
-      maker: 0.0016, // 0.16%
-      taker: 0.0026  // 0.26%
+      maker: TradingConfig.get('fees.makerFee'), // From TradingConfig
+      taker: TradingConfig.get('fees.takerFee')  // From TradingConfig
     };
   }
 
