@@ -388,29 +388,20 @@ class StrategyOrchestrator {
     // Only trend follow when OUT OF BALANCE (price outside value area)
     // When BALANCED (inside VA) = choppy market, trend strategies bleed fees
     // ═══════════════════════════════════════════════════════════════════════
-    const TREND_STRATEGIES = ['MADynamicSR', 'EMASMACrossover', 'MultiTimeframe', 'MarketRegime'];
+    // DISABLED 2026-03-09: VP chop filter was one of 6 stacked gates killing signals
+    // MADynamicSR now has its own slope/extension filters. VP chop filter is redundant.
+    // TODO: Full gate audit needed — one filter, one job, no overlap.
+    // const TREND_STRATEGIES = ['MADynamicSR', 'EMASMACrossover', 'MultiTimeframe', 'MarketRegime'];
     let vpMarketState = null;
-    let skipTrendStrategies = false;
-
-    if (extras.volumeProfile && extras.price) {
-      vpMarketState = extras.volumeProfile.getMarketState(extras.price);
-      if (vpMarketState?.state === 'balanced') {
-        // Market is inside value area — sideways/chop
-        // Skip trend strategies, they bleed fees here
-        skipTrendStrategies = true;
-        if (this.evalCount % 100 === 0) {
-          console.log(`[VP-ORCH] 🛑 BALANCED market (inside VA) — skipping trend strategies`);
-        }
-      }
-    }
+    let skipTrendStrategies = false;  // Always false now — strategies handle their own filtering
 
     // ─── Step 1: Run ALL strategies independently ───
     const results = [];
     for (const strategy of this.strategies) {
-      // CHOP FILTER: Skip trend strategies when market is balanced
-      if (skipTrendStrategies && TREND_STRATEGIES.includes(strategy.name)) {
-        continue; // Don't even evaluate — Fabio says don't trend follow in chop
-      }
+      // DISABLED 2026-03-09: VP chop filter removed — strategies handle own filtering
+      // if (skipTrendStrategies && TREND_STRATEGIES.includes(strategy.name)) {
+      //   continue;
+      // }
 
       try {
         const result = strategy.evaluate(ctx);
