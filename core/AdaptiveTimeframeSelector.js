@@ -29,13 +29,15 @@
 
 'use strict';
 
+const TradingConfig = require('./TradingConfig');
+
 class AdaptiveTimeframeSelector {
   constructor(config = {}) {
     this.mtfAdapter = config.mtfAdapter || null;
 
-    // Kraken spot fee per side (0.26% maker/taker)
-    this.feePerSide = config.feePercent || 0.26;
-    this.roundTripFee = this.feePerSide * 2; // 0.52%
+    // Kraken spot fees from TradingConfig (maker 0.25%, taker 0.40%, round-trip 0.50%)
+    this.feePerSide = config.feePercent || (TradingConfig.get('fees.makerFee', 0.0025) * 100);  // As percent
+    this.roundTripFee = TradingConfig.get('fees.totalRoundTrip', 0.005) * 100;  // 0.50%
 
     // Minimum R:R after fees for a timeframe to be tradable
     // If average move on a timeframe can't give at least 2:1 reward:risk after fees, skip it

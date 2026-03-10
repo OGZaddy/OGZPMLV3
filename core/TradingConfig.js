@@ -41,12 +41,11 @@ const BASE_CONFIG = {
     minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.50),      // 50% - minimum to enter any trade
     maxConfidence: env('MAX_CONFIDENCE', 0.95),                  // 95% - cap (nothing is 100%)
     minStrategyConfidence: env('MIN_STRATEGY_CONFIDENCE', 0.35), // 35% - per individual strategy
-    minSignalConfidence: env('MIN_SIGNAL_CONFIDENCE', 0.25),     // 25% - net confidence across signals
-    minSignalsToTrade: env('MIN_SIGNALS_TO_TRADE', 2),           // minimum agreeing signals
-
-    // Confidence adjustments
-    confidencePenalty: env('CONFIDENCE_PENALTY', 0.10),          // 10% reduction after loss
-    confidenceBoost: env('CONFIDENCE_BOOST', 0.05),              // 5% increase after win
+    // REMOVED 2026-03-10 (dead config - nothing reads these):
+    // minSignalConfidence: env('MIN_SIGNAL_CONFIDENCE', 0.25),
+    // minSignalsToTrade: env('MIN_SIGNALS_TO_TRADE', 2),
+    // confidencePenalty: env('CONFIDENCE_PENALTY', 0.10),
+    // confidenceBoost: env('CONFIDENCE_BOOST', 0.05),
   },
 
   // =========================================================================

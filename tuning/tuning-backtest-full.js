@@ -39,10 +39,10 @@ const VolumeProfile = require(path.join(projectRoot, 'core/VolumeProfile'));
 
 // ── CONFIG FROM ENV ───────────────────────────────────────────────────────
 const CANDLE_FILE = process.env.CANDLE_FILE || 'tuning/seg_1_range.json';
-const MIN_CONFIDENCE = parseFloat(process.env.MIN_CONFIDENCE) || 35;
+const MIN_CONFIDENCE = parseFloat(process.env.MIN_CONFIDENCE) || 50;  // Match production (was 35)
 const INITIAL_BALANCE = parseFloat(process.env.INITIAL_BALANCE) || 10000;
 const POSITION_SIZE_PCT = parseFloat(process.env.POSITION_SIZE_PCT) || 4;
-const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0;
+const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0.25;  // Match production maker fee (was 0)
 const ENABLE_SHORTS = process.env.ENABLE_SHORTS === 'true';
 const MIN_CONFLUENCE = parseInt(process.env.MIN_CONFLUENCE) || 1;
 const ISOLATE_STRATEGY = process.env.ISOLATE || null;  // e.g. 'MADynamicSR' to test one strategy alone

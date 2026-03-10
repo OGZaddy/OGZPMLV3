@@ -336,7 +336,7 @@ class OrderExecutor {
             price: price,
             size: positionSize,
             value_usd: positionSize * price,
-            fees: (positionSize * price) * 0.0032,  // ~0.32% Kraken fees
+            fees: (positionSize * price) * TradingConfig.get('fees.makerFee', 0.0025),  // From TradingConfig
             reason: unifiedResult.patterns?.map(p => p.name).join(' + ') || 'Signal-based entry',
             confidence: decision.confidence,
             indicators: unifiedResult.indicators,
@@ -490,7 +490,7 @@ class OrderExecutor {
               price: price,
               size: btcAmount,
               value_usd: sellValue,
-              fees: sellValue * 0.0032,  // ~0.32% Kraken fees
+              fees: sellValue * TradingConfig.get('fees.takerFee', 0.004),  // From TradingConfig (taker on exit)
               reason: completeTradeResult.exitReason || 'Signal exit',
               confidence: decision.confidence,
               indicators: { rsi: indicators.rsi, macd: indicators.macd?.macd || 0 },
