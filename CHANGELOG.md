@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Gate Audit + Backtest Sync (2026-03-10)
+
+**Session Focus:** Close the gap between backtest and production. Every number from this point forward is real.
+
+#### Fix #1: LiquiditySweep Config Wiring (0 of 12 params)
+- **File:** `run-empire-v2.js` lines 516-528
+- **Problem:** LiquiditySweep constructor was `{}` empty, ignoring all 12 TradingConfig params
+- **Root Cause:** Constructor used wrong key names vs what TradingConfig provided
+- **Fix:** Wire all 12 params from `TradingConfig.get('strategies.LiquiditySweep')`
+- **Impact:** LiquiditySweep now uses tuned values (lookback 50, entryWindow 18, etc.)
+- **Commit:** `f12566d`
+
+#### Fix #2: MADynamicSR Trader DNA Correction
+- **File:** `modules/MADynamicSR.js` (full rewrite)
+- **Problem:** Using 20 MA as S/R level (wrong), should be 200 MA as S/R
+- **Root Cause:** Misinterpretation of Trader DNA method - 20 MA is for slope/trend detection
+- **Fix:** 20 MA for slope trend detection, 200 MA for S/R bounce entries only
+- **Impact:** Strategy now matches the actual Trader DNA method
+- **Commit:** `7ec7cbd`
+
+#### Fix #3: MAExtensionFilter Redundant (Disabled)
+- **File:** `core/StrategyOrchestrator.js` lines 115-136
+- **Problem:** Orchestrator had MAExtensionFilter gate that duplicated MADynamicSR's internal extension detection
+- **Root Cause:** Stacked gates — one of 6 filters between signal and trade
+- **Fix:** Disabled MAExtensionFilter — MADynamicSR handles extension internally now
+- **Impact:** Removed redundant gate, signals reach decision layer
+- **Commit:** `46e8dd1`
+
+#### Fix #4: VP Chop Filter Redundant (Disabled)
+- **File:** `core/StrategyOrchestrator.js` lines 391-412
+- **Problem:** VolumeProfile chop filter blocking "trend strategies" in balanced markets
+- **Root Cause:** Strategies already handle their own slope/chop detection
+- **Fix:** Disabled VP chop filter — strategies handle own filtering
+- **Impact:** RSI/EMA signals no longer blocked by external regime filter
+- **Commit:** `235a515`
+
+#### Fix #5: Gate Audit Immediate Fixes
+- **Files:** `core/OrderExecutor.js`, `core/AdaptiveTimeframeSelector.js`, `core/TradingConfig.js`, `tuning/tuning-backtest-full.js`
+- **Problem:** Scattered hardcoded values, dead config, wrong fee percentages
+- **Fixes Applied:**
+  - OrderExecutor fees: hardcoded 0.32% → TradingConfig (0.25% maker, 0.40% taker)
+  - AdaptiveTimeframeSelector fees: hardcoded 0.26% → TradingConfig
+  - Backtest MIN_CONFIDENCE: 35% → 50% (match production)
+  - Backtest FEES_PCT: 0% → 0.25% (was ignoring fees)
+  - Removed dead config: minSignalConfidence, minSignalsToTrade, confidencePenalty, confidenceBoost
+- **Impact:** All fee calculations now from single source of truth
+- **Commit:** `2a91ff8`
+
+#### Fix #6: Backtest Constructor Sync
+- **File:** `tuning/tuning-backtest-full.js` lines 92-145
+- **Problem:** Backtest constructors were empty `{}` while production used full TradingConfig
+- **Before:**
+  ```javascript
+  const emaCrossover = new EMASMACrossoverSignal();  // EMPTY
+  const liquiditySweep = new LiquiditySweepDetector();  // EMPTY
+  const volumeProfile = new VolumeProfile();  // EMPTY
+  ```
+- **After:** All constructors match run-empire-v2.js exactly with TradingConfig wiring
+- **Fix:** Wire EMACrossover (3 params), MADynamicSR (12 params), LiquiditySweep (10 params), VolumeProfile (5 params)
+- **Impact:** Backtest numbers now match production behavior
+- **Commit:** `183f176`
+
+#### Fix #7: Round-Trip Fees Default
+- **File:** `tuning/tuning-backtest-full.js` line 45
+- **Problem:** FEES_PCT defaulted to 0.25% (one side) not 0.50% (round-trip)
+- **Fix:** Changed default from 0.25% to 0.50% round-trip
+- **Impact:** Backtest P&L now accounts for full trading costs
+- **Commit:** `183f176`
+
+#### Verification Output
+```
+Fees/slippage:  0.5% per trade
+Min confidence: 50%
+```
+
+#### Summary Table
+| What | Before | After | Commit |
+|------|--------|-------|--------|
+| LiquiditySweep config | 0 params | 12 params | f12566d |
+| MADynamicSR method | 20 MA as S/R | 200 MA as S/R | 7ec7cbd |
+| MAExtensionFilter | Active (redundant) | Disabled | 46e8dd1 |
+| VP chop filter | Active (redundant) | Disabled | 235a515 |
+| OrderExecutor fees | 0.32% hardcoded | TradingConfig | 2a91ff8 |
+| Backtest FEES_PCT | 0.25% | 0.50% | 183f176 |
+| Backtest constructors | Empty {} | Full config | 183f176 |
+
+---
+
 ### Critical Fixes: Risk Enforcement + RSI Null Bug (2026-03-06)
 
 **Session Focus:** Wire up cosmetic env flags that were loaded but never enforced, fix RSI null on startup.
