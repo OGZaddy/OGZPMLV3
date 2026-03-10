@@ -151,7 +151,7 @@ test('TradingConfig strategy params exist and are valid', () => {
   const configs = {
     'strategies.EMACrossover': ['decayBars', 'snapbackThreshold'],
     'strategies.MADynamicSR': ['entryMaPeriod', 'srMaPeriod', 'slopeLookback'],
-    'strategies.LiquiditySweep': ['sweepLookbackBars', 'atrPeriod', 'entryWindowBars'],
+    'strategies.LiquiditySweep': ['sweepLookbackBars', 'atrPeriod', 'entryWindowMinutes'],
   };
 
   for (const [configPath, requiredKeys] of Object.entries(configs)) {

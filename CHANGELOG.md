@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### LiquiditySweep Config Sync (2026-03-10)
+
+**Session Focus:** Config key mismatch - TradingConfig sent `entryWindowBars` but detector reads `entryWindowMinutes`.
+
+#### Fix #10: entryWindowBars → entryWindowMinutes
+- **Files:** `core/TradingConfig.js:234`, `run-empire-v2.js:522`, `tuning/tuning-backtest-full.js:126`, `scripts/smoke-test.js:154`
+- **Problem:** TradingConfig defined `entryWindowBars: 18` but timeframe-agnostic detector reads `entryWindowMinutes`
+- **Fix:** Changed all references to use `entryWindowMinutes: 90`
+- **Pipeline:** Applied via Claudito pipeline with 4 LINE fixes
+
+#### Fix #9.1: atrPct NaN during warmup
+- **File:** `modules/LiquiditySweepDetector.js:227`
+- **Problem:** `atrPct: (range / this.state.dailyATR * 100).toFixed(1)` produces NaN when dailyATR is null
+- **Fix:** Added ternary: `this.state.dailyATR ? ... : 'warmup'`
+
+#### Regression Test Deployed
+- **File:** `tools/regression-test.js`
+- Saves baseline numbers, checks after changes
+- Usage: `node tools/regression-test.js --baseline` / `--check`
+
+---
+
 ### ATR Warmup Fix (2026-03-10)
 
 **Session Focus:** LiquiditySweep blocked all signals during ATR warmup period (~15 daily candles).

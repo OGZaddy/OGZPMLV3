@@ -224,7 +224,7 @@ class LiquiditySweepDetector {
     this.state.box = {
       high: candleHigh, low: candleLow, range, open: candleOpen, close: candleClose,
       isManipCandle, atrThreshold: threshold,
-      atrPct: (range / this.state.dailyATR * 100).toFixed(1),
+      atrPct: this.state.dailyATR ? (range / this.state.dailyATR * 100).toFixed(1) : 'warmup',
       validations: { passesATR: isManipCandle, sweepsHighs: false, sweepsLows: false, closesInsideRange: false },
       timestamp: t(openingCandle),
     };

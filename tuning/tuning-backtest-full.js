@@ -123,7 +123,7 @@ const liquiditySweep = new LiquiditySweepDetector({
   sweepMinExtensionPct: liqConfig.sweepMinExtensionPct || 0.1,
   atrMultiplier: liqConfig.atrMultiplier || 0.25,
   atrPeriod: liqConfig.atrPeriod || 14,
-  entryWindowBars: liqConfig.entryWindowBars || 18,
+  entryWindowMinutes: liqConfig.entryWindowMinutes || 90,
   hammerBodyMaxPct: liqConfig.hammerBodyMaxPct || 0.35,
   hammerWickMinRatio: liqConfig.hammerWickMinRatio || 2.0,
   engulfMinRatio: liqConfig.engulfMinRatio || 1.0,

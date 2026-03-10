@@ -231,7 +231,7 @@ const BASE_CONFIG = {
       sweepMinExtensionPct: env('LIQSWEEP_WICK_MIN', 0.1),     // Was sweepWickMinPct — renamed to match constructor
       atrMultiplier: env('LIQSWEEP_ATR_MULT', 0.25),           // NEW — was only hardcoded default
       atrPeriod: env('LIQSWEEP_ATR_PERIOD', 14),               // NEW
-      entryWindowBars: env('LIQSWEEP_ENTRY_WINDOW', 18),       // NEW — 18 bars entry window
+      entryWindowMinutes: env('LIQSWEEP_ENTRY_WINDOW_MIN', 90),  // 90 min entry window
       hammerBodyMaxPct: env('LIQSWEEP_HAMMER_BODY', 0.35),     // NEW
       hammerWickMinRatio: env('LIQSWEEP_HAMMER_WICK', 2.0),    // NEW
       engulfMinRatio: env('LIQSWEEP_ENGULF_RATIO', 1.0),       // NEW
