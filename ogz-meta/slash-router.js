@@ -115,27 +115,9 @@ async function branch(manifest, params) {
     return manifest;
   }
 
-  // REFACTOR MODE: Stay on current branch but require clean tree
+  // REFACTOR MODE: Stay on current branch, NO dirty check needed
+  // (We're not switching branches, so dirty tree doesn't matter)
   if (isRefactor) {
-    const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
-      .split('\n')
-      .filter(line => !line.startsWith('??'))
-      .filter(line => !line.includes('ogz-meta/manifests/'))
-      .filter(line => !line.includes('prodlock-portable'))
-      .filter(line => !line.includes('data/'))
-      .filter(line => !line.includes('public/proof/'))
-      .join('\n')
-      .trim();
-    if (dirty) {
-      manifest.stop_conditions.warden_blocked = true;
-      updateSection(manifest, 'branch', {
-        blocked: true,
-        reason: 'Working tree not clean; refusing to branch',
-        dirty_preview: dirty.split('\n').slice(0, 10)
-      });
-      console.log('🛑 Branch: BLOCKED (dirty working tree)');
-      return manifest;
-    }
     const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
     console.log(`✅ Branch: Staying on ${currentBranch} (refactor mode)`);
     updateSection(manifest, 'branch', {
@@ -412,6 +394,23 @@ async function entomologist(manifest, params) {
 function parseIssueForCodeRefs(issue) {
   const refs = [];
 
+  // Pattern 0: FULL_FILE - "Replace X.js with Y" or "replace: X.js with Y"
+  // e.g., "Replace LiquiditySweepDetector.js with timeframe-agnostic version from ogz-meta/..."
+  // e.g., "replace: LiquiditySweepDetector.js with ogz-meta/replacement.js"
+  const fullFileMatch = issue.match(/replace[:\s]+(\w+\.js)\s+with\s+(?:.*?from\s+)?([^\s]+\.js)/i);
+  if (fullFileMatch) {
+    const targetFile = fullFileMatch[1].replace(/\.js$/, '');
+    const replacementFile = fullFileMatch[2];
+    refs.push({
+      file: targetFile,
+      type: 'full_file',
+      bugType: 'FULL_FILE',
+      replacementFile: replacementFile,
+      description: `Replace entire ${targetFile}.js with ${replacementFile}`
+    });
+    return refs;  // Full file replacement takes precedence
+  }
+
   // Pattern 1: "FileName line XXX" or "FileName:XXX" (exact line reference)
   const fileLineMatch = issue.match(/(\w+(?:\.js)?)\s*(?:line\s*|:)(\d+)/i);
   if (fileLineMatch) {
@@ -519,6 +518,20 @@ function scanCodeForBug(scan) {
   // Read the file
   const content = fs.readFileSync(filePath, 'utf8');
   const lines = content.split('\n');
+
+  // FULL_FILE: Return file info for complete replacement
+  if (scan.type === 'full_file' || scan.bugType === 'FULL_FILE') {
+    return {
+      file: path.relative(projectRoot, filePath),
+      line: 1,
+      location: path.relative(projectRoot, filePath) + ':1',
+      code: `// Full file replacement: ${scan.file}.js`,
+      description: scan.description || `Replace entire ${scan.file}.js`,
+      bugType: 'FULL_FILE',
+      replacementFile: scan.replacementFile,
+      lineCount: lines.length
+    };
+  }
 
   // NEW: Handle function reference - find the function definition
   if (scan.type === 'function' && scan.function) {
@@ -805,6 +818,7 @@ function rollbackFix(filePath) {
  */
 function loadReplacementBlocks(manifest) {
   const replacements = {};
+  const projectRoot = path.resolve(__dirname, '..');
 
   // 1. Check manifest for inline replacement_blocks
   if (manifest.replacement_blocks) {
@@ -832,6 +846,28 @@ function loadReplacementBlocks(manifest) {
     if (location) {
       replacements[location] = content;
       console.log(`   📦 Loaded replacement from: ${missionReplacementPath}`);
+    }
+  }
+
+  // 4. Check each bug for replacementFile path (FULL_FILE support)
+  const bugs = manifest.entomologist?.bugs_found || [];
+  for (const bug of bugs) {
+    if (bug.replacementFile) {
+      // Try paths: relative to ogz-meta, relative to project root, absolute
+      const paths = [
+        path.join(__dirname, bug.replacementFile),
+        path.join(projectRoot, bug.replacementFile),
+        bug.replacementFile
+      ];
+      for (const tryPath of paths) {
+        if (fs.existsSync(tryPath)) {
+          const content = fs.readFileSync(tryPath, 'utf8');
+          const location = bug.location || `modules/${bug.file}.js:1`;
+          replacements[location] = content;
+          console.log(`   📦 Loaded FULL_FILE replacement from: ${tryPath}`);
+          break;
+        }
+      }
     }
   }
 
@@ -931,6 +967,55 @@ async function exterminator(manifest, params) {
     for (const bug of bugs) {
       // Check if we have a replacement block for this bug
       const replacement = replacements[bug.location] || manifest.replacement_blocks?.[bug.location];
+
+      // FULL_FILE replacement - copy entire replacement file to target
+      if (bug.bugType === 'FULL_FILE') {
+        const targetFile = bug.location.split(':')[0];
+        const targetPath = path.join(process.cwd(), targetFile);
+
+        if (!replacement) {
+          fixes.push({
+            bug_id: bug.type,
+            location: bug.location,
+            patch: 'BLOCKED: Full file replacement requires replacement file',
+            applied: false,
+            error: 'No replacement file provided'
+          });
+          console.log(`   ⚠️  Skipped: ${bug.location} - needs replacement file`);
+          continue;
+        }
+
+        try {
+          // Backup original
+          const backupPath = targetPath + '.backup-' + Date.now();
+          if (fs.existsSync(targetPath)) {
+            fs.copyFileSync(targetPath, backupPath);
+          }
+          modifiedFiles.push({ path: targetFile, backup: backupPath });
+
+          // Write replacement content
+          fs.writeFileSync(targetPath, replacement, 'utf8');
+
+          fixes.push({
+            bug_id: bug.type,
+            location: bug.location,
+            fix_type: 'FULL_FILE',
+            applied: true,
+            backup: backupPath
+          });
+          console.log(`   ✅ Fixed (FULL_FILE): ${targetFile}`);
+        } catch (e) {
+          fixes.push({
+            bug_id: bug.type,
+            location: bug.location,
+            fix_type: 'FULL_FILE',
+            applied: false,
+            error: e.message
+          });
+          console.log(`   ❌ Failed: ${bug.location} - ${e.message}`);
+        }
+        continue;
+      }
 
       // STRUCTURAL/FUNCTION fixes require replacement block
       if (bug.bugType === 'STRUCTURAL' || bug.bugType === 'SEMANTIC') {
@@ -1051,31 +1136,106 @@ async function exterminator(manifest, params) {
 async function fixer(manifest, params) {
   const plan = manifest.architect?.plan || {};
   const changes = [];
+  const projectRoot = path.resolve(__dirname, '..');
 
-  // In ADVISORY mode (default): Generate proposal, don't apply
-  // Generate refactor proposal document
-  const proposalDoc = generateRefactorProposal(manifest);
-  const proposalPath = path.join(__dirname, 'proposals', `${manifest.mission_id}-REFACTOR-PROPOSAL.md`);
+  // Check mode
+  const isExecuteMode = manifest.mode === 'EXECUTE' && manifest.approval?.status === 'APPROVED';
 
-  // Ensure proposals directory exists
-  if (!fs.existsSync(path.join(__dirname, 'proposals'))) {
-    fs.mkdirSync(path.join(__dirname, 'proposals'), { recursive: true });
+  if (!isExecuteMode) {
+    // ADVISORY MODE: Generate proposal, don't apply
+    const proposalDoc = generateRefactorProposal(manifest);
+    const proposalPath = path.join(__dirname, 'proposals', `${manifest.mission_id}-REFACTOR-PROPOSAL.md`);
+
+    if (!fs.existsSync(path.join(__dirname, 'proposals'))) {
+      fs.mkdirSync(path.join(__dirname, 'proposals'), { recursive: true });
+    }
+
+    fs.writeFileSync(proposalPath, proposalDoc);
+    manifest.artifacts.proposals.push(proposalPath);
+
+    updateSection(manifest, 'fixer', {
+      changes_applied: [],
+      plan: plan,
+      proposal_path: proposalPath
+    });
+
+    console.log(`📋 Fixer: Generated refactor proposal (ADVISORY MODE)`);
+    console.log(`   📄 Proposal document: ${proposalPath}`);
+    console.log(`   ⏳ Awaiting human approval before any changes`);
+    console.log(`   💡 Run with approved manifest to apply changes`);
+    return manifest;
   }
 
-  fs.writeFileSync(proposalPath, proposalDoc);
-  manifest.artifacts.proposals.push(proposalPath);
+  // EXECUTE MODE: Apply changes
+  console.log(`🔧 Fixer: Applying changes (EXECUTE MODE - APPROVED)`);
+
+  // Parse issue for FULL_FILE pattern
+  const refs = parseIssueForCodeRefs(manifest.issue);
+  const fullFileRef = refs.find(r => r.bugType === 'FULL_FILE');
+
+  if (fullFileRef && fullFileRef.replacementFile) {
+    // FULL_FILE replacement
+    const targetFile = `modules/${fullFileRef.file}.js`;
+    const targetPath = path.join(projectRoot, targetFile);
+
+    // Find replacement file
+    const replacePaths = [
+      path.join(__dirname, fullFileRef.replacementFile),
+      path.join(projectRoot, fullFileRef.replacementFile),
+      fullFileRef.replacementFile
+    ];
+
+    let replacementContent = null;
+    let foundPath = null;
+    for (const tryPath of replacePaths) {
+      if (fs.existsSync(tryPath)) {
+        replacementContent = fs.readFileSync(tryPath, 'utf8');
+        foundPath = tryPath;
+        break;
+      }
+    }
+
+    if (!replacementContent) {
+      console.log(`   ❌ Replacement file not found: ${fullFileRef.replacementFile}`);
+      updateSection(manifest, 'fixer', { changes_applied: [], error: 'Replacement file not found' });
+      return manifest;
+    }
+
+    // Backup and replace
+    const backupPath = targetPath + '.backup-' + Date.now();
+    if (fs.existsSync(targetPath)) {
+      fs.copyFileSync(targetPath, backupPath);
+    }
+
+    fs.writeFileSync(targetPath, replacementContent, 'utf8');
+    changes.push({
+      type: 'FULL_FILE',
+      target: targetFile,
+      source: foundPath,
+      backup: backupPath
+    });
+
+    console.log(`   📦 Loaded from: ${foundPath}`);
+    console.log(`   ✅ Replaced: ${targetFile}`);
+
+    // Run smoke test
+    const smokeResult = runSmokeTest();
+    if (!smokeResult.success && !smokeResult.skipped) {
+      console.log(`   ❌ Smoke test FAILED - rolling back`);
+      fs.copyFileSync(backupPath, targetPath);
+      updateSection(manifest, 'fixer', { changes_applied: [], error: 'Smoke test failed', rollback: true });
+      return manifest;
+    }
+    console.log(`   ✅ Smoke test ${smokeResult.skipped ? 'skipped' : 'PASSED'}`);
+  }
 
   updateSection(manifest, 'fixer', {
-    changes_applied: [],  // Empty in advisory mode
+    changes_applied: changes,
     plan: plan,
-    proposal_path: proposalPath
+    execute_mode: true
   });
 
-  console.log(`📋 Fixer: Generated refactor proposal (ADVISORY MODE)`);
-  console.log(`   📄 Proposal document: ${proposalPath}`);
-  console.log(`   ⏳ Awaiting human approval before any changes`);
-  console.log(`   💡 Run with approved manifest to apply changes`);
-
+  console.log(`✅ Fixer: Applied ${changes.length} changes (EXECUTE MODE)`);
   return manifest;
 }
 

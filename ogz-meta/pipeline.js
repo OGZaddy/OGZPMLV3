@@ -63,8 +63,10 @@ const REFACTOR_PIPELINE = [
 
 // Detect mode from issue prefix or CLI flags
 function detectMode(issue) {
-  const lower = issue.toLowerCase();
-  if (lower.startsWith('refactor:') || lower.startsWith('extract:')) {
+  // Clean flags before checking prefix
+  const cleaned = issue.replace(/--stay|--refactor|--execute/g, '').trim().toLowerCase();
+  // refactor/extract/replace all skip bug hunting and go straight to fixer
+  if (cleaned.startsWith('refactor:') || cleaned.startsWith('extract:') || cleaned.startsWith('replace:')) {
     return 'refactor';
   }
   return 'bugfix';
@@ -119,6 +121,16 @@ async function execute(issue) {
       if (manifest.approval?.status === 'APPROVED') {
         console.log(`\n✅ Loaded approved mission: ${manifest.mission_id}`);
         manifest.mode = 'EXECUTE';  // Ensure execute mode
+        manifest.pipeline_type = pipelineType;  // Ensure correct pipeline type
+        // Reset stop conditions for fresh execute run
+        manifest.stop_conditions = {
+          critic_failures: 0,
+          forensics_critical: false,
+          verification_failed: false,
+          cicd_failed: false,
+          manifest_mismatch: false,
+          warden_blocked: false
+        };
         saveManifest(manifest, currentPath);  // Save so all commands see EXECUTE mode
       } else {
         console.log(`\n❌ Current mission not approved. Run: node ogz-meta/approve.js ${manifest.mission_id}`);
