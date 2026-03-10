@@ -42,7 +42,7 @@ const CANDLE_FILE = process.env.CANDLE_FILE || 'tuning/seg_1_range.json';
 const MIN_CONFIDENCE = parseFloat(process.env.MIN_CONFIDENCE) || 50;  // Match production (was 35)
 const INITIAL_BALANCE = parseFloat(process.env.INITIAL_BALANCE) || 10000;
 const POSITION_SIZE_PCT = parseFloat(process.env.POSITION_SIZE_PCT) || 4;
-const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0.25;  // Match production maker fee (was 0)
+const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0.50;  // Round-trip fees (maker 0.25% + taker 0.25%)
 const ENABLE_SHORTS = process.env.ENABLE_SHORTS === 'true';
 const MIN_CONFLUENCE = parseInt(process.env.MIN_CONFLUENCE) || 1;
 const ISOLATE_STRATEGY = process.env.ISOLATE || null;  // e.g. 'MADynamicSR' to test one strategy alone
@@ -89,22 +89,59 @@ try {
   process.exit(1);
 }
 
-// ── INITIALIZE ALL MODULES ────────────────────────────────────────────────
+// ── INITIALIZE ALL MODULES (SYNCED WITH run-empire-v2.js) ─────────────────
 const indicatorEngine = new IndicatorEngine({ warmupCandles: 50 });
 const exitContractManager = getExitContractManager();
-const emaCrossover = new EMASMACrossoverSignal();
-const maDynamicSR = new MADynamicSR({
-  entryMaPeriod: 20,
-  srMaPeriod: 200,
-  slopeLookback: 5,
-  minSlopePct: 0.03,
-  extensionPct: 2.0,
-  skipFirstTouch: true,
+
+// Wire strategies to TradingConfig — MUST match run-empire-v2.js exactly
+const emaConfig = TradingConfig.get('strategies.EMACrossover') || {};
+const emaCrossover = new EMASMACrossoverSignal({
+  decayBars: emaConfig.decayBars || 10,
+  snapbackThresholdPct: emaConfig.snapbackThreshold || 2.5,
+  blowoffAccelThreshold: emaConfig.blowoffThreshold || 0.15,
 });
-const liquiditySweep = new LiquiditySweepDetector();
+
+const masrConfig = TradingConfig.get('strategies.MADynamicSR') || {};
+const maDynamicSR = new MADynamicSR({
+  entryMaPeriod: masrConfig.entryMaPeriod || 20,
+  srMaPeriod: masrConfig.srMaPeriod || 200,
+  touchZonePct: masrConfig.touchZonePct || 0.6,
+  srTestCount: masrConfig.srTestCount || 2,
+  swingLookback: masrConfig.swingLookback || 3,
+  srZonePct: masrConfig.srZonePct || 1.0,
+  slopeLookback: masrConfig.slopeLookback || 5,
+  minSlopePct: masrConfig.minSlopePct || 0.03,
+  extensionPct: masrConfig.extensionPct || 2.0,
+  skipFirstTouch: masrConfig.skipFirstTouch ?? true,
+  atrPeriod: masrConfig.atrPeriod || 14,
+  patternPersistBars: masrConfig.patternPersistBars || 15,
+});
+
+const liqConfig = TradingConfig.get('strategies.LiquiditySweep') || {};
+const liquiditySweep = new LiquiditySweepDetector({
+  sweepLookbackBars: liqConfig.sweepLookbackBars || 50,
+  sweepMinExtensionPct: liqConfig.sweepMinExtensionPct || 0.1,
+  atrMultiplier: liqConfig.atrMultiplier || 0.25,
+  atrPeriod: liqConfig.atrPeriod || 14,
+  entryWindowBars: liqConfig.entryWindowBars || 18,
+  hammerBodyMaxPct: liqConfig.hammerBodyMaxPct || 0.35,
+  hammerWickMinRatio: liqConfig.hammerWickMinRatio || 2.0,
+  engulfMinRatio: liqConfig.engulfMinRatio || 1.0,
+  stopBufferPct: liqConfig.stopBufferPct || 0.05,
+  disableSessionCheck: liqConfig.disableSessionCheck ?? true,
+});
+
 const breakAndRetest = new BreakAndRetest();
 const mtfAdapter = new MultiTimeframeAdapter();
-const volumeProfile = new VolumeProfile();
+
+const vpConfig = TradingConfig.get('strategies.VolumeProfile') || {};
+const volumeProfile = new VolumeProfile({
+  sessionLookback: vpConfig.sessionLookback || 96,
+  numBins: vpConfig.numBins || 50,
+  valueAreaPct: vpConfig.valueAreaPct || 0.70,
+  outOfBalancePct: vpConfig.outOfBalancePct || 0.5,
+  recalcInterval: vpConfig.recalcInterval || 5,
+});
 
 const orchestrator = new StrategyOrchestrator({
   minStrategyConfidence: MIN_CONFIDENCE / 100,
