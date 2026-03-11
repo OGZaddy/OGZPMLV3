@@ -42,7 +42,7 @@ const CANDLE_FILE = process.env.CANDLE_FILE || 'tuning/seg_1_range.json';
 const MIN_CONFIDENCE = parseFloat(process.env.MIN_CONFIDENCE) || 50;  // Match production (was 35)
 const INITIAL_BALANCE = parseFloat(process.env.INITIAL_BALANCE) || 10000;
 const POSITION_SIZE_PCT = parseFloat(process.env.POSITION_SIZE_PCT) || 4;
-const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0.50;  // Round-trip fees (maker 0.25% + taker 0.25%)
+const FEES_PCT = parseFloat(process.env.FEES_PCT) || 0.65;  // Round-trip fees (maker 0.25% + taker 0.40%)
 const ENABLE_SHORTS = process.env.ENABLE_SHORTS === 'true';
 const MIN_CONFLUENCE = parseInt(process.env.MIN_CONFLUENCE) || 1;
 const ISOLATE_STRATEGY = process.env.ISOLATE || null;  // e.g. 'MADynamicSR' to test one strategy alone

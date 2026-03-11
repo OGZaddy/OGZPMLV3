@@ -328,14 +328,34 @@ async function entomologist(manifest, params) {
     try {
       const found = scanCodeForBug(scan);
       if (found) {
+        // Build newCode from semantic.changeValue if available
+        let newCode = null;
+        const semantic = found.semantic || scan.semantic;
+        if (semantic?.changeValue && semantic.changeValue.length === 2) {
+          const [oldVal, newVal] = semantic.changeValue;
+          // Generate newCode by replacing old value with new in the found code
+          if (found.code.includes(oldVal)) {
+            newCode = found.code.replace(oldVal, newVal);
+
+            // Also update percentage values in comments (e.g., "0.50%" → "0.65%")
+            // Convert decimal to percentage for comment updates
+            const oldPct = (parseFloat(oldVal) * 100).toFixed(2).replace(/\.?0+$/, '');
+            const newPct = (parseFloat(newVal) * 100).toFixed(2).replace(/\.?0+$/, '');
+            if (oldPct !== newPct && newCode.includes(oldPct + '%')) {
+              newCode = newCode.replace(oldPct + '%', newPct + '%');
+            }
+          }
+        }
+
         bugs.push({
           type: 'CODE_SCAN',
           location: `${found.file}:${found.line}`,
           description: found.description,
           code: found.code,
+          newCode: newCode,  // Auto-generated from semantic.changeValue
           fix_hint: scan.fixHint || null,
           bugType: found.bugType || 'LINE',  // STRUCTURAL, SEMANTIC, or LINE
-          semantic: found.semantic || null,
+          semantic: semantic,
           function_name: scan.function || null
         });
       }
@@ -397,7 +417,7 @@ function parseIssueForCodeRefs(issue) {
   // Pattern 0: FULL_FILE - "Replace X.js with Y" or "replace: X.js with Y"
   // e.g., "Replace LiquiditySweepDetector.js with timeframe-agnostic version from ogz-meta/..."
   // e.g., "replace: LiquiditySweepDetector.js with ogz-meta/replacement.js"
-  const fullFileMatch = issue.match(/replace[:\s]+(\w+\.js)\s+with\s+(?:.*?from\s+)?([^\s]+\.js)/i);
+  const fullFileMatch = issue.match(/replace[:\s]+([\w-]+\.js)\s+with\s+(?:.*?from\s+)?([^\s]+\.js)/i);
   if (fullFileMatch) {
     const targetFile = fullFileMatch[1].replace(/\.js$/, '');
     const replacementFile = fullFileMatch[2];
@@ -413,7 +433,8 @@ function parseIssueForCodeRefs(issue) {
 
   // Pattern 1: "FileName.js line XXX" or "FileName.js:XXX" (exact line reference)
   // NOTE: .js extension is REQUIRED to avoid matching config keys like "entryWindowBars:18"
-  const fileLineMatch = issue.match(/(\w+\.js)\s*(?:line\s*|:)(\d+)/i);
+  // NOTE: [\w-]+ allows hyphenated filenames like "tuning-backtest-full.js"
+  const fileLineMatch = issue.match(/([\w-]+\.js)\s*(?:line\s*|:)(\d+)/i);
   if (fileLineMatch) {
     const fileName = fileLineMatch[1].replace(/\.js$/, '');
     const lineNum = parseInt(fileLineMatch[2], 10);
@@ -421,7 +442,7 @@ function parseIssueForCodeRefs(issue) {
   }
 
   // Pattern 2: "FileName.js functionName()" - file + function reference (NEW)
-  const fileFuncMatch = issue.match(/(\w+\.js)\s+(\w+)\(\)/i);
+  const fileFuncMatch = issue.match(/([\w-]+\.js)\s+(\w+)\(\)/i);
   if (fileFuncMatch && refs.length === 0) {
     const fileName = fileFuncMatch[1].replace(/\.js$/, '');
     const funcName = fileFuncMatch[2];
@@ -435,7 +456,7 @@ function parseIssueForCodeRefs(issue) {
 
   // Pattern 3: Just "FileName.js" with semantic description (NEW)
   if (refs.length === 0) {
-    const fileOnlyMatch = issue.match(/(\w+\.js)/i);
+    const fileOnlyMatch = issue.match(/([\w-]+\.js)/i);
     if (fileOnlyMatch) {
       const fileName = fileOnlyMatch[1].replace(/\.js$/, '');
       refs.push({
@@ -453,7 +474,7 @@ function parseIssueForCodeRefs(issue) {
     wrongAggregation: /aggregat(?:ion|e|ing)\s+(?:is\s+)?(\d+)x?\s+wrong/i,
     expectedVsActual: /should\s+be\s+(\d+)\s*(?:min|m|bars?)?\s*(?:not|instead\s+of|vs)?\s*(\d+)/i,
     removePattern: /remove\s+(?:internal\s+)?([^,.]+)/i,
-    changeValue: /(\d+)\s*[→\->]+\s*(\d+)/,
+    changeValue: /([\d.]+)\s*[→\->]+\s*([\d.]+)/,
   };
 
   for (const [key, pattern] of Object.entries(semanticPatterns)) {
@@ -498,6 +519,7 @@ function scanCodeForBug(scan) {
     `core/${scan.file}.js`,
     `modules/${scan.file}.js`,
     `brokers/${scan.file}.js`,
+    `tuning/${scan.file}.js`,
     `${scan.file}.js`,
     `core/${scan.file}`,
     `modules/${scan.file}`
@@ -591,7 +613,8 @@ function scanCodeForBug(scan) {
         line: scan.line,
         code: lineContent.trim(),
         description: `Found hardcoded '${scan.pattern}' at line ${scan.line}`,
-        bugType: scan.bugType || 'HARDCODED_VALUE'
+        bugType: scan.bugType || 'HARDCODED_VALUE',
+        semantic: scan.semantic || null
       };
     }
 
@@ -601,7 +624,8 @@ function scanCodeForBug(scan) {
       line: scan.line,
       code: lineContent.trim(),
       description: `Line ${scan.line} flagged for review`,
-      bugType: scan.bugType || 'REVIEW_NEEDED'
+      bugType: scan.bugType || 'REVIEW_NEEDED',
+      semantic: scan.semantic || null
     };
   }
 

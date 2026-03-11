@@ -289,7 +289,7 @@ const BASE_CONFIG = {
     makerFee: env('FEE_MAKER', 0.0025),                          // 0.25% maker (Kraken actual)
     takerFee: env('FEE_TAKER', 0.0040),                          // 0.40% taker (Kraken actual)
     slippage: env('FEE_SLIPPAGE', 0.0005),                       // 0.05% slippage
-    totalRoundTrip: env('FEE_TOTAL_ROUNDTRIP', 0.0050),          // 0.50% total (maker entry + taker exit)
+    totalRoundTrip: env('FEE_TOTAL_ROUNDTRIP', 0.0065),          // 0.65% total (maker 0.25% + taker 0.40%)
     safetyBuffer: env('FEE_SAFETY_BUFFER', 0.001),               // 0.10% buffer
 
     // Computed: minimum profit to be a "winner" after fees
