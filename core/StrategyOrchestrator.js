@@ -366,6 +366,44 @@ class StrategyOrchestrator {
       }
     });
 
+    // Apply pipeline toggles - filter strategies based on env vars
+    this._applyPipelineToggles();
+  }
+
+  /**
+   * Filter registered strategies based on pipeline toggles.
+   * Called once at end of _registerBuiltinStrategies().
+   * Logs exactly which strategies are active/disabled - no silent failures.
+   */
+  _applyPipelineToggles() {
+    const pipeline = TradingConfig.get('pipeline') || {};
+    const toggleMap = {
+      'RSI': pipeline.enableRSI,
+      'MADynamicSR': pipeline.enableMADynamicSR,
+      'EMASMACrossover': pipeline.enableEMACrossover,
+      'LiquiditySweep': pipeline.enableLiquiditySweep,
+      'BreakRetest': pipeline.enableBreakRetest,
+      'MarketRegime': pipeline.enableMarketRegime,
+      'MultiTimeframe': pipeline.enableMultiTimeframe,
+      'OGZTPO': pipeline.enableOGZTPO,
+    };
+
+    const before = this.strategies.length;
+    const disabled = [];
+
+    this.strategies = this.strategies.filter(s => {
+      const toggle = toggleMap[s.name];
+      if (toggle === false) {
+        disabled.push(s.name);
+        return false;
+      }
+      return true;
+    });
+
+    if (disabled.length > 0) {
+      console.log(`[PIPELINE] Disabled ${disabled.length} strategies: ${disabled.join(', ')}`);
+    }
+    console.log(`[PIPELINE] Active strategies: ${this.strategies.map(s => s.name).join(', ')} (${this.strategies.length}/${before})`);
   }
 
   /**

@@ -390,6 +390,40 @@ const BASE_CONFIG = {
   },
 
   // =========================================================================
+  // PIPELINE TOGGLES - Component enable/disable for testing
+  // =========================================================================
+  pipeline: {
+    // Strategy toggles
+    enableRSI: envBool('ENABLE_RSI', true),
+    enableMADynamicSR: envBool('ENABLE_MASR', true),
+    enableEMACrossover: envBool('ENABLE_EMA', true),
+    enableLiquiditySweep: envBool('ENABLE_LIQSWEEP', true),
+    enableBreakRetest: envBool('ENABLE_BREAKRETEST', false),
+    enableMarketRegime: envBool('ENABLE_REGIME', true),
+    enableMultiTimeframe: envBool('ENABLE_MTF', true),
+    enableOGZTPO: envBool('ENABLE_TPO', true),
+
+    // Component toggles
+    enableRiskManager: envBool('ENABLE_RISK', true),
+    enableTRAI: envBool('ENABLE_TRAI', false),
+    enableDashboard: envBool('ENABLE_DASHBOARD', true),
+    enableNotifications: envBool('ENABLE_NOTIFICATIONS', true),
+
+    // Execution mode: 'live' | 'paper' | 'backtest'
+    executionMode: env('EXECUTION_MODE', 'paper'),
+
+    // Candle source: 'live' | 'file'
+    candleSource: env('CANDLE_SOURCE', 'live'),
+    candleFile: env('CANDLE_FILE', 'tuning/full-45k.json'),
+
+    // Direction filter: 'long_only' | 'both'
+    directionFilter: env('DIRECTION_FILTER', 'long_only'),
+
+    // Position mode: 'single' | 'multi'
+    positionMode: env('POSITION_MODE', 'single'),
+  },
+
+  // =========================================================================
   // FUND TARGET
   // =========================================================================
   fundTarget: env('FUND_TARGET', 25000),

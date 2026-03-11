@@ -16,6 +16,7 @@ const { IndicatorSnapshot } = require('./IndicatorSnapshot');
 const { RegimeDetector } = require('./RegimeDetector');
 const FeatureExtractor = require('./FeatureExtractor');
 const FeatureFlagManager = require('./FeatureFlagManager');
+const TradingConfig = require('./TradingConfig');
 const { getInstance: getExitContractManager } = require('./ExitContractManager');
 const flagManager = FeatureFlagManager.getInstance();
 
@@ -221,11 +222,16 @@ class TradingLoop {
     // SPOT market direction handling
     let tradingDirection = orchResult.direction;
     const currentPosition = stateManager.get('position');
-    if (tradingDirection === 'sell' && currentPosition === 0) {
-      console.log('🚫 Orchestrator said SELL but no position to sell (SPOT market) - converting to HOLD');
-      tradingDirection = 'hold';
-    } else if (tradingDirection === 'sell' && currentPosition > 0) {
-      console.log('📊 Orchestrator bearish - executing SELL of position');
+
+    // Pipeline direction filter - block shorts on spot market
+    const pipeline = TradingConfig.get('pipeline') || {};
+    if (pipeline.directionFilter === 'long_only' && tradingDirection === 'sell') {
+      if (currentPosition > 0) {
+        console.log('📊 Orchestrator bearish - executing SELL of position');
+      } else {
+        console.log('🚫 [PIPELINE] Direction filter: long_only - blocking sell signal');
+        tradingDirection = 'hold';
+      }
     }
 
     // Phase 3 REWRITE: TEST_CONFIDENCE override deleted - use TradingConfig
