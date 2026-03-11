@@ -485,7 +485,7 @@ class IndicatorEngine {
     const c = this._lastCandle();
     const prev = this.candles[this.candles.length - 2];
 
-    const change = c.c - prev.c;
+    const change = _c(c) - _c(prev);
     const gain = Math.max(change, 0);
     const loss = Math.max(-change, 0);
 
@@ -497,7 +497,7 @@ class IndicatorEngine {
       for (let i = this.candles.length - p; i < this.candles.length; i++) {
         const cur = this.candles[i];
         const pr = this.candles[i - 1];
-        const ch = cur.c - pr.c;
+        const ch = _c(cur) - _c(pr);
         sumG += Math.max(ch, 0);
         sumL += Math.max(-ch, 0);
       }

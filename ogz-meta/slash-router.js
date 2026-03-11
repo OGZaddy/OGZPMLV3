@@ -328,7 +328,7 @@ async function entomologist(manifest, params) {
     try {
       const found = scanCodeForBug(scan);
       if (found) {
-        // Build newCode from semantic.changeValue if available
+        // Build newCode from semantic.changeValue or changeCodeExpr if available
         let newCode = null;
         const semantic = found.semantic || scan.semantic;
         if (semantic?.changeValue && semantic.changeValue.length === 2) {
@@ -344,6 +344,37 @@ async function entomologist(manifest, params) {
             if (oldPct !== newPct && newCode.includes(oldPct + '%')) {
               newCode = newCode.replace(oldPct + '%', newPct + '%');
             }
+          }
+        }
+        // Handle code expression changes: (oldExpr) → newExpr
+        if (!newCode && semantic?.changeCodeExpr && semantic.changeCodeExpr.length === 2) {
+          const [oldExpr, newExpr] = semantic.changeCodeExpr;
+          // The old expression was in parentheses, so we need to match "(oldExpr)"
+          const oldWithParens = `(${oldExpr})`;
+          if (found.code.includes(oldWithParens)) {
+            newCode = found.code.replace(oldWithParens, newExpr);
+          } else if (found.code.includes(oldExpr)) {
+            // Try without parens as fallback
+            newCode = found.code.replace(oldExpr, newExpr);
+          }
+        }
+        // Handle text substitutions: c.c → _c(c), prev.c → _c(prev)
+        if (!newCode && semantic?.changeText) {
+          // changeText is an array of [old, new] pairs from global regex matches
+          // Re-parse from issue to get all substitutions
+          const textPattern = /(\w+(?:\.\w+)?)\s*[→\->]+\s*(\w+\([^)]*\)|\w+(?:\.\w+)?)/g;
+          let match;
+          let tempCode = found.code;
+          let anyMatch = false;
+          while ((match = textPattern.exec(scan.description || '')) !== null) {
+            const [, oldText, newText] = match;
+            if (tempCode.includes(oldText)) {
+              tempCode = tempCode.split(oldText).join(newText);
+              anyMatch = true;
+            }
+          }
+          if (anyMatch) {
+            newCode = tempCode;
           }
         }
 
@@ -438,7 +469,7 @@ function parseIssueForCodeRefs(issue) {
   if (fileLineMatch) {
     const fileName = fileLineMatch[1].replace(/\.js$/, '');
     const lineNum = parseInt(fileLineMatch[2], 10);
-    refs.push({ file: fileName, line: lineNum, type: 'exact' });
+    refs.push({ file: fileName, line: lineNum, type: 'exact', description: issue });
   }
 
   // Pattern 2: "FileName.js functionName()" - file + function reference (NEW)
@@ -475,6 +506,11 @@ function parseIssueForCodeRefs(issue) {
     expectedVsActual: /should\s+be\s+(\d+)\s*(?:min|m|bars?)?\s*(?:not|instead\s+of|vs)?\s*(\d+)/i,
     removePattern: /remove\s+(?:internal\s+)?([^,.]+)/i,
     changeValue: /([\d.]+)\s*[→\->]+\s*([\d.]+)/,
+    // Code expression changes: (oldExpr) → newExpr
+    changeCodeExpr: /\(([^)]+)\)\s*[→\->]+\s*([^\s,]+(?:\s*===\s*'[^']+')?)/,
+    // Simple text substitutions: old → new (for property access, identifiers, etc.)
+    // Matches: c.c → _c(c), prev.c → _c(prev), foo → bar
+    changeText: /(\w+(?:\.\w+)?)\s*[→\->]+\s*(\w+\([^)]*\)|\w+(?:\.\w+)?)/g,
   };
 
   for (const [key, pattern] of Object.entries(semanticPatterns)) {
@@ -517,9 +553,11 @@ function scanCodeForBug(scan) {
   let filePath = null;
   const possiblePaths = [
     `core/${scan.file}.js`,
+    `core/indicators/${scan.file}.js`,
     `modules/${scan.file}.js`,
     `brokers/${scan.file}.js`,
     `tuning/${scan.file}.js`,
+    `tools/${scan.file}.js`,
     `${scan.file}.js`,
     `core/${scan.file}`,
     `modules/${scan.file}`
@@ -957,7 +995,10 @@ async function exterminator(manifest, params) {
       description: bug.description,
       proposed_fix: `Fix for ${bug.type} at ${bug.location}`,
       impact: 'See proposal document for full analysis',
-      status: 'PENDING_REVIEW'
+      status: bug.newCode ? 'READY_TO_APPLY' : 'PENDING_REVIEW',
+      code: bug.code,
+      newCode: bug.newCode,
+      replacement_block: bug.newCode || null  // Use newCode as replacement_block for template
     };
     proposals.push(proposal);
   });
@@ -1360,9 +1401,10 @@ ${proposals.map((p, i) => `
 - **Proposed Change**: ${p.proposed_fix}
 - **Status**: ${p.status}
 ${p.replacement_block ? `
-#### Replacement Block (ready to apply)
+#### Replacement (ready to apply)
 \`\`\`javascript
-${p.replacement_block}
+// BEFORE: ${p.code || '(original code)'}
+// AFTER:  ${p.replacement_block}
 \`\`\`
 ` : `
 \`\`\`
