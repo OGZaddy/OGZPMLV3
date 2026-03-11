@@ -90,12 +90,12 @@ async function route(command, args) {
 }
 
 /**
- * Branch: Creates a mission branch off master (read-only master rule)
+ * Branch: Creates a mission branch off main (read-only main rule)
  *
  * Three modes:
  * - --stay: Skip dirty check, skip branching, work on current branch as-is
  * - --refactor: Require clean tree, stay on current branch
- * - No flag (bugfix): Require clean tree, checkout master, create mission branch
+ * - No flag (bugfix): Require clean tree, checkout main, create mission branch
  */
 async function branch(manifest, params) {
   const missionBranch = `mission/${manifest.mission_id}`;
@@ -129,7 +129,7 @@ async function branch(manifest, params) {
     return manifest;
   }
 
-  // BUG FIX MODE: Require clean tree, base off latest master
+  // BUG FIX MODE: Require clean tree, base off latest main
   const dirty = execSync('git status --porcelain', { encoding: 'utf8' })
     .split('\n')
     .filter(line => !line.startsWith('??'))
@@ -151,16 +151,16 @@ async function branch(manifest, params) {
   }
 
   try {
-    execSync('git checkout master', { stdio: 'pipe' });
-    execSync('git pull origin master', { stdio: 'pipe' });
+    execSync('git checkout main', { stdio: 'pipe' });
+    execSync('git pull origin main', { stdio: 'pipe' });
   } catch (e) {
     manifest.stop_conditions.warden_blocked = true;
     updateSection(manifest, 'branch', {
       blocked: true,
-      reason: 'Failed to checkout/pull master',
+      reason: 'Failed to checkout/pull main',
       error: e.message
     });
-    console.log('🛑 Branch: BLOCKED (could not sync master)');
+    console.log('🛑 Branch: BLOCKED (could not sync main)');
     return manifest;
   }
 
@@ -182,11 +182,11 @@ async function branch(manifest, params) {
   }
 
   updateSection(manifest, 'branch', {
-    base: 'master',
+    base: 'main',
     branch: missionBranch
   });
 
-  console.log(`✅ Branch: on ${missionBranch} (based on master)`);
+  console.log(`✅ Branch: on ${missionBranch} (based on main)`);
   return manifest;
 }
 
@@ -1480,7 +1480,7 @@ async function validator(manifest, params) {
 
   checks.push({
     name: 'no_production_changes',
-    passed: !manifest.artifacts.files_modified?.includes('master')
+    passed: !manifest.artifacts.files_modified?.includes('main')
   });
 
   updateSection(manifest, 'validator', {
@@ -1569,15 +1569,15 @@ async function cicd(manifest, params) {
 async function committer(manifest, params) {
   const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
 
-  // CRITICAL: Clauditos cannot write to master
-  if (branch === 'master') {
+  // CRITICAL: Clauditos cannot write to main
+  if (branch === 'main') {
     manifest.stop_conditions.warden_blocked = true;
     updateSection(manifest, 'committer', {
       branch,
       blocked: true,
-      reason: 'Clauditos cannot commit to production branch master'
+      reason: 'Clauditos cannot commit to production branch main'
     });
-    console.log('🛑 Committer: BLOCKED (on master)');
+    console.log('🛑 Committer: BLOCKED (on main)');
     return manifest;
   }
 
@@ -1687,10 +1687,10 @@ async function janitor(manifest, params) {
 async function warden(manifest, params) {
   const violations = [];
 
-  // CRITICAL: Check if on forbidden master branch
+  // CRITICAL: Check if on forbidden main branch
   const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
-  if (branch === 'master') {
-    violations.push('On production branch master (writes forbidden for Clauditos)');
+  if (branch === 'main') {
+    violations.push('On production branch main (writes forbidden for Clauditos)');
   }
 
   // Check scope
