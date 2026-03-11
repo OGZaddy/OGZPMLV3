@@ -13,11 +13,18 @@
     "launch": "node launch-turbo-train.bat",
     "safety": "node CRITICAL_SAFETY.js",
     "debug": "node enhanced-safety-diagnostics.js",
-    "test": "npm run test:smoke && npm run test:patterns",
+    "test": "jest --runInBand",
     "test:smoke": "node scripts/smoke-test.js",
     "test:patterns": "node scripts/test-patterns.js",
+    "test:deterministic": "jest test/rsi-deterministic.test.js",
     "start:prod": "pm2 start run-empire-v2.js --name ogzprime",
-    "telemetry:report": "node scripts/telemetry-report.js"
+    "telemetry:report": "node scripts/telemetry-report.js",
+    "lint:dto": "node scripts/lint-dto.js",
+    "scan:dto": "node ogz-meta/ast/scan-dto-violations.js",
+    "fix:props": "node ogz-meta/ast/property-to-function.js",
+    "baseline": "node tools/generate-baseline.js",
+    "regression": "node test/regression/waterfall.js",
+    "ci": "npm run lint:dto && npm run scan:dto && npm test"
   },
   "keywords": [
     "trading",
@@ -58,10 +65,14 @@
     "require-in-the-middle": "^7.5.2",
     "stripe": "^18.3.0",
     "uuid": "^13.0.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "^4.3.6"
   },
   "private": false,
   "devDependencies": {
+    "@babel/parser": "^7.29.0",
+    "jest": "^30.3.0",
+    "recast": "^0.23.11",
     "tree-sitter": "^0.25.0",
     "tree-sitter-javascript": "^0.25.0"
   }

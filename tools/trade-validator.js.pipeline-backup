@@ -3,25 +3,25 @@
 /**
  * trade-validator.js — Prove Every Trade Is Real
  * ================================================
- *
+ * 
  * PURPOSE: Independently verify that every trade entry and exit
  * matches the strategy's claimed conditions. No trust — only math.
- *
+ * 
  * WHAT IT DOES:
- *   Runs the backtest, captures every trade, then INDEPENDENTLY
+ *   Runs the backtest, captures every trade, then INDEPENDENTLY 
  *   recalculates indicators and checks that the entry conditions
  *   were actually true on the entry candle.
- *
+ * 
  * USAGE:
  *   node tools/trade-validator.js                    # Validate all trades
  *   node tools/trade-validator.js --strategy RSI     # Validate one strategy
  *   node tools/trade-validator.js --verbose          # Show every check
- *
+ * 
  * OUTPUT:
  *   For each trade:
  *     ✅ RSI Trade #1 @ candle 4523: RSI=22.4 < 25 (oversold) → BUY ✓
  *     ❌ MADynamicSR Trade #3 @ candle 8891: 20 MA slope=flat but claimed rising → INVALID
- *
+ * 
  * RULE: If ANY trade fails validation, the strategy has a bug.
  *       Zero tolerance. Every entry must be provably correct.
  */
@@ -71,32 +71,16 @@ function calcEMA(closes, period) {
   return ema;
 }
 
-/**
- * calcRSI - Uses Wilder's smoothing to match IndicatorEngine exactly
- * Seed with simple average over first `period` bars, then Wilder smooth
- */
 function calcRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
-
-  // Seed with simple average over first period
-  let avgGain = 0, avgLoss = 0;
-  for (let i = 1; i <= period; i++) {
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
-    if (diff > 0) avgGain += diff;
-    else avgLoss += Math.abs(diff);
+    if (diff > 0) gains += diff;
+    else losses += Math.abs(diff);
   }
-  avgGain /= period;
-  avgLoss /= period;
-
-  // Wilder's smoothing for remaining bars
-  for (let i = period + 1; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
-    const gain = Math.max(diff, 0);
-    const loss = Math.max(-diff, 0);
-    avgGain = (avgGain * (period - 1) + gain) / period;
-    avgLoss = (avgLoss * (period - 1) + loss) / period;
-  }
-
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
   if (avgLoss === 0) return 100;
   const rs = avgGain / avgLoss;
   return 100 - (100 / (1 + rs));
@@ -222,9 +206,11 @@ function runBacktestAndCaptureTrades() {
 
     // Check exit if in position
     if (position) {
-      const pnlPct = ((price - position.entryPrice) / position.entryPrice) * 100;
+      const pnlPct = position.direction === 'buy'
+        ? ((price - position.entryPrice) / position.entryPrice) * 100
+        : ((position.entryPrice - price) / position.entryPrice) * 100;
       const holdBars = i - position.entryIndex;
-
+      
       // Simple exit: SL, TP, or max hold
       const contract = position.exitContract || {};
       let exitReason = null;
@@ -305,7 +291,7 @@ function validateTrade(trade, candles) {
 
   switch (trade.strategyName) {
     case 'RSI': {
-      // Independent RSI calculation (Wilder's smoothing - matches IndicatorEngine)
+      // Independent RSI calculation
       const rsi = calcRSI(closesUpToEntry, 14);
       const rsiConfig = TradingConfig.get('strategies.RSI') || {};
       const oversold = rsiConfig.oversoldLevel || 25;
@@ -499,7 +485,9 @@ function validateTrade(trade, candles) {
     actual: trade.exitPrice.toFixed(2),
   });
 
-  const rawPnl = ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100 - FEES_PCT;
+  const rawPnl = trade.direction === 'buy'
+    ? ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100 - FEES_PCT
+    : ((trade.entryPrice - trade.exitPrice) / trade.entryPrice) * 100 - FEES_PCT;
   checks.push({
     name: 'P&L calculation correct',
     passed: Math.abs(trade.pnlPct - rawPnl) < 0.01,
@@ -523,7 +511,7 @@ console.log('Running backtest to capture trades...');
 const trades = runBacktestAndCaptureTrades();
 
 // Filter if requested
-const filtered = STRATEGY_FILTER
+const filtered = STRATEGY_FILTER 
   ? trades.filter(t => t.strategyName === STRATEGY_FILTER)
   : trades;
 
@@ -563,7 +551,7 @@ for (let i = 0; i < filtered.length; i++) {
     const ts = trade.entryCandle?.t ? new Date(t(trade.entryCandle)).toISOString().slice(0, 19) : '?';
     const icon = failed > 0 ? '❌' : '✅';
     console.log(`${icon} ${trade.strategyName} Trade #${i + 1} @ candle ${trade.entryIndex} (${ts}) — ${trade.direction} @ $${trade.entryPrice.toFixed(0)} → $${trade.exitPrice.toFixed(0)} (${trade.pnlPct >= 0 ? '+' : ''}${trade.pnlPct.toFixed(2)}%) [${trade.exitReason}]`);
-
+    
     for (const check of checks) {
       if (VERBOSE || !check.passed) {
         const ci = check.passed ? '  ✅' : '  ❌';

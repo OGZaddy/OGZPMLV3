@@ -15,10 +15,7 @@
 // { t: epoch_ms, o: number, h: number, l: number, c: number, v: number }
 
 // FIX 2026-02-16: Use centralized candle helper for format compatibility
-const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require('../CandleHelper');
-
-// DTO validation for indicator snapshots
-const { validateSnapshotSafe } = require('../dto/IndicatorSnapshotDTO');
+const { c: _c, o: _o, h: _h, l: _l, v: _v } = require('../CandleHelper');
 
 // Import OGZ Two-Pole Oscillator (pure-function implementation)
 let computeOgzTpo, detectTpoCrossover;
@@ -315,63 +312,6 @@ class IndicatorEngine {
   }
 
   getSnapshot() {
-    // Build flat DTO structure per OGZPrime Master Engineering Spec
-    const s = this.state;
-    const lastCandle = s.lastCandle;
-    const price = lastCandle ? _c(lastCandle) : 0;
-
-    const dto = {
-      timestamp: Date.now(),
-      indicators: {
-        rsi: s.rsi ?? 50,
-        ema9: s.ema?.[9] ?? price,
-        ema20: s.ema?.[20] ?? price,
-        ema50: s.ema?.[50] ?? price,
-        ema200: s.ema?.[200] ?? price,
-        sma20: s.sma?.[20],
-        sma50: s.sma?.[50],
-        sma200: s.sma?.[200],
-        atr: s.atr ?? 0,
-        atrPercent: price > 0 ? ((s.atr ?? 0) / price) * 100 : 0,
-        bbUpper: s.bb?.upper ?? price,
-        bbMiddle: s.bb?.mid ?? price,
-        bbLower: s.bb?.lower ?? price,
-        bbWidth: s.bbExtras?.bandwidth ?? 0,
-        bbPercentB: s.bbExtras?.percentB ?? 0.5,
-        macd: s.macd?.macd ?? 0,
-        macdSignal: s.macd?.signal ?? 0,
-        macdHistogram: s.macd?.hist ?? 0,
-        stochRsiK: s.stochRsi?.k,
-        stochRsiD: s.stochRsi?.d,
-        adx: s.adx?.adx,
-        plusDI: s.adx?.pdi,
-        minusDI: s.adx?.mdi,
-        volume: lastCandle ? (_v(lastCandle) ?? 0) : 0,
-        vwap: s.vwap,
-        obv: s.obv,
-        mfi: s.mfi,
-        superTrend: s.superTrend?.value,
-        superTrendDirection: s.superTrend?.trend,
-        price: price,
-      },
-      candle: lastCandle ? {
-        open: _o(lastCandle),
-        high: _h(lastCandle),
-        low: _l(lastCandle),
-        close: _c(lastCandle),
-        volume: _v(lastCandle) ?? 0,
-        timestamp: lastCandle.t ?? lastCandle.timestamp ?? Date.now(),
-      } : undefined,
-      overlays: {},
-    };
-
-    // Validate but don't fail - return raw if validation fails
-    const validated = validateSnapshotSafe(dto);
-    return validated || dto;
-  }
-
-  // Legacy method for backward compatibility - returns raw state
-  getRawState() {
     return JSON.parse(JSON.stringify(this.state));
   }
 
@@ -827,8 +767,8 @@ class IndicatorEngine {
     const slice = this.candles.slice(-p);
     let hh = -Infinity, ll = Infinity;
     for (const c of slice) {
-      if (_h(c) > hh) hh = _h(c);
-      if (_l(c) < ll) ll = _l(c);
+      if (c.h > hh) hh = c.h;
+      if (c.l < ll) ll = c.l;
     }
     const mid = (hh + ll) / 2;
     this.donchianState.upper = hh;
@@ -842,15 +782,15 @@ class IndicatorEngine {
     if (!c) return;
 
     if (this.obvState.prevClose == null) {
-      this.obvState.prevClose = _c(c);
+      this.obvState.prevClose = c.c;
       this.state.obv = this.obvState.obv;
       return;
     }
 
-    if (_c(c) > this.obvState.prevClose) this.obvState.obv += (_v(c) || 0);
-    else if (_c(c) < this.obvState.prevClose) this.obvState.obv -= (_v(c) || 0);
+    if (c.c > this.obvState.prevClose) this.obvState.obv += (c.v || 0);
+    else if (c.c < this.obvState.prevClose) this.obvState.obv -= (c.v || 0);
 
-    this.obvState.prevClose = _c(c);
+    this.obvState.prevClose = c.c;
     this.state.obv = this.obvState.obv;
   }
 
@@ -861,9 +801,9 @@ class IndicatorEngine {
     const c = this._lastCandle();
     const prev = this.candles[this.candles.length - 2];
 
-    const tp = (_h(c) + _l(c) + _c(c)) / 3;
-    const prevTp = (_h(prev) + _l(prev) + _c(prev)) / 3;
-    const rawFlow = tp * (_v(c) || 0);
+    const tp = (c.h + c.l + c.c) / 3;
+    const prevTp = (prev.h + prev.l + prev.c) / 3;
+    const rawFlow = tp * (c.v || 0);
 
     if (tp > prevTp) this.mfiState.posFlow.push(rawFlow);
     else if (tp < prevTp) this.mfiState.negFlow.push(rawFlow);
@@ -979,7 +919,7 @@ class IndicatorEngine {
     if (!c) return;
 
     // sessionKey in UTC YYYY-MM-DD
-    const d = new Date(_t(c));
+    const d = new Date(c.t);
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
     if (this.vwapState.sessionKey !== key) {
@@ -989,8 +929,8 @@ class IndicatorEngine {
       this.vwapState.vwap = null;
     }
 
-    const typical = (_h(c) + _l(c) + _c(c)) / 3;
-    const v = _v(c) || 0;
+    const typical = (c.h + c.l + c.c) / 3;
+    const v = c.v || 0;
 
     this.vwapState.cumPV += typical * v;
     this.vwapState.cumV += v;
@@ -1103,8 +1043,8 @@ class IndicatorEngine {
       if (!isHigh && !isLow) break;
     }
 
-    if (isHigh) this._pushPivot(this.pivots.highs, { i: pivotIndex, t: _t(pivotC), price: _h(pivotC) });
-    if (isLow)  this._pushPivot(this.pivots.lows,  { i: pivotIndex, t: _t(pivotC), price: _l(pivotC) });
+    if (isHigh) this._pushPivot(this.pivots.highs, { i: pivotIndex, t: pivotC.t, price: _h(pivotC) });
+    if (isLow)  this._pushPivot(this.pivots.lows,  { i: pivotIndex, t: pivotC.t, price: _l(pivotC) });
 
     // trim pivots to lookback
     const maxLook = Math.max(this.config.trendMaxLookback, 500);
@@ -1136,8 +1076,8 @@ class IndicatorEngine {
       const after = lows.filter(p => p.i > lastHigh.i);
       const to = after.length ? after[after.length - 1] : lastLow;
       swing = {
-        from: { t: _t(lastHigh), price: lastHigh.price },
-        to: { t: _t(to), price: to.price },
+        from: { t: lastHigh.t, price: lastHigh.price },
+        to: { t: to.t, price: to.price },
         dir: 'down',
       };
     } else {
@@ -1145,8 +1085,8 @@ class IndicatorEngine {
       const after = highs.filter(p => p.i > lastLow.i);
       const to = after.length ? after[after.length - 1] : lastHigh;
       swing = {
-        from: { t: _t(lastLow), price: lastLow.price },
-        to: { t: _t(to), price: to.price },
+        from: { t: lastLow.t, price: lastLow.price },
+        to: { t: to.t, price: to.price },
         dir: 'up',
       };
     }
@@ -1246,7 +1186,7 @@ class IndicatorEngine {
       slope,
       intercept,
       r2,
-      points: pts.map(p => ({ t: _t(p), y: p.price })),
+      points: pts.map(p => ({ t: p.t, y: p.price })),
       valueNow: slope * (n - 1) + intercept,
     };
   }
@@ -1288,7 +1228,7 @@ class IndicatorEngine {
       this.series.candles = this.series.candles.slice(-this.config.maxSeriesPoints * 4);
     }
 
-    const t = _t(c);
+    const t = c.t;
 
     // SMA / EMA lines
     for (const p of this.config.smaPeriods) {
@@ -1361,7 +1301,7 @@ class IndicatorEngine {
       if (this.config.ogzTpoEmitMarkers && sig && sig.action && sig.highProbability) {
         this.series.markers.push({
           t,
-          y: _c(c),
+          y: c.c,
           kind: 'ogzTpoSignal',
           label: `OGZ TPO ${sig.action} (${sig.zone})`,
           meta: sig,
@@ -1387,9 +1327,9 @@ class IndicatorEngine {
     // Trendlines as simple 2-point lines spanning lookback window
     const n = this.candles.length;
     const idxNow = n - 1;
-    const tNow = _t(c);
+    const tNow = c.t;
     const firstIdx = Math.max(0, idxNow - this.config.trendMaxLookback);
-    const tFirst = _t(this.candles[firstIdx]) ?? tNow;
+    const tFirst = this.candles[firstIdx]?.t ?? tNow;
 
     if (this.trends.up) {
       this._setLine2('trendUp', [

@@ -658,7 +658,7 @@ class OGZPrimeV14Bot {
     if (this.priceHistory.length > 0) {
       console.log(`🔄 Replaying ${this.priceHistory.length} saved candles through IndicatorEngine...`);
       indicatorEngine.computeBatch(this.priceHistory);
-      console.log(`✅ IndicatorEngine synced with priceHistory (RSI: ${indicatorEngine.getSnapshot().rsi?.toFixed(1) || 'warming up'})`);
+      console.log(`✅ IndicatorEngine synced with priceHistory (RSI: ${indicatorEngine.getSnapshot().indicators?.rsi?.toFixed(1) || 'warming up'})`);
     }
 
     // FIX 2026-03-06: Replay saved candles through signal modules on startup
@@ -1426,10 +1426,11 @@ class OGZPrimeV14Bot {
             trend: indicators.trend,
             volatility: indicators.volatility,
             // CHANGE 2026-01-25: Send EMA in format dashboard expects (ema[20], ema[50], ema[200])
-            ema: indicatorEngine.getSnapshot().ema || {},
+            // Use getRawState() for dashboard compatibility with legacy format
+            ema: indicatorEngine.getRawState().ema || {},
             // CHANGE 2026-01-25: Send BB and VWAP for dashboard overlays
-            bb: indicatorEngine.getSnapshot().bb || {},
-            vwap: indicatorEngine.getSnapshot().vwap || null
+            bb: indicatorEngine.getRawState().bb || {},
+            vwap: indicatorEngine.getRawState().vwap || null
           },
           profile: {
             name: activeProfile.name,

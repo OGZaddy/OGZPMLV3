@@ -121,13 +121,13 @@ class MultiTimeframeAdapter extends EventEmitter {
   _aggregateInto(timeframe, minuteCandle) {
     const tfConfig = this.TIMEFRAME_CONFIG[timeframe];
     const interval = tfConfig.ms;
-    const candleStart = Math.floor(minuteCandle.t / interval) * interval;
+    const candleStart = Math.floor(_t(minuteCandle) / interval) * interval;
 
     let pending = this.pendingCandles.get(timeframe);
 
-    if (!pending || pending.t !== candleStart) {
+    if (!pending || _t(pending) !== candleStart) {
       // Previous candle complete — store it
-      if (pending && pending.t) {
+      if (pending && _t(pending)) {
         this._addCandle(timeframe, { ...pending });
         this.stats.aggregationsPerformed++;
       }
@@ -135,18 +135,18 @@ class MultiTimeframeAdapter extends EventEmitter {
       // New candle
       pending = {
         t: candleStart,
-        o: minuteCandle.o,
-        h: minuteCandle.h,
-        l: minuteCandle.l,
-        c: minuteCandle.c,
-        v: minuteCandle.v || 0,
+        o: _o(minuteCandle),
+        h: _h(minuteCandle),
+        l: _l(minuteCandle),
+        c: _c(minuteCandle),
+        v: _v(minuteCandle) || 0,
         tickCount: 1,
       };
     } else {
-      pending.h = Math.max(pending.h, minuteCandle.h);
-      pending.l = Math.min(pending.l, minuteCandle.l);
-      pending.c = minuteCandle.c;
-      pending.v += (minuteCandle.v || 0);
+      _h(pending) = Math.max(_h(pending), _h(minuteCandle));
+      _l(pending) = Math.min(_l(pending), _l(minuteCandle));
+      _c(pending) = _c(minuteCandle);
+      _v(pending) += (_v(minuteCandle) || 0);
       pending.tickCount++;
     }
 
@@ -167,7 +167,7 @@ class MultiTimeframeAdapter extends EventEmitter {
     arr.push(candle);
     if (arr.length > max) arr.splice(0, arr.length - max);
 
-    this.lastUpdate.set(timeframe, candle.t);
+    this.lastUpdate.set(timeframe, _t(candle));
 
     if (arr.length >= this.config.minCandlesForAnalysis) {
       this.readyTimeframes.add(timeframe);

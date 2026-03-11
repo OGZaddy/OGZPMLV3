@@ -46,28 +46,31 @@ class TradingLoop {
     const { price } = this.ctx.marketData;
 
     // CHANGE 2025-12-23: Use IndicatorEngine as single source of truth
-    const engineState = this.ctx.indicatorEngine.getSnapshot();
+    // Use getRawState() for legacy IndicatorSnapshot compatibility, getSnapshot() for new DTO
+    const rawState = this.ctx.indicatorEngine.getRawState();
+    const dtoState = this.ctx.indicatorEngine.getSnapshot();
 
     // REFACTOR 2026-02-27: IndicatorSnapshot replaces manual reshape
     // Single transformation point. No fallback paths. Contracts that scream.
     const _indicatorSnapshot = new IndicatorSnapshot(this.ctx.contractValidator);
     let indicators;
     try {
-      indicators = _indicatorSnapshot.create(engineState, price, this.ctx.priceHistory);
+      indicators = _indicatorSnapshot.create(rawState, price, this.ctx.priceHistory);
     } catch (snapErr) {
       // During warmup (first ~200 candles), IndicatorEngine may not have all data yet.
       // RSI needs 14 candles, BB needs 20, EMA200 needs 200.
       // This is the ONLY acceptable reason for the catch to fire.
       if (this.ctx.priceHistory.length < 50) {
         console.warn(`⚠️ IndicatorSnapshot warmup (${this.ctx.priceHistory.length} candles): ${snapErr.message}`);
+        const ind = dtoState.indicators || {};
         indicators = {
-          price, rsi: engineState.rsi || 50, rsiNormalized: ((engineState.rsi || 50) / 100),
-          macd: engineState.macd || { macd: 0, signal: 0, histogram: 0 },
-          ema9: price, ema21: price, ema50: price, ema200: price,
+          price, rsi: ind.rsi || 50, rsiNormalized: ((ind.rsi || 50) / 100),
+          macd: { macd: ind.macd || 0, signal: ind.macdSignal || 0, histogram: ind.macdHistogram || 0 },
+          ema9: ind.ema9 || price, ema21: ind.ema20 || price, ema50: ind.ema50 || price, ema200: ind.ema200 || price,
           trend: 'neutral',
-          atr: engineState.atr || (price * 0.005), atrPercent: 0.5, atrNormalized: 0.1,
-          bb: { upper: price * 1.02, middle: price, lower: price * 0.98, bandwidth: 4, percentB: 0.5 },
-          volatilityNormalized: 0.1, volume: 0, vwap: price
+          atr: ind.atr || (price * 0.005), atrPercent: ind.atrPercent || 0.5, atrNormalized: 0.1,
+          bb: { upper: ind.bbUpper || price * 1.02, middle: ind.bbMiddle || price, lower: ind.bbLower || price * 0.98, bandwidth: ind.bbWidth || 4, percentB: ind.bbPercentB || 0.5 },
+          volatilityNormalized: 0.1, volume: ind.volume || 0, vwap: ind.vwap || price
         };
       } else {
         // After warmup, a throw means real missing data — this IS the bug
@@ -152,10 +155,10 @@ class TradingLoop {
     if (this.ctx.ogzTpo && this.ctx.priceHistory.length > 0) {
       const latestCandle = this.ctx.priceHistory[this.ctx.priceHistory.length - 1];
       tpoResult = this.ctx.ogzTpo.update({
-        o: latestCandle.o,
-        h: latestCandle.h,
-        l: latestCandle.l,
-        c: latestCandle.c,
+        o: _o(latestCandle),
+        h: _h(latestCandle),
+        l: _l(latestCandle),
+        c: _c(latestCandle),
         t: latestCandle.time || Date.now()
       });
 

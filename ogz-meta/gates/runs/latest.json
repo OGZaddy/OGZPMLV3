@@ -1,60 +1,65 @@
 {
-  "run_id": "2026-01-21T12:00:00Z",
+  "run_id": "2026-03-11T18:00:01.896Z",
   "env": "PAPER",
   "instance": "ogz-prime-v2",
-  "brokers": ["KRAKEN", "GEMINI"],
-  "commit": "70995f3",
+  "brokers": [
+    "KRAKEN"
+  ],
+  "commit": "unknown",
+  "generated": "2026-03-11T18:00:01.899Z",
   "gates": [
     {
-      "id": "4B",
-      "name": "Account Auth",
+      "id": "PROC",
+      "name": "Process Health",
       "status": "PASS",
       "highlights": [
-        "Kraken: Authenticated",
-        "Gemini: Authenticated",
-        "Balance endpoints OK"
+        "Bot: ONLINE (6980 min uptime)",
+        "Memory: 225 MB",
+        "Restarts: 50",
+        "WebSocket Server: ONLINE"
       ]
     },
     {
-      "id": "4C",
-      "name": "Order Lifecycle",
+      "id": "WS",
+      "name": "WebSocket & API",
       "status": "PASS",
       "highlights": [
-        "Market data: Live",
-        "Adapter interface verified",
-        "Order validation OK",
-        "PAPER enforced"
+        "Status: healthy",
+        "Connections: 3 active",
+        "Uptime: 7167 min"
       ]
     },
     {
-      "id": "4D",
-      "name": "Restart + Reconcile",
+      "id": "STATE",
+      "name": "State & Position",
       "status": "PASS",
       "highlights": [
-        "Graceful shutdown verified",
-        "State persistence OK",
-        "DATA_DIR isolation active",
-        "No instance collision"
+        "StateManager: Active",
+        "Balance: $1K-10K (tracking)",
+        "Position: FLAT",
+        "Last update: 7 min ago"
       ]
     },
     {
-      "id": "5",
-      "name": "Truth Source",
+      "id": "EXCH",
+      "name": "Exchange Connectivity",
       "status": "PASS",
       "highlights": [
-        "StateManager: Single source",
-        "Exchange reconciliation active",
-        "Drift detection enabled"
+        "Kraken: CONNECTED",
+        "API: Responsive",
+        "Market data: Available"
       ]
     },
     {
-      "id": "6",
+      "id": "RISK",
       "name": "Risk Management",
       "status": "PASS",
       "highlights": [
-        "Daily loss limits enforced",
-        "Position sizing validated",
-        "Circuit breakers armed"
+        "Mode: PAPER",
+        "Max risk/trade: 2.0%",
+        "Stop loss: 1.5%",
+        "Max drawdown: 18%",
+        "Circuit breakers: ARMED"
       ]
     }
   ]

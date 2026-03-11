@@ -281,7 +281,7 @@ class DashboardBroadcaster {
     const currentPrice = _c(recentPrices[recentPrices.length - 1]);
 
     const indicators = this.ctx.indicatorEngine.getSnapshot();
-    const rsi = indicators?.rsi;
+    const rsi = indicators?.indicators?.rsi;
 
     if (rsi) {
       if (currentPrice > priceHigh * 0.98 && rsi < 70) {

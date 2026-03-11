@@ -1,0 +1,61 @@
+{
+  "savedAt": "2026-03-11T05:43:15.441Z",
+  "gitCommit": "0267ca8",
+  "results": {
+    "timestamp": "2026-03-11T05:43:15.423Z",
+    "totalReturn": -2.29,
+    "totalTrades": 99,
+    "winRate": 52.5,
+    "avgPnlPerTrade": -0.58,
+    "maxDrawdown": 2.33,
+    "avgMFE": 0.64,
+    "avgMAE": -0.7,
+    "timeInMarket": 1.7,
+    "strategies": {
+      "EMASMACrossover": {
+        "trades": 2,
+        "winRate": 50,
+        "pnl": -0.46
+      },
+      "MADynamicSR": {
+        "trades": 22,
+        "winRate": 50,
+        "pnl": -13.02
+      },
+      "LiquiditySweep": {
+        "trades": 36,
+        "winRate": 56,
+        "pnl": -19.04
+      },
+      "RSI": {
+        "trades": 39,
+        "winRate": 51,
+        "pnl": -25.37
+      }
+    },
+    "exitReasons": {
+      "profit_tier_1": {
+        "count": 46,
+        "pnl": 11.28
+      },
+      "max_hold": {
+        "count": 30,
+        "pnl": -31.31
+      },
+      "stop_loss": {
+        "count": 17,
+        "pnl": -47.68
+      },
+      "take_profit": {
+        "count": 4,
+        "pnl": 7.84
+      },
+      "profit_tier_3": {
+        "count": 2,
+        "pnl": 1.98
+      }
+    },
+    "fees": 0.65
+  },
+  "rawOutputTail": "\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 1 strategies returned signals:\n   - RSI: 68.0% sell\n\n🎯 [ORCHESTRATOR] SELL | RSI @ 68% | Confluence: 1x (sizing: 1x)\n🔍 [ORCH] 1 strategies returned signals:\n   - RSI: 30.6% sell\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n🔍 [ORCH] 0 strategies returned signals (all returned null or conf=0)\n\n============================================================\nRESULTS\n============================================================\nDuration:        70.6s\nCandles:         45812\nInitial balance: $10,000\nFinal balance:   $9770.95\nTotal return:    -2.29%\nTotal trades:    99 (513 signals generated)\nWin rate:        52.5%\nAvg P&L/trade:   -0.58%\nMax drawdown:    2.33%\nAvg MFE:         0.64%\nAvg MAE:         -0.70%\nGiveback rate:   7.1%\nTime in market:  1.7%\nExp-adj return:  -137.85%\n\nSTRATEGY BREAKDOWN:\n--------------------------------------------------\n  EMASMACrossover        2t   50%WR  -0.46%\n  MADynamicSR           22t   50%WR  -13.02%\n  LiquiditySweep        36t   56%WR  -19.04%\n  RSI                   39t   51%WR  -25.37%\n\nEXIT REASONS:\n--------------------------------------------------\n  profit_tier_1         46x  +11.28%\n  max_hold              30x  -31.31%\n  stop_loss             17x  -47.68%\n  take_profit            4x  +7.84%\n  profit_tier_3          2x  +1.98%\n============================================================\n\nMADynamicSR DIAGNOSTICS (condition funnel):\n\n===== MADynamicSR DIAGNOSTICS =====\nTotal bars processed: 45812\nSwings detected: 4517 highs, 4403 lows\n20 MA slope: 20511 rising, 18146 falling, 6931 flat\nExtension skips: 642 (too far from 20 MA)\nFirst-touch skips: 156 (after extension)\n123 pattern: 9374 up, 8325 down, 12122 null\nEntry EMA touch: 29810 times\nS/R aligned: 28825 times\nConfirm candle: 7363 bullish, 7260 bearish\nALL ALIGNED: 212 long, 176 short (388 total)\n--- POST-ALIGN FILTERS (5 rejected) ---\n  200 MA cap killed R:R: 0\n  SL invalid (wrong side): 0\n  TP invalid (wrong side): 0\n  R:R too low (<1.5): 0\n  TP too small (<0.7%): 5\nSIGNALS EMITTED: 383\n====================================\n\n\nReport saved: /opt/ogzprime/OGZPMLV2/tuning/fullstack-report-1773207795385.json\n"
+}

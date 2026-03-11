@@ -187,7 +187,7 @@ class TimeframeManager {
     const returns = [];
     
     for (let i = 1; i < recentCandles.length; i++) {
-      const ret = ((recentCandles[i].c || recentCandles[i].close) - (recentCandles[i-1].c || recentCandles[i-1].close)) / (recentCandles[i-1].c || recentCandles[i-1].close);
+      const ret = ((_c(recentCandles[i]) || recentCandles[i].close) - (_c(recentCandles[i-1]) || recentCandles[i-1].close)) / (_c(recentCandles[i-1]) || recentCandles[i-1].close);
       returns.push(Math.abs(ret));
     }
     
@@ -361,9 +361,9 @@ class TimeframeManager {
     
     // Format result based on options
     if (opts.format === 'minimal') {
-      result = result.map(c => [c.t || c.timestamp, c.o || c.open, c.h || c.high, c.l || c.low, c.c || c.close, c.v || c.volume || 0]);
+      result = result.map(c => [_t(c) || c.timestamp, _o(c) || c.open, _h(c) || c.high, _l(c) || c.low, _c(c) || c.close, _v(c) || c.volume || 0]);
     } else if (opts.format === 'array') {
-      result = result.map(c => [c.o || c.open, c.h || c.high, c.l || c.low, c.c || c.close, c.v || c.volume || 0]);
+      result = result.map(c => [_o(c) || c.open, _h(c) || c.high, _l(c) || c.low, _c(c) || c.close, _v(c) || c.volume || 0]);
     }
     
     // Cache result if caching enabled (FIXED: With timestamp)
@@ -457,11 +457,11 @@ class TimeframeManager {
    * @private
    */
   aggregateOHLCV(candles, timestamp) {
-    const opens = candles.map(c => c.o || c.open);
-    const highs = candles.map(c => c.h || c.high);
-    const lows = candles.map(c => c.l || c.low);
-    const closes = candles.map(c => c.c || c.close);
-    const volumes = candles.map(c => c.v || c.volume || 0);
+    const opens = candles.map(c => _o(c) || c.open);
+    const highs = candles.map(c => _h(c) || c.high);
+    const lows = candles.map(c => _l(c) || c.low);
+    const closes = candles.map(c => _c(c) || c.close);
+    const volumes = candles.map(c => _v(c) || c.volume || 0);
     
     return {
       timestamp,
@@ -483,20 +483,20 @@ class TimeframeManager {
     let weightedSum = 0;
     
     candles.forEach(candle => {
-      const typicalPrice = ((candle.h || candle.high) + (candle.l || candle.low) + (candle.c || candle.close)) / 3;
-      const volume = candle.v || candle.volume || 0;
+      const typicalPrice = ((_h(candle) || candle.high) + (_l(candle) || candle.low) + (_c(candle) || candle.close)) / 3;
+      const volume = _v(candle) || candle.volume || 0;
       weightedSum += typicalPrice * volume;
       totalVolume += volume;
     });
 
-    const vwap = totalVolume > 0 ? weightedSum / totalVolume : (candles[0].c || candles[0].close);
+    const vwap = totalVolume > 0 ? weightedSum / totalVolume : (_c(candles[0]) || candles[0].close);
     
     return {
       timestamp,
-      open: candles[0].o || candles[0].open,
-      high: Math.max(...candles.map(c => c.h || c.high)),
-      low: Math.min(...candles.map(c => c.l || c.low)),
-      close: candles[candles.length - 1].c || candles[candles.length - 1].close,
+      open: _o(candles[0]) || candles[0].open,
+      high: Math.max(...candles.map(c => _h(c) || c.high)),
+      low: Math.min(...candles.map(c => _l(c) || c.low)),
+      close: _c(candles[candles.length - 1]) || candles[candles.length - 1].close,
       volume: totalVolume,
       vwap,
       candleCount: candles.length
@@ -630,11 +630,11 @@ class TimeframeManager {
    */
   validateCandle(candle) {
     if (!candle || typeof candle !== 'object') return false;
-    const ts = candle.t || candle.timestamp;
-    const o = candle.o || candle.open;
-    const h = candle.h || candle.high;
-    const l = candle.l || candle.low;
-    const c = candle.c || candle.close;
+    const ts = _t(candle) || candle.timestamp;
+    const o = _o(candle) || candle.open;
+    const h = _h(candle) || candle.high;
+    const l = _l(candle) || candle.low;
+    const c = _c(candle) || candle.close;
     if (typeof ts !== 'number' || ts <= 0) return false;
     if (typeof o !== 'number' || o <= 0) return false;
     if (typeof h !== 'number' || h <= 0) return false;
