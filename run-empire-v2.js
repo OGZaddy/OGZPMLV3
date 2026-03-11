@@ -381,6 +381,9 @@ class OGZPrimeV14Bot {
     this.tierFlags = this.tierFlagManager.getTierSummary();
     console.log(`ðŸŽ¯ Tier: ${this.tier.toUpperCase()}`);
 
+    // PIPELINE: Read toggles early for component initialization
+    this.pipeline = TradingConfig.get('pipeline') || {};
+
     // Initialize core modules
     console.log('[CHECKPOINT-008] Creating pattern checker...');
     if (!EnhancedPatternChecker) {
@@ -553,8 +556,9 @@ class OGZPrimeV14Bot {
     this.rateLimiter = null;
 
     // ðŸ¤– TRAI DECISION MODULE (Change 574 - Opus Architecture + Codex Fix)
-    // OPTIMIZECEPTION FIX: Skip TRAI initialization when ENABLE_TRAI=false (4x faster backtests)
-    if (process.env.ENABLE_TRAI !== 'false') {
+    // OPTIMIZECEPTION FIX: Skip TRAI initialization when disabled (4x faster backtests)
+    // PIPELINE: Check both legacy env var AND new pipeline toggle
+    if (this.pipeline.enableTRAI !== false && process.env.ENABLE_TRAI !== 'false') {
       this.trai = new TRAIDecisionModule({
         mode: process.env.TRAI_MODE || 'advisory',  // Start conservative
         confidenceWeight: parseFloat(process.env.TRAI_WEIGHT) || 0.2,  // 20% influence
@@ -620,9 +624,12 @@ class OGZPrimeV14Bot {
     this.dashboardWsConnected = false;
     // REFACTOR Phase 20: WebSocketManager - must be instantiated before initializeDashboardWebSocket call
     this.webSocketManager = new WebSocketManager(this);
-    // CHANGE 661: Always connect to dashboard WebSocket (defaults to localhost)
-    console.log('ðŸ”Œ Initializing Dashboard WebSocket connection...');
-    this.initializeDashboardWebSocket();
+    // CHANGE 661: Connect to dashboard WebSocket (defaults to localhost)
+    // PIPELINE: Skip dashboard in backtest mode for faster runs
+    if (this.pipeline.enableDashboard !== false) {
+      console.log('ðŸ"Œ Initializing Dashboard WebSocket connection...');
+      this.initializeDashboardWebSocket();
+    }
 
     // Trading state
     this.isRunning = false;
@@ -726,8 +733,13 @@ class OGZPrimeV14Bot {
     });
 
     // MODE DETECTION: Paper, Live, or Backtest (MUTUAL EXCLUSION)
-    const enableLiveTrading = process.env.LIVE_TRADING === 'true';
-    const enableBacktestMode = process.env.BACKTEST_MODE === 'true';
+    // PIPELINE: Use this.pipeline set earlier in constructor
+
+    // Support both legacy env vars AND new pipeline toggles
+    const enableLiveTrading = process.env.LIVE_TRADING === 'true' || this.pipeline.executionMode === 'live';
+    const enableBacktestMode = process.env.BACKTEST_MODE === 'true' ||
+                               this.pipeline.candleSource === 'file' ||
+                               this.pipeline.executionMode === 'backtest';
     const enableTestMode = process.env.TEST_MODE === 'true';  // Signal testing without pattern corruption
 
     // Enforce mutual exclusion: Only ONE mode can be active
@@ -817,9 +829,14 @@ class OGZPrimeV14Bot {
     });
 
     // REFACTOR Phase 17: DashboardBroadcaster - context with dependencies
-    this.dashboardBroadcaster = new DashboardBroadcaster({
-      indicatorEngine: indicatorEngine
-    });
+    // PIPELINE: Skip dashboard in backtest mode for faster runs
+    if (this.pipeline.enableDashboard !== false) {
+      this.dashboardBroadcaster = new DashboardBroadcaster({
+        indicatorEngine: indicatorEngine
+      });
+    } else {
+      this.dashboardBroadcaster = null;
+    }
 
     // REFACTOR Phase 18: BacktestRunner - context with dependencies
     // Phase 2 REWRITE: executionLayer removed from BacktestRunner
