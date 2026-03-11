@@ -130,11 +130,11 @@ function isExtended(price, ema, extensionPct = 2.0) {
 
 function runBacktestAndCaptureTrades() {
   // Load all required modules
-  const IndicatorEngine = require(path.join(projectRoot, 'core/IndicatorCalculator'));
+  const IndicatorEngine = require(path.join(projectRoot, 'core/indicators/IndicatorEngine'));
   const EMASMACrossoverSignal = require(path.join(projectRoot, 'modules/EMASMACrossoverSignal'));
   const MADynamicSR = require(path.join(projectRoot, 'modules/MADynamicSR'));
   const LiquiditySweepDetector = require(path.join(projectRoot, 'modules/LiquiditySweepDetector'));
-  const StrategyOrchestrator = require(path.join(projectRoot, 'core/StrategyOrchestrator'));
+  const { StrategyOrchestrator } = require(path.join(projectRoot, 'core/StrategyOrchestrator'));
   const { getInstance: getExitContractManager } = require(path.join(projectRoot, 'core/ExitContractManager'));
 
   // Initialize exactly like the backtest does
@@ -194,7 +194,7 @@ function runBacktestAndCaptureTrades() {
     const price = c(candle);
 
     // Update indicators
-    indicatorEngine.update(candle);
+    indicatorEngine.updateCandle(candle);
     const indicators = indicatorEngine.getSnapshot ? indicatorEngine.getSnapshot() : indicatorEngine;
 
     // Update signal modules
