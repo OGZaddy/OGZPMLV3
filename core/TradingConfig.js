@@ -188,6 +188,14 @@ const BASE_CONFIG = {
       maxHoldTimeMinutes: 240,
       invalidationConditions: [],
     },
+    OpeningRangeBreakout: {
+      stopLossPercent: -1.0,
+      takeProfitPercent: 2.0,
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 180,
+      invalidationConditions: ['fvg_filled', 'or_break_reversal'],
+    },
     default: {
       stopLossPercent: -1.0,
       takeProfitPercent: 2.0,
@@ -253,6 +261,18 @@ const BASE_CONFIG = {
       valueAreaPct: env('VP_VALUE_AREA_PCT', 0.70),    // 70% value area
       outOfBalancePct: env('VP_OUT_OF_BALANCE_PCT', 0.5), // Was 0.1%, needs 0.5%
       recalcInterval: env('VP_RECALC_INTERVAL', 5),    // Candles between recalc
+      enabled: true,
+    },
+    OpeningRangeBreakout: {
+      // ICT-style Opening Range + FVG entry (Trey's approach)
+      sessionOpenHourUTC: env('ORB_SESSION_OPEN_HOUR', 14),  // 9am EST = 14:00 UTC
+      orDurationMinutes: env('ORB_DURATION_MIN', 15),        // First 15 min defines OR
+      fvgScanBars: env('ORB_FVG_SCAN_BARS', 10),             // Bars to scan for FVG after breakout
+      minFVGPercent: env('ORB_MIN_FVG_PCT', 0.05),           // Minimum FVG size %
+      maxFVGPercent: env('ORB_MAX_FVG_PCT', 2.0),            // Maximum FVG size %
+      entryLevel: env('ORB_ENTRY_LEVEL', 'top'),             // 'top', 'middle', 'bottom' of FVG
+      stopBufferPct: env('ORB_STOP_BUFFER_PCT', 0.05),       // Stop buffer beyond first candle
+      targetRR: env('ORB_TARGET_RR', 2.0),                   // Risk:Reward ratio
       enabled: true,
     },
   },
@@ -402,6 +422,7 @@ const BASE_CONFIG = {
     enableMarketRegime: envBool('ENABLE_REGIME', true),
     enableMultiTimeframe: envBool('ENABLE_MTF', true),
     enableOGZTPO: envBool('ENABLE_TPO', true),
+    enableOpeningRangeBreakout: envBool('ENABLE_ORB', false), // NEW: Disabled by default until tuned
 
     // Component toggles
     enableRiskManager: envBool('ENABLE_RISK', true),

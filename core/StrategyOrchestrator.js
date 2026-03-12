@@ -31,6 +31,7 @@
 const { getInstance: getExitContractManager } = require('./ExitContractManager');
 const MAExtensionFilter = require('./MAExtensionFilter');
 const TradingConfig = require('./TradingConfig');
+const OpeningRangeBreakout = require('../modules/OpeningRangeBreakout');
 
 class StrategyOrchestrator {
   constructor(config = {}) {
@@ -63,6 +64,9 @@ class StrategyOrchestrator {
 
     // MA Extension Filter for trend confirmation + first-touch skip
     this.maExtensionFilter = new MAExtensionFilter();
+
+    // Opening Range Breakout stateful strategy instance
+    this.orbStrategy = new OpeningRangeBreakout();
   }
 
   /**
@@ -366,6 +370,41 @@ class StrategyOrchestrator {
       }
     });
 
+    // ─── 9. Opening Range Breakout Strategy ───
+    // ICT-style session-based strategy with FVG entry
+    const orbInstance = this.orbStrategy;
+    this.strategies.push({
+      name: 'OpeningRangeBreakout',
+      evaluate: (ctx) => {
+        // ORB needs the latest candle from priceHistory
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length === 0) return null;
+
+        const latestCandle = candles[candles.length - 1];
+        const signal = orbInstance.update(latestCandle);
+
+        if (!signal) return null;
+
+        // Consume the signal so it doesn't fire again
+        orbInstance.consumeSignal();
+
+        return {
+          direction: signal.direction,
+          confidence: signal.confidence,
+          reason: signal.reason,
+          signalData: signal,
+          // ORB provides structural levels from FVG
+          overrideLevels: {
+            stopLoss: signal.stop,
+            takeProfit: signal.target,
+          },
+          // Pass order type hint
+          orderTypeHint: signal.orderType,
+          limitPrice: signal.limitPrice,
+        };
+      }
+    });
+
     // Apply pipeline toggles - filter strategies based on env vars
     this._applyPipelineToggles();
   }
@@ -386,6 +425,7 @@ class StrategyOrchestrator {
       'MarketRegime': pipeline.enableMarketRegime,
       'MultiTimeframe': pipeline.enableMultiTimeframe,
       'OGZTPO': pipeline.enableOGZTPO,
+      'OpeningRangeBreakout': pipeline.enableOpeningRangeBreakout,
     };
 
     const before = this.strategies.length;
