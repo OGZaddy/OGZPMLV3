@@ -55,18 +55,19 @@ class StrategyOrchestrator {
     // These are pluggable: add/remove strategies by editing this array
     this.strategies = [];
 
+    // Opening Range Breakout stateful strategy instance
+    // MUST be initialized BEFORE _registerBuiltinStrategies() so closure captures it
+    this.orbStrategy = new OpeningRangeBreakout();
+
+    // MA Extension Filter for trend confirmation + first-touch skip
+    this.maExtensionFilter = new MAExtensionFilter();
+
     // Register built-in strategies
     this._registerBuiltinStrategies();
 
     // Stats tracking
     this.lastEvaluation = null;
     this.evalCount = 0;
-
-    // MA Extension Filter for trend confirmation + first-touch skip
-    this.maExtensionFilter = new MAExtensionFilter();
-
-    // Opening Range Breakout stateful strategy instance
-    this.orbStrategy = new OpeningRangeBreakout();
   }
 
   /**
