@@ -134,10 +134,8 @@ const contractValidator = ContractValidator.createMonitor();
 const { CandleStore } = require('./core/CandleStore');
 const { IndicatorCalculator } = require('./core/IndicatorCalculator');
 
-// PHASE 2: IndicatorSnapshot - THE single reshape point for indicators
-// Creates canonical indicator object from raw engine output. No fallback paths.
-// See: ogz-meta/REFACTOR-PLAN-2026-02-27.md
-const { IndicatorSnapshot } = require('./core/IndicatorSnapshot');
+// FIX 2026-03-12: IndicatorSnapshot deleted - use IndicatorEngine.getSnapshot() directly
+// TradingLoop now uses getSnapshot() which returns validated DTO format
 
 // PHASE 3: CandleAggregator + RegimeDetector - pure functions
 // CandleAggregator: builds higher timeframe candles from 1m candles

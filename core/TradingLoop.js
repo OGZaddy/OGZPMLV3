@@ -13,7 +13,7 @@
 
 const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require('./CandleHelper');
 const { getInstance: getStateManager } = require('./StateManager');
-const { IndicatorSnapshot } = require('./IndicatorSnapshot');
+// FIX 2026-03-12: IndicatorSnapshot deleted - use IndicatorEngine.getSnapshot() directly
 const { RegimeDetector } = require('./RegimeDetector');
 const FeatureExtractor = require('./FeatureExtractor');
 const FeatureFlagManager = require('./FeatureFlagManager');
@@ -47,27 +47,18 @@ class TradingLoop {
     const { price } = this.ctx.marketData;
 
     // CHANGE 2025-12-23: Use IndicatorEngine as single source of truth
-    // Use getRawState() for legacy IndicatorSnapshot compatibility, getSnapshot() for new DTO
-    const rawState = this.ctx.indicatorEngine.getRawState();
+    // FIX 2026-03-12: Use getSnapshot() directly (IndicatorSnapshot class deleted)
     const dtoState = this.ctx.indicatorEngine.getSnapshot();
 
-    // REFACTOR 2026-02-27: IndicatorSnapshot replaces manual reshape
-    // Single transformation point. No fallback paths. Contracts that scream.
-    const _indicatorSnapshot = new IndicatorSnapshot(this.ctx.contractValidator);
-    let indicators;
-    try {
-      indicators = _indicatorSnapshot.create(rawState, price, this.ctx.priceHistory);
-    } catch (snapErr) {
-      // During warmup, we don't have enough data to make trade decisions.
-      // Don't fake data - just skip trading until we have real indicators.
-      if (this.ctx.priceHistory.length < 50) {
-        console.warn(`⚠️ Warmup (${this.ctx.priceHistory.length}/50 candles) — skipping trade analysis`);
-        return; // Don't trade, don't fake data
-      }
-      // After warmup, missing data is a real bug - surface it
-      console.error(`❌ IndicatorSnapshot FAILED after warmup: ${snapErr.message}`);
-      throw snapErr;
+    // During warmup, we don't have enough data to make trade decisions.
+    // Don't fake data - just skip trading until we have real indicators.
+    if (this.ctx.priceHistory.length < 50) {
+      console.warn(`⚠️ Warmup (${this.ctx.priceHistory.length}/50 candles) — skipping trade analysis`);
+      return; // Don't trade, don't fake data
     }
+
+    // Get indicators from DTO - already validated by IndicatorEngine
+    const indicators = dtoState.indicators;
 
     // BACKWARD COMPAT: downstream reads these legacy field names
     indicators.ema12 = indicators.ema9 || price;
