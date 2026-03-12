@@ -70,13 +70,14 @@ class BacktestRunner {
       for (const polygonCandle of historicalCandles) {
         try {
           // Convert to OHLCV format - handle both Polygon format and shorthand
+          // FIX 2026-03-12: Use ?? instead of || to handle 0 values correctly (volume is often 0)
           const ohlcvCandle = {
-            o: polygonCandle.open || polygonCandle.o,
-            h: polygonCandle.high || polygonCandle.h,
-            l: polygonCandle.low || polygonCandle.l,
-            c: polygonCandle.close || polygonCandle.c,
-            v: polygonCandle.volume || polygonCandle.v,
-            t: polygonCandle.timestamp || polygonCandle.t
+            o: polygonCandle.open ?? polygonCandle.o,
+            h: polygonCandle.high ?? polygonCandle.h,
+            l: polygonCandle.low ?? polygonCandle.l,
+            c: polygonCandle.close ?? polygonCandle.c,
+            v: polygonCandle.volume ?? polygonCandle.v ?? 0,
+            t: polygonCandle.timestamp ?? polygonCandle.t
           };
 
           // Feed through handleMarketData (same as live mode)
