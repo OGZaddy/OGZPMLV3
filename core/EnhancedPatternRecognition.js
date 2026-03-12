@@ -939,7 +939,7 @@ class EnhancedPatternChecker {
       trend: marketData.trend || 'sideways',
       macd: marketData.macd || 0,
       signal: marketData.macdSignal || 0,
-      rsi: marketData.rsi || 50,
+      rsi: marketData.rsi,
       volume: marketData.volume || 1000000
     });
 

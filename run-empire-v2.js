@@ -522,7 +522,7 @@ class OGZPrimeV14Bot {
 
     // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking
     // FIX 2026-02-26: Use same INITIAL_BALANCE as StateManager (was hardcoded 25000 vs 10000 mismatch)
-    if (process.env.BACKTEST_MODE === 'true') {
+    if (process.env.BACKTEST_MODE === 'true' || process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
       this.backtestRecorder = new BacktestRecorder({
         startingBalance: parseFloat(process.env.INITIAL_BALANCE) || 10000
       });
@@ -875,7 +875,7 @@ class OGZPrimeV14Bot {
    */
   validateEnvironment() {
     // Skip API key validation in backtest mode - not needed for historical data
-    if (process.env.BACKTEST_MODE === 'true') {
+    if (process.env.BACKTEST_MODE === 'true' || process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
       console.log('⏭️ Skipping API key validation (BACKTEST_MODE)');
       return;
     }

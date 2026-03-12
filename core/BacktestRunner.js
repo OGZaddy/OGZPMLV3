@@ -34,9 +34,9 @@ class BacktestRunner {
     try {
       // Load historical candles - check for custom data file first (CHANGE 633)
       let dataPath;
-      if (process.env.CANDLE_DATA_FILE) {
+      if (process.env.CANDLE_DATA_FILE || process.env.CANDLE_FILE) {
         // Use custom candle data file (e.g., 5-second candles for optimization)
-        dataPath = process.env.CANDLE_DATA_FILE;
+        dataPath = process.env.CANDLE_DATA_FILE || process.env.CANDLE_FILE;
         console.log(`📂 Using custom data file: ${dataPath}`);
       } else {
         // Default behavior - CHANGE 633: Use 5-second candles for fast backtest
@@ -86,7 +86,7 @@ class BacktestRunner {
           ]);
 
           // Run trading analysis after warmup (WITH TRAI!)
-          if (this.ctx.priceHistory.length >= 15) {
+          if (this.ctx.priceHistory.length >= 200) {
             await this.ctx.analyzeAndTrade();
           }
 

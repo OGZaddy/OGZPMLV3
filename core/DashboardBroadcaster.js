@@ -12,10 +12,7 @@
 'use strict';
 
 // Candle accessors (V2 format: c/o/h/l/v/t)
-const _c = (candle) => candle?.c ?? candle?.close ?? 0;
-const _o = (candle) => candle?.o ?? candle?.open ?? 0;
-const _h = (candle) => candle?.h ?? candle?.high ?? 0;
-const _l = (candle) => candle?.l ?? candle?.low ?? 0;
+const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require('./CandleHelper');
 
 class DashboardBroadcaster {
   constructor(ctx) {
@@ -113,7 +110,7 @@ class DashboardBroadcaster {
       }
 
       // Check for whale trades (large volume)
-      const avgVolume = this.ctx.priceHistory.slice(-20).reduce((sum, c) => sum + (c.v || 0), 0) / 20;
+      const avgVolume = this.ctx.priceHistory.slice(-20).reduce((sum, c) => sum + (_v(c) || 0), 0) / 20;
       if (volume > avgVolume * 5) {  // 5x average = whale
         const whaleData = {
           size: volume * price,  // USD value
@@ -139,7 +136,7 @@ class DashboardBroadcaster {
 
         const buySellRatio = this.edgeAnalytics.buyVolume / Math.max(this.edgeAnalytics.sellVolume, 0.01);
         const aggressor = buySellRatio > 1.2 ? 'BUYERS' : buySellRatio < 0.8 ? 'SELLERS' : 'NEUTRAL';
-        const spread = candle.h - candle.l;
+        const spread = _h(candle) - _l(candle);
         const spreadPercent = (spread / price) || 0;
 
         const internals = {
@@ -299,8 +296,8 @@ class DashboardBroadcaster {
       }
     }
 
-    const avgVolume = recentPrices.reduce((sum, c) => sum + c.v, 0) / recentPrices.length;
-    const currentVolume = recentPrices[recentPrices.length - 1].v;
+    const avgVolume = recentPrices.reduce((sum, c) => sum + _v(c), 0) / recentPrices.length;
+    const currentVolume = _v(recentPrices[recentPrices.length - 1]);
 
     if (currentPrice > priceHigh * 0.98 && currentVolume < avgVolume * 0.7) {
       divergences.push({

@@ -11,6 +11,7 @@
 
 'use strict';
 
+const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require('./CandleHelper');
 const { getInstance: getStateManager } = require('./StateManager');
 const { IndicatorSnapshot } = require('./IndicatorSnapshot');
 const { RegimeDetector } = require('./RegimeDetector');
@@ -57,26 +58,15 @@ class TradingLoop {
     try {
       indicators = _indicatorSnapshot.create(rawState, price, this.ctx.priceHistory);
     } catch (snapErr) {
-      // During warmup (first ~200 candles), IndicatorEngine may not have all data yet.
-      // RSI needs 14 candles, BB needs 20, EMA200 needs 200.
-      // This is the ONLY acceptable reason for the catch to fire.
+      // During warmup, we don't have enough data to make trade decisions.
+      // Don't fake data - just skip trading until we have real indicators.
       if (this.ctx.priceHistory.length < 50) {
-        console.warn(`⚠️ IndicatorSnapshot warmup (${this.ctx.priceHistory.length} candles): ${snapErr.message}`);
-        const ind = dtoState.indicators || {};
-        indicators = {
-          price, rsi: ind.rsi || 50, rsiNormalized: ((ind.rsi || 50) / 100),
-          macd: { macd: ind.macd || 0, signal: ind.macdSignal || 0, histogram: ind.macdHistogram || 0 },
-          ema9: ind.ema9 || price, ema21: ind.ema20 || price, ema50: ind.ema50 || price, ema200: ind.ema200 || price,
-          trend: 'neutral',
-          atr: ind.atr || (price * 0.005), atrPercent: ind.atrPercent || 0.5, atrNormalized: 0.1,
-          bb: { upper: ind.bbUpper || price * 1.02, middle: ind.bbMiddle || price, lower: ind.bbLower || price * 0.98, bandwidth: ind.bbWidth || 4, percentB: ind.bbPercentB || 0.5 },
-          volatilityNormalized: 0.1, volume: ind.volume || 0, vwap: ind.vwap || price
-        };
-      } else {
-        // After warmup, a throw means real missing data — this IS the bug
-        console.error(`❌ IndicatorSnapshot FAILED after warmup: ${snapErr.message}`);
-        throw snapErr;
+        console.warn(`⚠️ Warmup (${this.ctx.priceHistory.length}/50 candles) — skipping trade analysis`);
+        return; // Don't trade, don't fake data
       }
+      // After warmup, missing data is a real bug - surface it
+      console.error(`❌ IndicatorSnapshot FAILED after warmup: ${snapErr.message}`);
+      throw snapErr;
     }
 
     // BACKWARD COMPAT: downstream reads these legacy field names

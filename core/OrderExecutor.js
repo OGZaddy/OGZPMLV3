@@ -533,7 +533,7 @@ class OrderExecutor {
                   : (entryTrend || 0);
                 // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
                 // FIX 2026-02-26 P3: Match entry/EPR convention (rsi/100 = 0-1 range, was -1 to 1)
-                const rsiNormalized = (buyTrade.entryIndicators?.rsi || 50) / 100;
+                const rsiNormalized = buyTrade.entryIndicators?.rsi != null ? buyTrade.entryIndicators.rsi / 100 : null;
                 const macdDelta = (buyTrade.entryIndicators?.macd || 0) - (buyTrade.entryIndicators?.macdSignal || 0);
                 featuresForRecording = [
                   rsiNormalized,                                    // [0] RSI normalized
@@ -663,7 +663,7 @@ class OrderExecutor {
                   price: buyTrade.entryPrice || buyTrade.price,
                   timestamp: buyTrade.entryTime,
                   indicators: {
-                    rsi: buyTrade.entryIndicators?.rsi || 50,
+                    rsi: buyTrade.entryIndicators?.rsi,
                     macd: buyTrade.entryIndicators?.macd?.macd || buyTrade.entryIndicators?.macd || 0,
                     macdHistogram: buyTrade.entryIndicators?.macd?.histogram || 0,
                     primaryPattern: buyTrade.patterns?.[0]?.name || 'none'
@@ -682,7 +682,7 @@ class OrderExecutor {
                   trend: indicators.trend || 'neutral'
                 },
                 indicators: {
-                  rsi: buyTrade.entryIndicators?.rsi || 50,
+                  rsi: buyTrade.entryIndicators?.rsi,
                   macd: buyTrade.entryIndicators?.macd?.macd || buyTrade.entryIndicators?.macd || 0,
                   macdHistogram: buyTrade.entryIndicators?.macd?.histogram || 0,
                   primaryPattern: buyTrade.patterns?.[0]?.name || 'none'

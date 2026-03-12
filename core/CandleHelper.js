@@ -75,5 +75,30 @@ module.exports = {
     close: candle?.close ?? candle?.c,
     volume: candle?.volume ?? candle?.v ?? 0,
     timestamp: candle?.timestamp ?? candle?.time ?? candle?.t
-  })
+  }),
+
+  // Underscore aliases - safety net for files that import _c directly
+  _c: (candle) => candle?.close ?? candle?.c,
+  _o: (candle) => candle?.open ?? candle?.o,
+  _h: (candle) => candle?.high ?? candle?.h,
+  _l: (candle) => candle?.low ?? candle?.l,
+  _v: (candle) => candle?.volume ?? candle?.v ?? 0,
+  _t: (candle) => candle?.timestamp ?? candle?.time ?? candle?.t
 };
+
+// Underscore aliases - safety net for files that import _c instead of c: _c
+// Belt and suspenders: if any file uses `const { _c } = require(...)` it still works
+module.exports._c = module.exports.c;
+module.exports._o = module.exports.o;
+module.exports._h = module.exports.h;
+module.exports._l = module.exports.l;
+module.exports._v = module.exports.v;
+module.exports._t = module.exports.t;
+
+// Underscore aliases (for files transformed by AST tool)
+module.exports._c = module.exports.c;
+module.exports._o = module.exports.o;
+module.exports._h = module.exports.h;
+module.exports._l = module.exports.l;
+module.exports._v = module.exports.v;
+module.exports._t = module.exports.t;

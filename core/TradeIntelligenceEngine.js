@@ -903,7 +903,7 @@ class TradeIntelligenceEngine extends EventEmitter {
 
             const similarTrades = tradeHistory.filter(t => {
                 const sameDirection = (t.direction === 'buy') === isLong;
-                const similarRsi = Math.abs((t.entryIndicators?.rsi || 50) - currentRsi) < 10;
+                const similarRsi = t.entryIndicators?.rsi != null && Math.abs(t.entryIndicators.rsi - currentRsi) < 10;
                 const sameTrend = t.entryIndicators?.trend === currentTrend;
                 return sameDirection && (similarRsi || sameTrend);
             }).slice(-20); // Last 20 similar trades

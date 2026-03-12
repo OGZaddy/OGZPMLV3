@@ -176,8 +176,9 @@ class LiquiditySweepDetector {
     if (!this._dailyCandle) {
       this._dailyCandle = { o: o(candle), h: h(candle), l: l(candle), c: c(candle), v: v(candle) || 0, t: t(candle) };
     } else {
-      this._dailyCandle.h = Math.max(this._dailyCandle.h, h(candle));
-      this._dailyCandle.l = Math.min(this._dailyCandle.l, l(candle));
+      // Direct property writes - CandleHelper functions are for READS only
+      this._dailyCandle.h = Math.max(h(this._dailyCandle), h(candle));
+      this._dailyCandle.l = Math.min(l(this._dailyCandle), l(candle));
       this._dailyCandle.c = c(candle);
       this._dailyCandle.v += (v(candle) || 0);
     }
@@ -186,12 +187,12 @@ class LiquiditySweepDetector {
   _finalizeDailyCandle() {
     if (!this._dailyCandle) return;
     const dc = this._dailyCandle;
-    this.state.dailyCandles.push({ high: dc.h, low: dc.l, close: dc.c });
+    this.state.dailyCandles.push({ high: h(dc), low: l(dc), close: c(dc) });
     const maxBars = this.config.atrPeriod + 1;
     if (this.state.dailyCandles.length > maxBars) this.state.dailyCandles = this.state.dailyCandles.slice(-maxBars);
     this._computeDailyATR();
-    this.state.priorHighs.push(dc.h);
-    this.state.priorLows.push(dc.l);
+    this.state.priorHighs.push(h(dc));
+    this.state.priorLows.push(l(dc));
     if (this.state.priorHighs.length > this.config.sweepLookbackBars) this.state.priorHighs = this.state.priorHighs.slice(-this.config.sweepLookbackBars);
     if (this.state.priorLows.length > this.config.sweepLookbackBars) this.state.priorLows = this.state.priorLows.slice(-this.config.sweepLookbackBars);
     this._dailyCandle = null;

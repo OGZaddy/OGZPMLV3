@@ -1,0 +1,175 @@
+---
+title: OGZPrime V14 — Complete System Architecture
+---
+
+%% ═══════════════════════════════════════════════════════════════════
+%% OGZPrime Full Architecture Map
+%% For AI assistants: This is the SINGLE SOURCE OF TRUTH for how
+%% data flows through the system. Read this before touching anything.
+%% ═══════════════════════════════════════════════════════════════════
+
+flowchart TB
+    %% ══════════════════════════════════════════
+    %% EXTERNAL DATA SOURCES
+    %% ══════════════════════════════════════════
+    subgraph EXTERNAL["🌐 External Data Sources"]
+        KWS["Kraken WebSocket<br/>wss://ws.kraken.com<br/>Ticker + OHLC (7 timeframes)"]
+        KREST["Kraken REST API<br/>api.kraken.com<br/>Historical candles, Orders, Balance"]
+        DASH["Dashboard UI<br/>unified-dashboard.html<br/>via ogzprime-ssl-server.js WSS"]
+    end
+
+    %% ══════════════════════════════════════════
+    %% BROKER LAYER (BrokerFactory Chain)
+    %% ══════════════════════════════════════════
+    subgraph BROKER["🏭 Broker Layer (BrokerFactory Chain)"]
+        direction TB
+        BF["BrokerFactory.js<br/>createBrokerAdapter('kraken', opts)"]
+        KIB["KrakenIBrokerAdapter.js<br/>IBroker interface wrapper<br/><i>bot.kraken = this</i>"]
+        KAS["kraken_adapter_simple.js<br/>Raw Kraken connection<br/><i>bot.kraken.kraken = this</i><br/><br/>Key Props:<br/>• this.ws (raw WebSocket)<br/>• this.tradingPair ('XBT/USD')<br/>• this.currentPrices (Map)<br/>• this.connected (bool)"]
+
+        BF --> KIB
+        KIB --> KAS
+    end
+
+    %% ══════════════════════════════════════════
+    %% CONNECTION FLOW
+    %% ══════════════════════════════════════════
+    KWS -- "ticker + ohlc-{1,5,15,30,60,240,1440}" --> KAS
+    KREST -- "getHistoricalOHLC(pair, interval, count)<br/>placeOrder(order)<br/>getBalance()" --> KAS
+    KAS -- "emit('ohlc', {data, timeframe})<br/>emit('ticker', {price})" --> KIB
+
+    %% ══════════════════════════════════════════
+    %% BOT CORE (run-empire-v2.js)
+    %% ══════════════════════════════════════════
+    subgraph BOT["🤖 run-empire-v2.js — The Bot"]
+        direction TB
+
+        subgraph INIT["Constructor + Startup"]
+            CTOR["constructor()<br/>Initializes all modules"]
+            START["start()<br/>→ connect broker<br/>→ subscribeToMarketData()<br/>→ loadCandleHistory()<br/>→ startTradingCycle()<br/>→ startLivenessWatchdog()<br/>→ initializeDashboardWebSocket()"]
+        end
+
+        subgraph DATA_IN["📡 Data Ingestion"]
+            HMD["handleMarketData(ohlcData)<br/>• Builds candle {o,h,l,c,v,t,etime}<br/>• Pushes to this.priceHistory[200max]<br/>• Computes indicators via IndicatorEngine<br/>• Broadcasts to dashboard<br/>• Calls saveCandleHistory() every 5 candles"]
+            STC["storeTimeframeCandle(tf, ohlc)<br/>• Stores in this.timeframeHistories[tf]<br/>• Max 200 per timeframe"]
+            FHSC["fetchAndSendHistoricalCandles(tf, limit)<br/>• Calls bot.kraken.getCandles(symbol, tf)<br/>• Sends to dashboard via WS"]
+        end
+
+        subgraph TRADING_CYCLE["🔄 Trading Cycle (every 15s)"]
+            AAT["analyzeAndTrade()<br/>THE MAIN LOOP"]
+            AAT_STEPS["1. IndicatorEngine.getSnapshot()<br/>2. patternChecker.analyzePatterns()<br/>3. ogzTpo.update() — TwoPole oscillator<br/>4. regimeDetector.detectRegime()<br/>5. tradingBrain.getDecision()<br/>6. trai.processDecision() — AI overlay<br/>7. makeTradeDecision() — final verdict<br/>8. executeTrade() if signal fires"]
+        end
+
+        subgraph DECISION["🧠 Decision Pipeline"]
+            MTD["makeTradeDecision(confidence, indicators, patterns, price)<br/>• Checks stateManager.get('position')<br/>• If in position → checks MaxProfitManager exit<br/>• If not → evaluates BUY/SELL signal<br/>• Returns {action, confidence, reasons[]}"]
+        end
+
+        subgraph EXECUTION["⚡ Trade Execution"]
+            ET["executeTrade(decision, confidence, price, indicators, patterns)<br/>• rateLimiter.allow() gate<br/>• riskManager.calculatePositionSize()<br/>• tradingOptimizations.calculatePositionSize() — pattern sizing<br/>• executionLayer.executeTrade() → Kraken order<br/>• stateManager.openPosition() / closePosition()<br/>• maxProfitManager.start() on entry<br/>• Broadcasts trade_executed / trade_closed to dashboard"]
+        end
+
+        subgraph DASHBOARD_WS["📊 Dashboard WebSocket Handler"]
+            DWS_MSGS["Inbound Messages:<br/>• auth_success → identify bot<br/>• pong → heartbeat tracking<br/>• timeframe_change → fetchAndSendHistoricalCandles<br/>• request_historical → fetchAndSendHistoricalCandles<br/>• asset_change → assetManager.switchAsset()<br/>• command:switch_profile → profileManager<br/>• command:set_confidence → brain threshold<br/>• command:pause_trading → stateManager.pauseTrading<br/>• command:resume_trading → stateManager.resumeTrading<br/>• trai_query → handleTraiQuery()"]
+        end
+    end
+
+    %% ══════════════════════════════════════════
+    %% CORE MODULES
+    %% ══════════════════════════════════════════
+    subgraph MODULES["📦 Core Modules"]
+        direction TB
+
+        subgraph ANALYSIS["Analysis Layer"]
+            IE["IndicatorEngine<br/>updateCandle(c) → getSnapshot()<br/>Returns: {rsi, macd, ema20/50/200,<br/>bollinger, atr, adx, obv, vwap,<br/>momentum, trendStrength}"]
+            PC["EnhancedPatternRecognition<br/>analyzePatterns({candles, indicators})<br/>Returns: [{name, confidence, direction}]<br/>Uses: PatternMemoryBank, PersistentPatternMap"]
+            RD["MarketRegimeDetector<br/>detectRegime(candles)<br/>Returns: 'trending_up'|'trending_down'|<br/>'ranging'|'volatile'|'breakout'"]
+            TPO["OgzTpoIntegration<br/>update({candles, price, volume})<br/>Returns: {signal, score, tpo_value}<br/>Uses: TwoPoleOscillator, ogzTwoPoleOscillator"]
+            FIB["FibonacciDetector<br/>detect(candles, price)<br/>Returns: {levels[], nearestSupport, nearestResistance}"]
+            SR["SupportResistanceDetector<br/>detect(candles)<br/>Returns: {supports[], resistances[]}"]
+        end
+
+        subgraph BRAIN["Decision Layer"]
+            TB_MOD["OptimizedTradingBrain (3422 lines)<br/>getDecision(price, candles, indicators, regime)<br/>Returns: {action, confidence, direction, reasons[]}<br/><br/>Internal modules:<br/>• MaxProfitManager — trailing exits<br/>• FibonacciDetector — levels<br/>• SupportResistanceDetector — S/R<br/>• MemoryManager — state persistence<br/>• ErrorHandler — circuit breaker<br/>• PersistentPatternMap — pattern history"]
+            TRAI["TRAIDecisionModule<br/>processDecision(signal, context)<br/>Returns: {action, confidence, veto, reasoning}<br/>Uses: trai_core → PatternMemoryBank,<br/>persistent_llm_client"]
+            TIE["TradeIntelligenceEngine<br/>evaluate(trade, marketData, indicators)<br/>Returns: {holdScore, exitScore, analysis}"]
+        end
+
+        subgraph RISK["Risk & Execution Layer"]
+            RM["RiskManager (1938 lines)<br/>calculatePositionSize(balance, price, conditions)<br/>recordTradeResult(trade)<br/>Tracks: daily/weekly/monthly P&L,<br/>drawdown, consecutive losses, win rate"]
+            EL["AdvancedExecutionLayer<br/>executeTrade(params) → Kraken order<br/>setKrakenAdapter(adapter)<br/>setWebSocketClient(ws)<br/>Tracks: holdings, P&L, duplicate detection"]
+            RL["ExecutionRateLimiter<br/>allow({symbol, action, currentPosition})<br/>Returns: {allowed, reason}"]
+            SM["StateManager (SINGLETON)<br/>THE source of truth for:<br/>• position (number)<br/>• balance (number)<br/>• activeTrades (Map)<br/>• isPaused (bool)<br/>• dailyPnL, weeklyPnL<br/><br/>Methods:<br/>• openPosition(size, price)<br/>• closePosition(price)<br/>• pauseTrading(reason)<br/>• resumeTrading()<br/>• setDashboardWs(ws) — auto-broadcasts state"]
+        end
+
+        subgraph UTILITY["Utility Modules"]
+            PM["TradingProfileManager<br/>getActiveProfile() → {name, settings}<br/>Profiles: Conservative, Balanced,<br/>Aggressive, Scalper"]
+            FF["FeatureFlagManager<br/>isEnabled(flag) → bool<br/>getSetting(flag, key, default)"]
+            TO["TradingOptimizations<br/>calculatePositionSize(size, patternIds, context)<br/>Pattern-weighted position adjustment"]
+            TEL["Telemetry<br/>track(event, data) — metrics"]
+            MQ["MessageQueue<br/>Internal pub/sub messaging"]
+            SL["SingletonLock<br/>Prevents multiple bot instances"]
+            MAL["ModuleAutoLoader<br/>loader.get('core', 'ModuleName')<br/>Auto-resolves paths, caches modules"]
+            TL["tradeLogger<br/>logTrade(data) — file-based trade log"]
+        end
+    end
+
+    %% ══════════════════════════════════════════
+    %% DATA FLOW CONNECTIONS
+    %% ══════════════════════════════════════════
+
+    %% Broker to Bot
+    KIB -- "emit('ohlc', {data, timeframe})" --> HMD
+    KIB -- "emit('ohlc', {data, tf}) where tf!='1m'" --> STC
+
+    %% Data Ingestion to Trading
+    HMD --> AAT
+    AAT --> AAT_STEPS
+
+    %% Analysis chain
+    AAT_STEPS --> IE
+    AAT_STEPS --> PC
+    AAT_STEPS --> RD
+    AAT_STEPS --> TPO
+
+    %% Brain decision
+    IE --> TB_MOD
+    PC --> TB_MOD
+    RD --> TB_MOD
+    TPO --> TB_MOD
+    TB_MOD --> TRAI
+    TRAI --> MTD
+
+    %% Execution
+    MTD --> ET
+    ET --> RL
+    ET --> RM
+    ET --> TO
+    ET --> EL
+    EL --> KIB
+    ET --> SM
+
+    %% Dashboard
+    DASH <-- "WSS bidirectional" --> DWS_MSGS
+    HMD -- "market_update broadcast" --> DASH
+    ET -- "trade_executed / trade_closed" --> DASH
+    SM -- "state_update auto-broadcast" --> DASH
+    DWS_MSGS --> FHSC
+
+    %% ══════════════════════════════════════════
+    %% STYLING
+    %% ══════════════════════════════════════════
+    classDef external fill:#1a1a2e,stroke:#e94560,color:#fff
+    classDef broker fill:#16213e,stroke:#0f3460,color:#fff
+    classDef bot fill:#0f3460,stroke:#533483,color:#fff
+    classDef analysis fill:#1a1a2e,stroke:#e94560,color:#fff
+    classDef brain fill:#533483,stroke:#e94560,color:#fff
+    classDef risk fill:#0f3460,stroke:#e94560,color:#fff
+    classDef state fill:#e94560,stroke:#fff,color:#fff
+
+    class KWS,KREST,DASH external
+    class BF,KIB,KAS broker
+    class HMD,STC,FHSC,AAT,AAT_STEPS,MTD,ET,DWS_MSGS bot
+    class IE,PC,RD,TPO,FIB,SR analysis
+    class TB_MOD,TRAI,TIE brain
+    class RM,EL,RL risk
+    class SM state

@@ -320,7 +320,7 @@ class OptimizedIndicators {
     const lastCandle = candles[candles.length - 1];
 
     // Calculate SMA (middle band)
-    const prices = candles.slice(-period).map(c => c.close || c.c);
+    const prices = candles.slice(-period).map(c => c.close || _c(c));
 
     // Check for undefined/NaN prices
     const invalidPrices = prices.filter(p => !p || isNaN(p));

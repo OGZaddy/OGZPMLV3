@@ -1,0 +1,87 @@
+---
+title: OGZPrime — Broker Chain & Symbol Flow
+---
+
+%% ═══════════════════════════════════════════════════
+%% THE #1 SOURCE OF CONFUSION: How data flows through
+%% the broker adapter chain. Read this before touching
+%% ANY broker, order, or WebSocket code.
+%% ═══════════════════════════════════════════════════
+
+flowchart TB
+    subgraph ACCESS["How to Access Each Layer"]
+        direction LR
+        A1["bot.kraken<br/>= KrakenIBrokerAdapter"]
+        A2["bot.kraken.kraken<br/>= kraken_adapter_simple"]
+        A3["bot.kraken.kraken.ws<br/>= raw WebSocket"]
+        A1 --> A2 --> A3
+    end
+
+    subgraph SYMBOL_FORMATS["Symbol Format at Each Layer"]
+        direction TB
+        SF1["Dashboard / Config<br/><b>BTC-USD</b>  ETH-USD  SOL-USD"]
+        SF2["Bot Internal / IBroker<br/><b>BTC/USD</b>  ETH/USD  SOL/USD"]
+        SF3["Kraken WebSocket<br/><b>XBT/USD</b>  ETH/USD  SOL/USD<br/>(BTC→XBT, others same)"]
+        SF4["Kraken REST Public<br/><b>XBTUSD</b>  ETHUSD  SOLUSD<br/>(flexible, accepts short form)"]
+        SF5["Kraken REST Private (Orders)<br/><b>XXBTZUSD</b>  XETHZUSD  SOLUSD<br/>(canonical form required)"]
+
+        SF1 -- "replace('-','/')" --> SF2
+        SF2 -- "toBrokerSymbol()<br/>BTC→XBT only" --> SF3
+        SF2 -- "toBrokerSymbol().replace('/','')" --> SF4
+        SF1 -- "convertToKrakenSymbol()" --> SF5
+    end
+
+    subgraph ORDER_FLOW["⚡ Order Execution Path"]
+        direction TB
+        O1["run-empire-v2.js<br/>executeTrade(decision, confidence, price)"]
+        O2["AdvancedExecutionLayer<br/>executeTrade({direction, positionSize, marketData})"]
+        O3["KrakenIBrokerAdapter<br/>placeBuyOrder(symbol, amount) or executeTrade(params)"]
+        O4["kraken_adapter_simple<br/>placeOrder({pair: convertToKrakenSymbol(symbol), ...})"]
+        O5["Kraken REST API<br/>POST /0/private/AddOrder<br/>{pair: 'XXBTZUSD', type: 'buy', volume: '0.005'}"]
+
+        O1 --> O2 --> O3 --> O4 --> O5
+    end
+
+    subgraph DATA_FLOW["📊 Market Data Path"]
+        direction TB
+        D1["Kraken WebSocket<br/>Sends: [channelId, ohlcArray, 'ohlc-1', 'XBT/USD']"]
+        D2["kraken_adapter_simple.ws.on('message')<br/>Parses OHLC, extracts timeframe from channel name<br/>Calls onPriceUpdate({type:'ohlc', data, pair, timeframe})"]
+        D3["KrakenIBrokerAdapter<br/>Receives callback, emits: this.emit('ohlc', {data, timeframe})"]
+        D4["run-empire-v2.js.subscribeToMarketData()<br/>this.kraken.on('ohlc', (eventData) => {<br/>  const tf = eventData.timeframe;<br/>  this.storeTimeframeCandle(tf, ohlcData);<br/>  if (tf === '1m') this.handleMarketData(ohlcData);<br/>})"]
+        D5["handleMarketData(ohlcData)<br/>→ Builds candle object {o,h,l,c,v,t,etime}<br/>→ Pushes to this.priceHistory<br/>→ Runs IndicatorEngine<br/>→ Broadcasts to dashboard"]
+
+        D1 --> D2 --> D3 --> D4 --> D5
+    end
+
+    subgraph HIST_FLOW["📊 Historical Candle Fetch"]
+        direction TB
+        H1["fetchAndSendHistoricalCandles(timeframe, limit)"]
+        H2["bot.kraken.getCandles(symbol, tf, limit)<br/>symbol = assetManager.toSlashFormat(activeAsset)"]
+        H3["KrakenIBrokerAdapter.getCandles(symbol, tf, limit)<br/>krakenPair = toBrokerSymbol(symbol).replace('/','')<br/>interval = timeframeToInterval[tf]"]
+        H4["kraken_adapter_simple.getHistoricalOHLC(krakenPair, interval, limit)<br/>GET /0/public/OHLC?pair={krakenPair}&interval={interval}"]
+        H5["Returns: Candle[] → sent to dashboard via WS"]
+
+        H1 --> H2 --> H3 --> H4 --> H5
+    end
+
+    subgraph ASSET_SWITCH["🔄 Asset Switch Flow"]
+        direction TB
+        AS1["Dashboard: changeAsset('ETH-USD')<br/>→ ws.send({type:'asset_change', asset:'ETH-USD'})"]
+        AS2["Bot WS handler catches msg.type === 'asset_change'<br/>→ assetManager.switchAsset('ETH-USD')"]
+        AS3["MultiAssetManager:<br/>1. Cache BTC candles<br/>2. Update bot.config.tradingPair = 'ETH-USD'<br/>3. broker.setTradingPair('ETH/USD', 'ETH-USD')<br/>   → KrakenIBrokerAdapter.setTradingPair()<br/>   → kraken_adapter_simple.setTradingPair()<br/>   → this.tradingPair = 'ETH/USD'"]
+        AS4["4. Unsubscribe WS from XBT/USD<br/>5. Subscribe WS to ETH/USD<br/>6. fetchAndSendHistoricalCandles('1m', 200)<br/>7. Notify dashboard: {type:'asset_switched'}"]
+        AS5["On WS reconnect:<br/>kraken_adapter_simple.on('open')<br/>reads this.tradingPair (now 'ETH/USD')<br/>subscribes to ETH/USD, NOT XBT/USD"]
+
+        AS1 --> AS2 --> AS3 --> AS4
+        AS3 -.-> AS5
+    end
+
+    classDef access fill:#0f3460,stroke:#e94560,color:#fff
+    classDef symbol fill:#533483,stroke:#e94560,color:#fff
+    classDef order fill:#e94560,stroke:#fff,color:#fff
+    classDef data fill:#1a1a2e,stroke:#0f3460,color:#fff
+
+    class A1,A2,A3 access
+    class SF1,SF2,SF3,SF4,SF5 symbol
+    class O1,O2,O3,O4,O5 order
+    class D1,D2,D3,D4,D5,H1,H2,H3,H4,H5 data

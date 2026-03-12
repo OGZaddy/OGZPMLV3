@@ -4,6 +4,7 @@
 
 // Import performance.now() for Node.js compatibility
 const { performance } = require('perf_hooks');
+const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require('./CandleHelper');
 
 /**
  * Advanced multi-timeframe manager with intelligent caching and optimization

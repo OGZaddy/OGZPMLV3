@@ -512,8 +512,8 @@ class PatternMemoryBank {
             // Bucket values to create pattern signatures
             // This allows similar (but not identical) market conditions to match
             const patternData = {
-                // RSI in buckets of 10 (30-40, 40-50, etc)
-                rsi: Math.round((indicators.rsi || 50) / 10) * 10,
+                // RSI in buckets of 10 (30-40, 40-50, etc) - null if missing
+                rsi: indicators.rsi != null ? Math.round(indicators.rsi / 10) * 10 : null,
 
                 // MACD direction
                 macd: (indicators.macd || 0) > 0 ? 'positive' : 'negative',

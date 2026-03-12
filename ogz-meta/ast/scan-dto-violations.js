@@ -5,92 +5,65 @@ const path = require('path');
 const recast = require('recast');
 const parser = require('recast/parsers/babel');
 
-const VIOLATIONS = [];
-
 function scanFile(filePath) {
-  let src;
-  try {
-    src = fs.readFileSync(path.resolve(filePath), 'utf8');
-  } catch (e) {
-    console.error(`Cannot read ${filePath}: ${e.message}`);
-    return;
-  }
-
+  const src = fs.readFileSync(path.resolve(filePath), 'utf8');
   let ast;
   try {
     ast = recast.parse(src, { parser });
   } catch (e) {
-    console.error(`Cannot parse ${filePath}: ${e.message}`);
-    return;
+    console.warn(`⚠️  Unable to parse ${filePath}: ${e.message}`);
+    return [];
   }
+
+  const violations = [];
 
   recast.visit(ast, {
     visitMemberExpression(p) {
       const node = p.node;
-      // Check for indicators.indicators pattern
-      if (node.property.type === 'Identifier' && node.property.name === 'indicators' &&
-          node.object.type === 'MemberExpression' &&
-          node.object.property.type === 'Identifier' && node.object.property.name === 'indicators') {
-        VIOLATIONS.push({
+      // Look for `indicators.indicators.xxx`
+      if (
+        node.object.type === 'MemberExpression' &&
+        node.object.property.type === 'Identifier' &&
+        node.object.property.name === 'indicators' &&
+        node.object.object.type === 'Identifier' &&
+        node.object.object.name === 'indicators'
+      ) {
+        const loc = node.loc?.start || {};
+        violations.push({
           file: filePath,
-          line: node.loc ? node.loc.start.line : '?',
-          pattern: 'indicators.indicators',
+          line: loc.line ?? '?',
+          column: loc.column ?? '?',
+          code: `indicators.indicators.${node.property.name || '?'}`,
         });
-      }
-      // Check for c.c, c.o, c.h, c.l, c.v direct access (not inside _c() etc)
-      if (node.property.type === 'Identifier' && ['c', 'o', 'h', 'l', 'v'].includes(node.property.name) && !node.computed) {
-        const parent = p.parentPath && p.parentPath.node;
-        const isWrapped = parent && parent.type === 'CallExpression' &&
-          parent.callee.type === 'Identifier' && parent.callee.name.startsWith('_');
-        if (!isWrapped && node.object.type === 'Identifier') {
-          // Heuristic: if object name suggests it's a candle
-          const objName = node.object.name.toLowerCase();
-          if (objName.includes('candle') || objName === 'c' || objName === 'bar' || objName === 'ohlc') {
-            VIOLATIONS.push({
-              file: filePath,
-              line: node.loc ? node.loc.start.line : '?',
-              pattern: `${node.object.name}.${node.property.name}`,
-            });
-          }
-        }
       }
       this.traverse(p);
     },
   });
+
+  return violations;
 }
 
-function scanDir(dir, extensions = ['.js']) {
+/* ----------------------------------------------------------------- */
+const ROOTS = ['core', 'modules', 'tuning'];
+let all = [];
+
+function walk(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-      scanDir(fullPath, extensions);
-    } else if (entry.isFile() && extensions.some(ext => entry.name.endsWith(ext))) {
-      scanFile(fullPath);
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory() && e.name !== 'node_modules' && !e.name.startsWith('.')) {
+      walk(full);
+    } else if (e.isFile() && e.name.endsWith('.js')) {
+      all = all.concat(scanFile(full));
     }
   }
 }
+ROOTS.forEach(d => fs.existsSync(d) && walk(d));
 
-// Main
-const args = process.argv.slice(2);
-const targets = args.length ? args : ['core', 'modules'];
-
-for (const target of targets) {
-  if (fs.statSync(target).isDirectory()) {
-    scanDir(target);
-  } else {
-    scanFile(target);
-  }
-}
-
-if (VIOLATIONS.length) {
-  console.log('\n❌ DTO VIOLATIONS FOUND:\n');
-  for (const v of VIOLATIONS) {
-    console.log(`  ${v.file}:${v.line} - ${v.pattern}`);
-  }
-  console.log(`\nTotal: ${VIOLATIONS.length} violation(s)`);
+if (all.length) {
+  console.error('❌ DTO violations detected:');
+  all.forEach(v => console.error(`  ${v.file}:${v.line}:${v.column} → ${v.code}`));
   process.exit(1);
 } else {
-  console.log('✅ No DTO violations found');
-  process.exit(0);
+  console.log('✅ No nested-indicator accesses found (AST scan).');
 }

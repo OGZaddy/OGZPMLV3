@@ -1,0 +1,40 @@
+=== OGZ Prime Health Check Thu Mar 12 05:20:47 AM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m5[39m[22m  │ ogz-prime-v2     │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 3417117  │ 5D     │ 50   │ [32m[1monline[22m[39m    │ 0%       │ 224.5mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+
+📈 CONFIDENCE LEVELS (last 50):
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 0
+0 occurrences
+
+❌ ERRORS (last 10):
+
+🧠 PATTERNS WITH PnL:
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30685
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30686
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30687
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30688
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30689
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30690
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30691
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30692
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30693
+âœ… Pattern RECORDED: features[9], pnl=?%, total=30694
+
+🎯 RECENT DECISIONS:
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+
+=== END REPORT ===

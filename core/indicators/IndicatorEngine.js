@@ -323,7 +323,7 @@ class IndicatorEngine {
     const dto = {
       timestamp: Date.now(),
       indicators: {
-        rsi: s.rsi ?? 50,
+        rsi: s.rsi,
         ema9: s.ema?.[9] ?? price,
         ema20: s.ema?.[20] ?? price,
         ema50: s.ema?.[50] ?? price,

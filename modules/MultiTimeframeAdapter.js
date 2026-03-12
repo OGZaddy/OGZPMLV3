@@ -1,3 +1,4 @@
+const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require("../core/CandleHelper");
 /**
  * MultiTimeframeAdapter.js — V2-Compatible Rebuild
  * =================================================
@@ -121,13 +122,13 @@ class MultiTimeframeAdapter extends EventEmitter {
   _aggregateInto(timeframe, minuteCandle) {
     const tfConfig = this.TIMEFRAME_CONFIG[timeframe];
     const interval = tfConfig.ms;
-    const candleStart = Math.floor(_t(minuteCandle) / interval) * interval;
+    const candleStart = Math.floor(t(minuteCandle) / interval) * interval;
 
     let pending = this.pendingCandles.get(timeframe);
 
-    if (!pending || _t(pending) !== candleStart) {
+    if (!pending || t(pending) !== candleStart) {
       // Previous candle complete — store it
-      if (pending && _t(pending)) {
+      if (pending && t(pending)) {
         this._addCandle(timeframe, { ...pending });
         this.stats.aggregationsPerformed++;
       }
@@ -135,18 +136,19 @@ class MultiTimeframeAdapter extends EventEmitter {
       // New candle
       pending = {
         t: candleStart,
-        o: _o(minuteCandle),
-        h: _h(minuteCandle),
-        l: _l(minuteCandle),
-        c: _c(minuteCandle),
-        v: _v(minuteCandle) || 0,
+        o: o(minuteCandle),
+        h: h(minuteCandle),
+        l: l(minuteCandle),
+        c: c(minuteCandle),
+        v: v(minuteCandle) || 0,
         tickCount: 1,
       };
     } else {
-      _h(pending) = Math.max(_h(pending), _h(minuteCandle));
-      _l(pending) = Math.min(_l(pending), _l(minuteCandle));
-      _c(pending) = _c(minuteCandle);
-      _v(pending) += (_v(minuteCandle) || 0);
+      // Direct property writes - CandleHelper functions are for READS only
+      pending.h = Math.max(h(pending), h(minuteCandle));
+      pending.l = Math.min(l(pending), l(minuteCandle));
+      pending.c = c(minuteCandle);
+      pending.v += (v(minuteCandle) || 0);
       pending.tickCount++;
     }
 
@@ -167,7 +169,7 @@ class MultiTimeframeAdapter extends EventEmitter {
     arr.push(candle);
     if (arr.length > max) arr.splice(0, arr.length - max);
 
-    this.lastUpdate.set(timeframe, _t(candle));
+    this.lastUpdate.set(timeframe, t(candle));
 
     if (arr.length >= this.config.minCandlesForAnalysis) {
       this.readyTimeframes.add(timeframe);

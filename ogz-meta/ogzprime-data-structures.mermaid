@@ -1,0 +1,89 @@
+---
+title: OGZPrime — Key Data Structures Reference
+---
+
+%% ═══════════════════════════════════════════════════
+%% This diagram shows WHAT DATA LOOKS LIKE at each stage.
+%% Use the Architecture diagram for HOW things connect.
+%% ═══════════════════════════════════════════════════
+
+flowchart LR
+    subgraph CANDLE["📊 Candle Object"]
+        direction TB
+        C1["{<br/>  o: 97542.1,  // open<br/>  h: 97598.3,  // high<br/>  l: 97501.0,  // low<br/>  c: 97567.8,  // close<br/>  v: 12.453,   // volume<br/>  t: 1707000000000,  // start time ms<br/>  etime: 1707000060000  // end time ms<br/>}"]
+    end
+
+    subgraph INDICATORS["📈 IndicatorEngine.getSnapshot()"]
+        direction TB
+        I1["{<br/>  rsi: 58.4,<br/>  macd: { macd: 12.3, signal: 10.1, histogram: 2.2 },<br/>  ema20: 97500, ema50: 97200, ema200: 95800,<br/>  bollinger: { upper: 98000, middle: 97300, lower: 96600 },<br/>  atr: 245.6,<br/>  adx: 28.3,<br/>  obv: 1234567,<br/>  vwap: 97450,<br/>  momentum: 0.02,<br/>  trendStrength: 0.65,<br/>  trend: 'bullish' | 'bearish' | 'neutral'<br/>}"]
+    end
+
+    subgraph PATTERN["🔍 PatternRecognition Result"]
+        direction TB
+        P1["[{<br/>  name: 'bullish_engulfing',<br/>  confidence: 0.78,<br/>  direction: 'bullish',<br/>  description: '...'<br/>}, ...]"]
+    end
+
+    subgraph REGIME["🌡️ MarketRegimeDetector Result"]
+        direction TB
+        R1["'trending_up' | 'trending_down' |<br/>'ranging' | 'volatile' | 'breakout'"]
+    end
+
+    subgraph BRAIN_DEC["🧠 TradingBrain.getDecision()"]
+        direction TB
+        BD1["{<br/>  action: 'BUY' | 'SELL' | 'HOLD',<br/>  confidence: 0.72,<br/>  direction: 'bullish' | 'bearish',<br/>  reasons: ['Strong RSI divergence', ...],<br/>  fibLevels: {...},<br/>  srLevels: {...}<br/>}"]
+    end
+
+    subgraph TRAI_DEC["🤖 TRAI Decision"]
+        direction TB
+        TD1["{<br/>  action: 'BUY' | 'SELL' | 'HOLD' | 'VETO',<br/>  confidence: 0.68,<br/>  reasoning: '...',<br/>  veto: false,<br/>  vetoReason: null,<br/>  riskAssessment: { score: 0.3, factors: [...] }<br/>}"]
+    end
+
+    subgraph STATE["💾 StateManager (SINGLETON)"]
+        direction TB
+        S1["{<br/>  position: 0.00523,  // BTC amount (0 = no position)<br/>  balance: 10247.83, // USD<br/>  activeTrades: Map {orderId → tradeObj},<br/>  isPaused: false,<br/>  dailyPnL: 47.23,<br/>  weeklyPnL: 182.50,<br/>  monthlyPnL: 891.20,<br/>  totalTrades: 342,<br/>  winRate: 0.67<br/>}"]
+    end
+
+    subgraph TRADE_OBJ["📝 Active Trade Object"]
+        direction TB
+        T1["{<br/>  orderId: 'OGZ-1707000000-abc',<br/>  type: 'BUY',<br/>  entryPrice: 97542.10,<br/>  size: 0.00523,  // in base currency<br/>  confidence: 0.72,<br/>  timestamp: 1707000000000,<br/>  patterns: ['bullish_engulfing'],<br/>  regime: 'trending_up',<br/>  indicators: { rsi: 58.4, ... }<br/>}"]
+    end
+
+    subgraph EXEC_REQ["⚡ ExecutionLayer Request"]
+        direction TB
+        E1["{<br/>  direction: 'buy' | 'sell',<br/>  positionSize: 0.00523,<br/>  confidence: 0.72,<br/>  marketData: { symbol: 'BTC/USD', price: 97542 },<br/>  decisionId: 'trai-abc123',<br/>  meta: { patterns, regime, reasons }<br/>}"]
+    end
+
+    subgraph KRAKEN_ORDER["📤 Kraken Order (via adapter)"]
+        direction TB
+        K1["{<br/>  pair: 'XXBTZUSD',  // convertToKrakenSymbol()<br/>  type: 'buy' | 'sell',<br/>  ordertype: 'market' | 'limit',<br/>  volume: '0.00523'  // string!<br/>}"]
+    end
+
+    subgraph WS_MSGS["📡 Dashboard WS Messages"]
+        direction TB
+        W1["Bot → Dashboard:<br/>• {type:'market_update', price, indicators, patterns, regime}<br/>• {type:'trade_executed', trade, orderId, ...}<br/>• {type:'trade_closed', pnl, ...}<br/>• {type:'state_update', position, balance, ...}<br/>• {type:'historical_candles', timeframe, candles[]}<br/>• {type:'chain_of_thought', ...TRAI reasoning}<br/>• {type:'pattern_analysis', patterns[], ...}<br/>• {type:'asset_switched', asset, label, ...}<br/><br/>Dashboard → Bot:<br/>• {type:'asset_change', asset:'ETH-USD'}<br/>• {type:'timeframe_change', timeframe:'5m'}<br/>• {type:'request_historical', timeframe, limit}<br/>• {type:'command', command:'pause_trading'|'resume_trading'|<br/>  'switch_profile'|'set_confidence'|'get_profiles'}<br/>• {type:'trai_query', message:'...'}"]
+    end
+
+    subgraph BOT_PROPS["🤖 Bot Instance Properties (this.xxx)"]
+        direction TB
+        BP1["Data:<br/>• priceHistory — Candle[] (max 200, 1m)<br/>• timeframeHistories — {tf: Candle[]} per timeframe<br/>• marketData — latest raw OHLC from Kraken<br/>• edgeAnalytics — {cvd, momentum, volatility}<br/>• rsiHistory — number[] (last 3)<br/>• marketRegime — string<br/>• confidenceHistory — number[]<br/><br/>Config:<br/>• config.tradingPair — 'BTC-USD'<br/>• tradingPair — 'BTC/USD' (slash format)<br/>• config.symbol — 'BTC'<br/>• tier — 'core' | 'ml'<br/>• mode — 'paper' | 'live'<br/><br/>Connections:<br/>• kraken — KrakenIBrokerAdapter<br/>• dashboardWs — WebSocket to SSL server<br/>• dashboardWsConnected — bool<br/><br/>Modules:<br/>• tradingBrain — OptimizedTradingBrain<br/>• riskManager — RiskManager<br/>• executionLayer — AdvancedExecutionLayer<br/>• regimeDetector — MarketRegimeDetector<br/>• patternChecker — EnhancedPatternRecognition<br/>• trai — TRAIDecisionModule<br/>• profileManager — TradingProfileManager<br/>• rateLimiter — ExecutionRateLimiter<br/>• ogzTpo — OgzTpoIntegration<br/>• performanceAnalyzer — PerformanceAnalyzer<br/>• gridStrategy — GridTradingStrategy<br/>• tradeIntelligence — TradeIntelligenceEngine<br/>• patternExitModel — PatternBasedExitModel<br/>• messageQueue — MessageQueue<br/>• tierFlagManager — TierFeatureFlags<br/>• assetManager — MultiAssetManager"]
+    end
+
+    %% Flow connections
+    C1 --> I1
+    C1 --> P1
+    C1 --> R1
+    I1 --> BD1
+    P1 --> BD1
+    R1 --> BD1
+    BD1 --> TD1
+    TD1 --> E1
+    E1 --> K1
+    S1 --- T1
+
+    classDef data fill:#1a1a2e,stroke:#e94560,color:#fff
+    classDef state fill:#e94560,stroke:#fff,color:#fff
+    classDef msg fill:#533483,stroke:#e94560,color:#fff
+
+    class C1,I1,P1,R1,BD1,TD1,E1,K1,T1 data
+    class S1 state
+    class W1,BP1 msg

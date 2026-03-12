@@ -61,12 +61,12 @@ let candles;
 try {
   const raw = fs.readFileSync(candlePath, 'utf8');
   candles = JSON.parse(raw).map(c => ({
-    t: c.t || c.timestamp,
-    o: c.o || c.open,
-    h: c.h || c.high,
-    l: c.l || c.low,
-    c: c.c || c.close,
-    v: c.v || c.volume || 0
+    t: _t(c) || c.timestamp,
+    o: _o(c) || c.open,
+    h: _h(c) || c.high,
+    l: _l(c) || c.low,
+    c: _c(c) || c.close,
+    v: _v(c) || c.volume || 0
   }));
   console.log(`Loaded ${candles.length} candles\n`);
 } catch (err) {
@@ -304,12 +304,12 @@ let signalCount = 0;
 
 for (let i = 0; i < candles.length; i++) {
   const candle = candles[i];
-  const price = candle.c;
-  const time = candle.t;
+  const price = _c(candle);
+  const time = _t(candle);
 
   // Feed all modules
   indicatorEngine.updateCandle({
-    o: candle.o, h: candle.h, l: candle.l, c: candle.c, v: candle.v || 0, t: time,
+    o: _o(candle), h: _h(candle), l: _l(candle), c: _c(candle), v: _v(candle) || 0, t: time,
   });
 
   priceHistory.push(candle);

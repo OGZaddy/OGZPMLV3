@@ -290,8 +290,8 @@ class MAExtensionFilter {
 
         const recent = this.priceHistory.slice(-lookback);
         // Use highest wick and lowest wick
-        this.consolidation.high = Math.max(...recent.map(c => c.h));
-        this.consolidation.low = Math.min(...recent.map(c => c.l));
+        this.consolidation.high = Math.max(...recent.map(c => _h(c)));
+        this.consolidation.low = Math.min(...recent.map(c => _l(c)));
         this.consolidation.active = true;
         this.consolidation.confirmed = null;
         this.consolidation.crossBar = 0;
@@ -308,18 +308,18 @@ class MAExtensionFilter {
         if (!this.consolidation.active) return null;
 
         // Use wicks for breakout confirmation
-        if (candle.h > this.consolidation.high) {
+        if (_h(candle) > this.consolidation.high) {
             this.consolidation.confirmed = 'bullish';
             // Adjust high to new wick (per user spec)
-            this.consolidation.high = candle.h;
+            this.consolidation.high = _h(candle);
             console.log(`🔺 BULLISH CONFIRMED: Break above ${this.consolidation.high.toFixed(0)}`);
             return 'bullish';
         }
 
-        if (candle.l < this.consolidation.low) {
+        if (_l(candle) < this.consolidation.low) {
             this.consolidation.confirmed = 'bearish';
             // Adjust low to new wick
-            this.consolidation.low = candle.l;
+            this.consolidation.low = _l(candle);
             console.log(`🔻 BEARISH CONFIRMED: Break below ${this.consolidation.low.toFixed(0)}`);
             return 'bearish';
         }
@@ -336,12 +336,12 @@ class MAExtensionFilter {
         this.priceHistory.push(candle);
         if (this.priceHistory.length > 50) this.priceHistory.shift();
 
-        const close = candle.c;
+        const close = _c(candle);
         const prevCandle = this.priceHistory.length > 1 ? this.priceHistory[this.priceHistory.length - 2] : null;
 
         // Detect MA cross
         if (prevCandle && sma20) {
-            const wasAbove = prevCandle.c > sma20;
+            const wasAbove = _c(prevCandle) > sma20;
             const nowAbove = close > sma20;
 
             if (wasAbove !== nowAbove) {

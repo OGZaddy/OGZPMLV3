@@ -1,0 +1,1 @@
+      const rsiValue = rsi ?? 50;
