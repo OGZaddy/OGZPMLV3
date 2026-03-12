@@ -36,7 +36,7 @@ class BacktestRunner {
     console.log('📊 BACKTEST MODE: Loading historical data...');
 
     const fs = require('fs').promises;
-    const path = require('path');
+    // path already required above for state isolation
 
     try {
       // Load historical candles - check for custom data file first (CHANGE 633)
