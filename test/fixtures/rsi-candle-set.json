@@ -1,0 +1,22 @@
+[
+  {"open": 44.00, "high": 44.10, "low": 43.90, "close": 44.00, "volume": 1000, "timestamp": 0},
+  {"open": 44.00, "high": 44.44, "low": 44.00, "close": 44.34, "volume": 1000, "timestamp": 900000},
+  {"open": 44.34, "high": 44.34, "low": 44.00, "close": 44.09, "volume": 1000, "timestamp": 1800000},
+  {"open": 44.09, "high": 44.09, "low": 43.50, "close": 43.61, "volume": 1000, "timestamp": 2700000},
+  {"open": 43.61, "high": 44.40, "low": 43.61, "close": 44.33, "volume": 1000, "timestamp": 3600000},
+  {"open": 44.33, "high": 44.90, "low": 44.33, "close": 44.83, "volume": 1000, "timestamp": 4500000},
+  {"open": 44.83, "high": 45.15, "low": 44.83, "close": 45.10, "volume": 1000, "timestamp": 5400000},
+  {"open": 45.10, "high": 45.50, "low": 45.10, "close": 45.42, "volume": 1000, "timestamp": 6300000},
+  {"open": 45.42, "high": 45.90, "low": 45.42, "close": 45.84, "volume": 1000, "timestamp": 7200000},
+  {"open": 45.84, "high": 46.15, "low": 45.84, "close": 46.08, "volume": 1000, "timestamp": 8100000},
+  {"open": 46.08, "high": 46.08, "low": 45.80, "close": 45.89, "volume": 1000, "timestamp": 9000000},
+  {"open": 45.89, "high": 46.10, "low": 45.89, "close": 46.03, "volume": 1000, "timestamp": 9900000},
+  {"open": 46.03, "high": 46.03, "low": 45.55, "close": 45.61, "volume": 1000, "timestamp": 10800000},
+  {"open": 45.61, "high": 46.35, "low": 45.61, "close": 46.28, "volume": 1000, "timestamp": 11700000},
+  {"open": 46.28, "high": 46.35, "low": 46.20, "close": 46.28, "volume": 1000, "timestamp": 12600000},
+  {"open": 46.28, "high": 46.28, "low": 45.95, "close": 46.00, "volume": 1000, "timestamp": 13500000},
+  {"open": 46.00, "high": 46.10, "low": 46.00, "close": 46.03, "volume": 1000, "timestamp": 14400000},
+  {"open": 46.03, "high": 46.50, "low": 46.03, "close": 46.41, "volume": 1000, "timestamp": 15300000},
+  {"open": 46.41, "high": 46.41, "low": 46.15, "close": 46.22, "volume": 1000, "timestamp": 16200000},
+  {"open": 46.22, "high": 46.22, "low": 45.55, "close": 45.64, "volume": 1000, "timestamp": 17100000}
+]

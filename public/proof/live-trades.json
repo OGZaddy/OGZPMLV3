@@ -1,5 +1,5 @@
 {
-  "updated": "2026-03-12T19:10:11.829Z",
+  "updated": "2026-03-12T19:51:34.023Z",
   "instance": "ogz-prime-v2",
   "env": "PAPER",
   "stats": {
@@ -11,211 +11,211 @@
   },
   "recent_trades": [
     {
-      "time": "2026-03-12T19:05:53.240Z",
+      "time": "2026-03-12T19:30:54.073Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 98588.47,
-      "value_usd": 368.7861413860895,
+      "price": 89116.28,
+      "value_usd": 275.5312715486509,
       "reason": "Learning Pattern",
-      "confidence": 60.38475923331645
+      "confidence": 54.457108404093944
     },
     {
-      "time": "2026-03-12T19:05:53.969Z",
+      "time": "2026-03-12T19:30:54.918Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 98432.585,
-      "value_usd": 368.20302829335196,
+      "price": 89353.3,
+      "value_usd": 276.2640941258777,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:05:54.761Z",
+      "time": "2026-03-12T19:31:33.423Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 97517.145,
-      "value_usd": 587.9875068796988,
+      "price": 86430.268,
+      "value_usd": 250.184606370357,
       "reason": "Learning Pattern",
-      "confidence": 74.00063255978428
+      "confidence": 52.89920172765809
     },
     {
-      "time": "2026-03-12T19:05:56.099Z",
+      "time": "2026-03-12T19:31:34.278Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 97890.0935,
-      "value_usd": 590.2362300012537,
+      "price": 85812.38,
+      "value_usd": 248.39604236797572,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:07:14.367Z",
+      "time": "2026-03-12T19:48:45.934Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 98588.47,
-      "value_usd": 372.60792813204847,
+      "price": 79681.274,
+      "value_usd": 605.7707591842667,
       "reason": "Learning Pattern",
-      "confidence": 60.38475923331645
+      "confidence": 75.18822182143784
     },
     {
-      "time": "2026-03-12T19:07:15.172Z",
+      "time": "2026-03-12T19:48:46.866Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 98432.585,
-      "value_usd": 372.0187721498442,
+      "price": 79134.349,
+      "value_usd": 601.6128039228228,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:07:16.426Z",
+      "time": "2026-03-12T19:48:47.722Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 97517.145,
-      "value_usd": 594.0809106397649,
+      "price": 79018.919,
+      "value_usd": 682.4247865479343,
       "reason": "Learning Pattern",
-      "confidence": 74.00063255978428
+      "confidence": 80
     },
     {
-      "time": "2026-03-12T19:07:17.179Z",
+      "time": "2026-03-12T19:48:48.474Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 97890.0935,
-      "value_usd": 596.3529376202689,
+      "price": 79360.05,
+      "value_usd": 685.3708689900377,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:08:42.325Z",
+      "time": "2026-03-12T19:48:50.839Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 90887.955,
-      "value_usd": 581.3463875509833,
+      "price": 78810.151,
+      "value_usd": 208.9215870217186,
       "reason": "Learning Pattern",
-      "confidence": 73.59546075111486
+      "confidence": 50.51363678530516
     },
     {
-      "time": "2026-03-12T19:08:43.353Z",
+      "time": "2026-03-12T19:48:51.617Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 90812.52,
-      "value_usd": 580.863882858861,
+      "price": 79265.85,
+      "value_usd": 210.12962122893907,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:08:44.230Z",
+      "time": "2026-03-12T19:48:55.093Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 90923.87,
-      "value_usd": 387.66768894184463,
+      "price": 77374.4725,
+      "value_usd": 201.46000299459402,
       "reason": "Learning Pattern",
-      "confidence": 61.582800276542805
+      "confidence": 50.04909987939693
     },
     {
-      "time": "2026-03-12T19:08:45.070Z",
+      "time": "2026-03-12T19:48:55.841Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 90779.18,
-      "value_usd": 387.0507812154907,
+      "price": 78229.014,
+      "value_usd": 203.6849736804879,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:08:46.228Z",
+      "time": "2026-03-12T19:51:23.108Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 90755.225,
-      "value_usd": 444.7070064217528,
+      "price": 79681.274,
+      "value_usd": 612.0484534865484,
       "reason": "Learning Pattern",
-      "confidence": 65.13697497743824
+      "confidence": 75.18822182143784
     },
     {
-      "time": "2026-03-12T19:08:47.035Z",
+      "time": "2026-03-12T19:51:23.823Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 90679.31,
-      "value_usd": 444.3350175649954,
+      "price": 79134.349,
+      "value_usd": 607.8474087037663,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:10:06.802Z",
+      "time": "2026-03-12T19:51:25.098Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 90887.955,
-      "value_usd": 587.3709683836655,
+      "price": 79018.919,
+      "value_usd": 689.4968581679258,
       "reason": "Learning Pattern",
-      "confidence": 73.59546075111486
+      "confidence": 80
     },
     {
-      "time": "2026-03-12T19:10:07.550Z",
+      "time": "2026-03-12T19:51:25.973Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 90812.52,
-      "value_usd": 586.8834634221993,
+      "price": 79360.05,
+      "value_usd": 692.4734713094406,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:10:08.420Z",
+      "time": "2026-03-12T19:51:28.889Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 90923.87,
-      "value_usd": 391.68514803037203,
+      "price": 78810.151,
+      "value_usd": 211.08667313157972,
       "reason": "Learning Pattern",
-      "confidence": 61.582800276542805
+      "confidence": 50.51363678530516
     },
     {
-      "time": "2026-03-12T19:10:09.600Z",
+      "time": "2026-03-12T19:51:29.648Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 90779.18,
-      "value_usd": 391.06184719563504,
+      "price": 79265.85,
+      "value_usd": 212.3072263806071,
       "reason": "account_drawdown",
       "confidence": 100
     },
     {
-      "time": "2026-03-12T19:10:10.478Z",
+      "time": "2026-03-12T19:51:32.770Z",
       "action": "BUY",
       "symbol": "BTC/USD",
-      "price": 90755.225,
-      "value_usd": 449.31557261296024,
+      "price": 77374.4725,
+      "value_usd": 203.5477635768972,
       "reason": "Learning Pattern",
-      "confidence": 65.13697497743824
+      "confidence": 50.04909987939693
     },
     {
-      "time": "2026-03-12T19:10:11.322Z",
+      "time": "2026-03-12T19:51:33.489Z",
       "action": "SELL",
       "symbol": "BTC/USD",
-      "price": 90679.31,
-      "value_usd": 448.9397287792315,
+      "price": 78229.014,
+      "value_usd": 205.79579197164517,
       "reason": "account_drawdown",
       "confidence": 100
     }
   ],
   "explanations": [
     {
-      "time": "2026-03-12T19:08:43.912Z",
+      "time": "2026-03-12T19:48:52.074Z",
       "decision": "SELL",
-      "summary": "Closed position at $90812.52 after 15.0 minutes. Loss of -0.08% ($-0.48)."
+      "summary": "Closed position at $79265.85 after 15.0 minutes. Profit of 0.58% ($1.21)."
     },
     {
-      "time": "2026-03-12T19:08:45.702Z",
+      "time": "2026-03-12T19:48:56.280Z",
       "decision": "SELL",
-      "summary": "Closed position at $90779.18 after 15.0 minutes. Loss of -0.16% ($-0.62)."
+      "summary": "Closed position at $78229.01 after 15.0 minutes. Profit of 1.10% ($2.22)."
     },
     {
-      "time": "2026-03-12T19:08:47.573Z",
+      "time": "2026-03-12T19:51:24.324Z",
       "decision": "SELL",
-      "summary": "Closed position at $90679.31 after 15.0 minutes. Loss of -0.08% ($-0.37)."
+      "summary": "Closed position at $79134.35 after 15.0 minutes. Loss of -0.69% ($-4.20)."
     },
     {
-      "time": "2026-03-12T19:10:08.118Z",
+      "time": "2026-03-12T19:51:26.476Z",
       "decision": "SELL",
-      "summary": "Closed position at $90812.52 after 15.0 minutes. Loss of -0.08% ($-0.49)."
+      "summary": "Closed position at $79360.05 after 15.0 minutes. Profit of 0.43% ($2.98)."
     },
     {
-      "time": "2026-03-12T19:10:10.146Z",
+      "time": "2026-03-12T19:51:30.118Z",
       "decision": "SELL",
-      "summary": "Closed position at $90779.18 after 15.0 minutes. Loss of -0.16% ($-0.62)."
+      "summary": "Closed position at $79265.85 after 15.0 minutes. Profit of 0.58% ($1.22)."
     }
   ]
 }

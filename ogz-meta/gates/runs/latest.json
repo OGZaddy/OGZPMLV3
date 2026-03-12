@@ -1,20 +1,20 @@
 {
-  "run_id": "2026-03-12T19:00:01.991Z",
+  "run_id": "2026-03-12T20:30:02.366Z",
   "env": "PAPER",
   "instance": "ogz-prime-v2",
   "brokers": [
     "KRAKEN"
   ],
   "commit": "unknown",
-  "generated": "2026-03-12T19:00:01.994Z",
+  "generated": "2026-03-12T20:30:02.369Z",
   "gates": [
     {
       "id": "PROC",
       "name": "Process Health",
       "status": "PASS",
       "highlights": [
-        "Bot: ONLINE (8480 min uptime)",
-        "Memory: 225 MB",
+        "Bot: ONLINE (8570 min uptime)",
+        "Memory: 187 MB",
         "Restarts: 50",
         "WebSocket Server: ONLINE"
       ]
@@ -26,7 +26,7 @@
       "highlights": [
         "Status: healthy",
         "Connections: 3 active",
-        "Uptime: 8667 min"
+        "Uptime: 8757 min"
       ]
     },
     {
@@ -37,7 +37,7 @@
         "StateManager: Active",
         "Balance: $1K-10K (tracking)",
         "Position: FLAT",
-        "Last update: 1 min ago"
+        "Last update: 38 min ago"
       ]
     },
     {
