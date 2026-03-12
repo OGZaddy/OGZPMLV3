@@ -23,6 +23,16 @@ if (process.env.BACKTEST_SILENT === 'true' ||
   console.warn = () => {};
 }
 
+// FIX 2026-03-12: Isolate backtest state BEFORE any modules load StateManager
+// This MUST run before require('./core/StateManager') at line ~214
+if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
+  const path = require('path');
+  process.env.STATE_FILE = path.join(__dirname, 'data', 'state-backtest.json');
+  process.env.DATA_DIR = path.join(__dirname, 'data', 'backtest');
+  console.log(`📁 [BACKTEST] Isolated state: ${process.env.STATE_FILE}`);
+  console.log(`📁 [BACKTEST] Isolated data dir: ${process.env.DATA_DIR}`);
+}
+
 // SENTRY: Must be first import - catches all unhandled errors
 require('./instrument.js');
 
