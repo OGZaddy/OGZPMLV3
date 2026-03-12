@@ -26,6 +26,13 @@ class BacktestRunner {
    * EXACT COPY from run-empire-v2.js
    */
   async loadHistoricalDataAndBacktest() {
+    // FIX 2026-03-12: Isolate backtest state from production
+    const path = require('path');
+    if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
+      process.env.STATE_FILE = path.join(this.ctx.__dirname || '.', 'data', 'state-backtest.json');
+      console.log(`📁 [BacktestRunner] Using isolated state file: ${process.env.STATE_FILE}`);
+    }
+
     console.log('📊 BACKTEST MODE: Loading historical data...');
 
     const fs = require('fs').promises;
