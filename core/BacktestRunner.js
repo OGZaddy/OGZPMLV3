@@ -152,8 +152,8 @@ class BacktestRunner {
       // Generate backtest report
       const reportPath = path.join(this.ctx.__dirname, `backtest-report-v14MERGED-${Date.now()}.json`);
 
-      // Collect trades from execution layer (if available)
-      const trades = this.ctx.executionLayer?.trades || [];
+      // Collect trades from backtestRecorder (executionLayer.trades deleted in Phase 4)
+      const trades = this.ctx.backtestRecorder?.trades || [];
       const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
       const report = {
