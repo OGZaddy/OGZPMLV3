@@ -116,6 +116,16 @@ class BacktestRunner {
         }
       }
 
+      // FIX 2026-03-12: Force-close any open position at backtest end
+      // This prevents money from staying "locked" in inPosition when backtest ends mid-trade
+      const openPosition = stateManager.get('position');
+      if (openPosition > 0) {
+        const lastCandle = historicalCandles[historicalCandles.length - 1];
+        const lastPrice = lastCandle.close ?? lastCandle.c;
+        console.log(`\n⚠️ BACKTEST_END_CLOSE: Force-closing open position of ${openPosition.toFixed(6)} BTC at $${lastPrice.toFixed(2)}`);
+        await stateManager.closePosition(lastPrice, false, null, { reason: 'BACKTEST_END_CLOSE' });
+      }
+
       // Final summary
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`\n✅ BACKTEST COMPLETE!`);
