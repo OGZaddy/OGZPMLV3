@@ -521,6 +521,22 @@ class TradingLoop {
 
     if (decision.action !== 'HOLD') {
       await this.ctx.executeTrade(decision, confidenceData, price, indicators, patterns, traiDecision, orchResult);
+
+      // FIX 2026-03-13: After SELL executes, check for immediate re-entry
+      // Position is now actually 0, so we can re-enter if RSI still signals buy
+      if (decision.action === 'SELL') {
+        const newPos = stateManager.get('position');
+        const minConf = this.ctx.config.minTradeConfidence * 100;
+        if (newPos === 0 && orchResult.direction === 'buy' && orchResult.confidence >= minConf) {
+          console.log(`🔄 IMMEDIATE RE-ENTRY: Position closed, RSI still signaling buy @ ${orchResult.confidence.toFixed(1)}%`);
+          const reentryDecision = {
+            action: 'BUY',
+            direction: 'long',
+            confidence: orchResult.confidence
+          };
+          await this.ctx.executeTrade(reentryDecision, confidenceData, price, indicators, patterns, traiDecision, orchResult);
+        }
+      }
     }
   }
 }
