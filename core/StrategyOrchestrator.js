@@ -500,18 +500,17 @@ class StrategyOrchestrator {
 
     // ═══════════════════════════════════════════════════════════════════════
     // ATR PRE-ENTRY FILTER — Data-driven threshold from backtest analysis
-    // Winners enter at avg ATR 0.58%, losers at 0.34% — midpoint is 0.40%
-    // Kills all signals when market is too dead to overcome fees
-    // Results: Reduced max_hold from 177→43 exits, improved P&L from -32% to -0.11%
+    // FIX 2026-03-13: 0.40% killed 74% of 15m BTC candles. Lowered to 0.15%
+    // Original: Winners at 0.58%, losers at 0.34%, midpoint 0.40%
     // ═══════════════════════════════════════════════════════════════════════
     const filterPrice = extras.price || (priceHistory.length > 0 ? priceHistory[priceHistory.length - 1]?.c : 0);
     const filterATR = indicators?.atr || 0;
     const filterATRpct = (filterATR && filterPrice > 0) ? (filterATR / filterPrice) * 100 : 0;
 
-    if (filterATRpct > 0 && filterATRpct < 0.40 && results.length > 0) {
+    if (filterATRpct > 0 && filterATRpct < 0.15 && results.length > 0) {
       for (const r of results) {
         if (this.evalCount % 200 === 0) {
-          console.log(`[FILTER:atr] Skipped ${r.strategyName} — ATR ${filterATRpct.toFixed(3)}% below minimum 0.40%`);
+          console.log(`[FILTER:atr] Skipped ${r.strategyName} — ATR ${filterATRpct.toFixed(3)}% below minimum 0.15%`);
         }
       }
       results.length = 0; // Kill all signals — market is too dead
