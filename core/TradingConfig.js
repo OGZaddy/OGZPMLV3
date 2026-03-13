@@ -250,8 +250,8 @@ const BASE_CONFIG = {
     RSI: {
       // RSI mean reversion on extremes
       period: 14,                                       // Standard RSI period
-      oversoldLevel: env('RSI_OVERSOLD', 25),          // Oversold threshold
-      overboughtLevel: env('RSI_OVERBOUGHT', 75),      // Overbought threshold
+      oversoldLevel: env('RSI_OVERSOLD', 30),          // Oversold threshold (was 25 - too extreme)
+      overboughtLevel: env('RSI_OVERBOUGHT', 70),      // Overbought threshold (was 75 - too extreme)
       enabled: true,
     },
     VolumeProfile: {
@@ -281,7 +281,7 @@ const BASE_CONFIG = {
   // UNIVERSAL CIRCUIT BREAKERS (override strategy contracts)
   // =========================================================================
   universalLimits: {
-    hardStopLossPercent: -2.0,                                    // -2% absolute max loss per trade
+    hardStopLossPercent: -5.0,                                    // -5% absolute max loss (was -2%, too tight for BTC)
     accountDrawdownPercent: -10.0,                                // -10% force close all
     maxHoldTimeMinutes: 360,                                      // 6 hours max hold (matches MarketRegime)
   },
