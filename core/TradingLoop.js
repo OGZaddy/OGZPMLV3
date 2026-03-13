@@ -374,7 +374,9 @@ class TradingLoop {
           indicators: indicators,
           currentTime: this.ctx.marketData?.timestamp || Date.now(),
           accountBalance: stateManager.get('balance'),
-          initialBalance: stateManager.get('initialBalance') || 10000
+          initialBalance: stateManager.get('initialBalance') || 10000,
+          currentPosition: stateManager.get('position'),
+          currentPrice: price
         });
 
         if (exitCheck.shouldExit) {
