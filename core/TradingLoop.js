@@ -410,6 +410,18 @@ class TradingLoop {
             };
           }
         }
+
+        // FIX 2026-03-13: After SELL completes, re-check for immediate re-entry
+        // When position closes mid-candle, RSI may still be signaling buy
+        const updatedPos = stateManager.get('position');
+        if (updatedPos === 0 && tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
+          console.log(`🔄 Re-entry check: Position closed, RSI still signaling buy`);
+          decision = {
+            action: 'BUY',
+            direction: 'long',
+            confidence: orchResult.confidence
+          };
+        }
       }
     } else if (tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
       // FIX 2026-03-06: ENFORCE MAX_DRAWDOWN + MAX_DAILY_LOSS via RiskManager
