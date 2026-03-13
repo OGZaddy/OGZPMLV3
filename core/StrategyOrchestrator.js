@@ -230,11 +230,14 @@ class StrategyOrchestrator {
         const overbought = rsiConfig.overboughtLevel || 75;
 
         // Only fire on extremes — not the gradient nonsense
+        // FIX 2026-03-13: Boost confidence so RSI=25 passes 50% gate
+        // OLD: 0.3 + (strength * 0.5) gave 0.30 at threshold — too weak
+        // NEW: 0.5 + (strength * 0.4) gives 0.50 at threshold, 0.90 at extreme
         if (rsi < oversold) {
           const strength = Math.min(1.0, (oversold - rsi) / 15); // Stronger as RSI drops
           return {
             direction: 'buy',
-            confidence: 0.3 + (strength * 0.5), // 0.3 - 0.8
+            confidence: 0.5 + (strength * 0.4), // 0.50 - 0.90
             reason: `RSI Oversold (${rsi.toFixed(1)} < ${oversold})`,
             signalData: { rsi }
           };
@@ -243,7 +246,7 @@ class StrategyOrchestrator {
           const strength = Math.min(1.0, (rsi - overbought) / 15);
           return {
             direction: 'sell',
-            confidence: 0.3 + (strength * 0.5),
+            confidence: 0.5 + (strength * 0.4), // 0.50 - 0.90
             reason: `RSI Overbought (${rsi.toFixed(1)} > ${overbought})`,
             signalData: { rsi }
           };
