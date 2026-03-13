@@ -91,7 +91,7 @@ class BacktestRunner {
           ]);
 
           // Run trading analysis after warmup (WITH TRAI!)
-          if (this.ctx.priceHistory.length >= 200) {
+          if (this.ctx.priceHistory.length >= 15) {  // RSI backtest: was 200
             await this.ctx.analyzeAndTrade();
           }
 

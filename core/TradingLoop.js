@@ -52,7 +52,7 @@ class TradingLoop {
 
     // During warmup, we don't have enough data to make trade decisions.
     // Don't fake data - just skip trading until we have real indicators.
-    if (this.ctx.priceHistory.length < 50) {
+    if (this.ctx.priceHistory.length < 15) {  // RSI backtest: was 50
       console.warn(`⚠️ Warmup (${this.ctx.priceHistory.length}/50 candles) — skipping trade analysis`);
       return; // Don't trade, don't fake data
     }

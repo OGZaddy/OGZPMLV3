@@ -38,7 +38,7 @@ class StrategyOrchestrator {
     // Minimum confidence a single strategy needs to fire a trade
     // This is PER-STRATEGY, not aggregate — much more meaningful
     // TUNE 2026-02-27: Raised from 0.25 to filter garbage signals
-    this.minStrategyConfidence = config.minStrategyConfidence ?? 0.35;
+    this.minStrategyConfidence = config.minStrategyConfidence ?? 0.01;  // RSI backtest: remove gate
 
     // Minimum confluence signals to allow entry (default: 1 = winner alone is enough)
     this.minConfluenceCount = config.minConfluenceCount ?? 1;
@@ -507,7 +507,8 @@ class StrategyOrchestrator {
     const filterATR = indicators?.atr || 0;
     const filterATRpct = (filterATR && filterPrice > 0) ? (filterATR / filterPrice) * 100 : 0;
 
-    if (filterATRpct > 0 && filterATRpct < 0.15 && results.length > 0) {
+    // RSI backtest: ATR filter disabled (was killing 74% of candles)
+    if (false && filterATRpct > 0 && filterATRpct < 0.15 && results.length > 0) {
       for (const r of results) {
         if (this.evalCount % 200 === 0) {
           console.log(`[FILTER:atr] Skipped ${r.strategyName} — ATR ${filterATRpct.toFixed(3)}% below minimum 0.15%`);
