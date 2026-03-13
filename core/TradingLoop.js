@@ -211,7 +211,8 @@ class TradingLoop {
     const pipeline = TradingConfig.get('pipeline') || {};
     if (pipeline.directionFilter === 'long_only' && tradingDirection === 'sell') {
       if (currentPosition > 0) {
-        console.log('📊 Orchestrator bearish - executing SELL of position');
+        console.log('📊 Orchestrator bearish while in position - deferring to exit contract');
+        tradingDirection = 'hold';
       } else {
         console.log('🚫 [PIPELINE] Direction filter: long_only - blocking sell signal');
         tradingDirection = 'hold';

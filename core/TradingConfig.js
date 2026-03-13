@@ -250,8 +250,8 @@ const BASE_CONFIG = {
     RSI: {
       // RSI mean reversion on extremes
       period: 14,                                       // Standard RSI period
-      oversoldLevel: env('RSI_OVERSOLD', 30),          // Oversold threshold (was 25 - too extreme)
-      overboughtLevel: env('RSI_OVERBOUGHT', 70),      // Overbought threshold (was 75 - too extreme)
+      oversoldLevel: env('RSI_OVERSOLD', 30),          // Oversold threshold (widened from 25)
+      overboughtLevel: env('RSI_OVERBOUGHT', 70),      // Overbought threshold (widened from 75)
       enabled: true,
     },
     VolumeProfile: {
