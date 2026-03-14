@@ -95,6 +95,7 @@ class StateManager {
       // ─────────────────────────────────────────────────────────────────────
       balance: 10000,           // Available USD (not locked in positions)
       totalBalance: 10000,      // Total account value in USD
+      initialBalance: 10000,    // FIX 2026-03-14: Reference point for drawdown calculation
       inPosition: 0,            // USD locked in positions (position × entryPrice)
 
       // ─────────────────────────────────────────────────────────────────────

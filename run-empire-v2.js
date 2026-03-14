@@ -730,10 +730,15 @@ class OGZPrimeV14Bot {
       stateManager.updateState({
         balance: initialBalance,
         totalBalance: initialBalance,
+        initialBalance: initialBalance,   // FIX 2026-03-14: Store for drawdown reference
         activeTrades: new Map()  // CHANGE 2025-12-13: Centralized active trades
       }, { action: 'INIT' });
     } else {
       console.log('âœ… Using existing state - Balance:', currentState.balance, 'Trades:', currentState.activeTrades?.size || 0);
+      // FIX 2026-03-14: Ensure initialBalance exists on state restore
+      if (!currentState.initialBalance) {
+        stateManager.updateState({ initialBalance: initialBalance }, { action: 'SET_INITIAL_BALANCE' });
+      }
     }
 
     // FIX 2026-02-26: Initialize RiskManager with balance (was never called, caused Infinity drawdown)
