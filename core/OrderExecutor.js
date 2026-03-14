@@ -51,8 +51,10 @@ class OrderExecutor {
 
     // FIXED: Use actual balance from StateManager, not stale systemState
     const currentBalance = stateManager.get('balance') || 10000;
-    // CHANGE 2026-02-28: Use TradingConfig for position sizing
-    let basePositionPercent = TradingConfig.get('positionSizing.maxPositionSize');
+    // FIX 2026-03-12: Use basePositionSize (1%) as base, NOT maxPositionSize (5%)
+    // This ensures that confidence multipliers (up to 2.5x) hit ~2.5% max,
+    // staying safely within the 5% absolute cap.
+    let basePositionPercent = TradingConfig.get('positionSizing.basePositionSize') || 0.01;
 
     // TUNE 2026-02-27: Confidence-scaled position sizing
     // 50% confidence = 0.5x, 75% = 1.5x, 90%+ = 2.5x (cap)

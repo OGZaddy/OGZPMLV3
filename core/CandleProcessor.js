@@ -203,6 +203,14 @@ class CandleProcessor {
     // One canonical path - dedupe + insert + indicators all in one
     candles.forEach(c => this.processNewCandle(c));
 
+    // FIX: Recalculate indicators for the ENTIRE price history after a backfill splice
+    // This heals mathematical "pollution" caused by stateful indicators (RSI/EMA)
+    if (this.ctx.indicatorEngine && this.ctx.priceHistory.length > 0) {
+      console.log(`[GAP-RECOVERY] Re-calculating all indicators for ${this.ctx.priceHistory.length} candles...`);
+      this.ctx.indicatorEngine.computeBatch(this.ctx.priceHistory);
+      console.log('[GAP-RECOVERY] Indicators healed.');
+    }
+
     console.log(`[GAP-RECOVERY] Backfilled ${candles.length} candles via REST`);
   }
 

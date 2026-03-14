@@ -198,13 +198,13 @@ test('IndicatorEngine computes RSI, EMA, ATR correctly', () => {
   const snap = engine.getSnapshot();
 
   if (!snap) throw new Error('getSnapshot() returned nothing');
-  // RSI is a direct number
-  if (snap.rsi === null || snap.rsi === undefined) throw new Error('RSI not calculated');
-  if (snap.rsi < 0 || snap.rsi > 100) throw new Error(`RSI out of range: ${snap.rsi}`);
+  // RSI lives in indicators object
+  if (!snap.indicators || snap.indicators.rsi === null || snap.indicators.rsi === undefined) throw new Error('RSI not calculated');
+  if (snap.indicators.rsi < 0 || snap.indicators.rsi > 100) throw new Error(`RSI out of range: ${snap.indicators.rsi}`);
   // EMA exists
-  if (!snap.ema) throw new Error('EMA not calculated');
+  if (!snap.indicators.ema20) throw new Error('EMA not calculated');
   // ATR is a direct number
-  if (!snap.atr || snap.atr <= 0) throw new Error(`ATR invalid: ${snap.atr}`);
+  if (!snap.indicators.atr || snap.indicators.atr <= 0) throw new Error(`ATR invalid: ${snap.indicators.atr}`);
 });
 
 // ═══════════════════════════════════════════════════════════
