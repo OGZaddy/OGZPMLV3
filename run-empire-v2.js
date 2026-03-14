@@ -1348,6 +1348,14 @@ class OGZPrimeV14Bot {
   }
 
   /**
+   * Trigger trading analysis on candle close
+   * Legacy name, works for any active timeframe
+   */
+  async run15mTradingCycle() {
+    return this.analyzeAndTrade();
+  }
+
+  /**
    * Analyze market and execute trades
    * Core trading pipeline orchestration
    * REFACTOR Phase 15: Thin dispatcher - delegates to TradingLoop
