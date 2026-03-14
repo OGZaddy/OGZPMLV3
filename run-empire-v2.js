@@ -33,6 +33,12 @@ if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === '
   console.log(`📁 [BACKTEST] Isolated data dir: ${process.env.DATA_DIR}`);
 }
 
+// FIX 2026-03-14: Normalize BACKTEST_MODE for all downstream modules
+// 15+ files check BACKTEST_MODE but backtest launches via EXECUTION_MODE
+if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
+  process.env.BACKTEST_MODE = 'true';
+}
+
 // SENTRY: Must be first import - catches all unhandled errors
 require('./instrument.js');
 
