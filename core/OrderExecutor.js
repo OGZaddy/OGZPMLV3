@@ -513,19 +513,21 @@ class OrderExecutor {
             // this.ctx.safetyNet.updateTradeResult(completeTradeResult);
 
             // 2. Record pattern outcome for learning
+            // FIX 2026-03-14: ALWAYS record pattern results - don't skip if buyTrade.patterns is empty
+            // Previous bug: 90% of patterns had pnl=0 because this block was skipped when patterns array was missing
             // CHANGE 659: Pass features array for proper pattern matching
             // recordPatternResult REQUIRES features array, never pass signature string
-            if (buyTrade.patterns && buyTrade.patterns.length > 0) {
-              const pattern = buyTrade.patterns[0]; // Primary pattern object
-              const patternSignature = pattern.signature || pattern.name;
+            {
+              const pattern = buyTrade.patterns?.[0]; // Primary pattern object (may be undefined)
+              const patternName = pattern?.name || buyTrade.entryStrategy || 'unknown';
 
-              // CRITICAL: Ensure features is an array
+              // CRITICAL: Ensure features is an array - try pattern.features first, fallback to reconstruction
               let featuresForRecording;
-              if (Array.isArray(pattern.features)) {
+              if (pattern && Array.isArray(pattern.features) && pattern.features.length > 0) {
                 featuresForRecording = pattern.features;
               } else {
-                console.warn('⚠️ Pattern features not an array in trade completion, creating fallback');
-                // FIX 2026-02-01: Convert trend to numeric if string (bullish=1, bearish=-1, else=0)
+                // FIX 2026-03-14: Always reconstruct features from entryIndicators if pattern.features missing
+                // This was the root cause of 90% zero-PNL patterns - we skipped recording entirely
                 const entryTrend = buyTrade.entryIndicators?.trend;
                 const trendNumeric = typeof entryTrend === 'string'
                   ? (entryTrend === 'bullish' || entryTrend === 'uptrend' ? 1 :
@@ -533,7 +535,7 @@ class OrderExecutor {
                   : (entryTrend || 0);
                 // FIX 2026-02-25: 9-element vector matching EnhancedPatternRecognition
                 // FIX 2026-02-26 P3: Match entry/EPR convention (rsi/100 = 0-1 range, was -1 to 1)
-                const rsiNormalized = buyTrade.entryIndicators?.rsi != null ? buyTrade.entryIndicators.rsi / 100 : null;
+                const rsiNormalized = buyTrade.entryIndicators?.rsi != null ? buyTrade.entryIndicators.rsi / 100 : 0.5;
                 const macdDelta = (buyTrade.entryIndicators?.macd || 0) - (buyTrade.entryIndicators?.macdSignal || 0);
                 featuresForRecording = [
                   rsiNormalized,                                    // [0] RSI normalized
@@ -559,7 +561,7 @@ class OrderExecutor {
               } else if (this.ctx.config.tradingMode === 'TEST') {
                 console.log('🧪 TEST MODE: Would record P&L pattern but SKIPPING - pattern base protected');
               }
-              console.log(`🧠 Pattern learning: ${pattern.name} → ${pnl.toFixed(2)}%`);
+              console.log(`🧠 Pattern learning: ${patternName} → ${pnl.toFixed(2)}%`);
             }
 
             // FIX 2026-02-26: Run health check every 10 trade exits to detect broken pattern recording
