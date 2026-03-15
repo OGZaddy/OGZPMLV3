@@ -334,8 +334,8 @@ class PatternMemorySystem {
    */
   async saveToDisk() {
     if (!this.options.persistToDisk) return;
-    // FIX 2026-02-20: Skip disk writes in backtest - causes EMFILE on Windows
-    if (process.env.BACKTEST_MODE === 'true') return;
+    // FIX 2026-03-14: Allow backtest saves to pattern-memory.backtest.json
+    // Was skipping entirely, now saves to separate file (set in constructor line 222)
 
     // CHANGE 2025-12-12: Prevent concurrent writes with save queue
     if (this.saving) {
