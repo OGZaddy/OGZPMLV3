@@ -142,7 +142,7 @@ const BASE_CONFIG = {
       invalidationConditions: ['liquidity_absorbed'],
     },
     RSI: {
-      stopLossPercent: -1.0,
+      stopLossPercent: -0.5,
       takeProfitPercent: 2.0,
       trailingStopPercent: 0.6,
       trailingActivation: 0.8,
@@ -158,7 +158,7 @@ const BASE_CONFIG = {
       invalidationConditions: ['sr_break'],
     },
     CandlePattern: {
-      stopLossPercent: -0.8,
+      stopLossPercent: -0.4,
       takeProfitPercent: 1.5,
       trailingStopPercent: 0.5,
       trailingActivation: 0.7,
