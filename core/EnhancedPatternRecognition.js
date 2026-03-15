@@ -37,6 +37,82 @@ const { c, o, h, l, v } = require('./CandleHelper');
 const pattern_performance = {};
 let patternCount = 0;
 
+// =============================================================================
+// DYNAMIC TIME WARPING (DTW) - Handles time-stretched pattern matching
+// =============================================================================
+
+/**
+ * Dynamic Time Warping (DTW) for pattern matching - tuned for 15m
+ * Compares two feature sequences allowing for time stretching
+ * @param {Array} seriesA - First feature sequence
+ * @param {Array} seriesB - Second feature sequence
+ * @returns {Object} { distance: number } - Lower distance = better match
+ */
+function dynamicTimeWarping(seriesA, seriesB) {
+  const n = seriesA.length;
+  const m = seriesB.length;
+  if (n === 0 || m === 0) return { distance: Infinity };
+
+  const cost = Array.from({ length: n }, () => Array(m).fill(Infinity));
+  cost[0][0] = Math.abs(seriesA[0] - seriesB[0]);
+
+  for (let i = 1; i < n; i++) cost[i][0] = cost[i-1][0] + Math.abs(seriesA[i] - seriesB[0]);
+  for (let j = 1; j < m; j++) cost[0][j] = cost[0][j-1] + Math.abs(seriesA[0] - seriesB[j]);
+
+  for (let i = 1; i < n; i++) {
+    for (let j = 1; j < m; j++) {
+      const minPrev = Math.min(cost[i-1][j], cost[i][j-1], cost[i-1][j-1]);
+      cost[i][j] = minPrev + Math.abs(seriesA[i] - seriesB[j]);
+    }
+  }
+
+  return { distance: cost[n-1][m-1] };
+}
+
+/**
+ * Find best DTW match for a new pattern (15m tuned)
+ * Uses shorter windows (8-20 bars) for clean retests
+ * @param {Array} newFeatures - Current feature vector
+ * @param {Object} storedPatterns - Pattern memory object
+ * @param {number} maxWindow - Max features to compare (default 20)
+ * @returns {Object|null} Best match or null if below threshold
+ */
+function findBestDTWMatch(newFeatures, storedPatterns, maxWindow = 20) {
+  let bestMatch = null;
+  let bestSimilarity = -Infinity;
+
+  // Limit to recent/high-quality patterns for speed
+  const candidates = Object.entries(storedPatterns)
+    .filter(([_, p]) => p.timesSeen > 0)
+    .slice(0, 200); // top 200 most seen
+
+  for (const [signature, patternData] of candidates) {
+    const storedFeatures = signature.split(',').map(Number);
+
+    // Use min length to avoid over-stretching on 15m
+    const len = Math.min(newFeatures.length, storedFeatures.length, maxWindow);
+    const a = newFeatures.slice(0, len);
+    const b = storedFeatures.slice(0, len);
+
+    const dtw = dynamicTimeWarping(a, b);
+    const similarity = Math.max(0, 1 - (dtw.distance / (len * 2))); // normalized 0-1
+
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity;
+      bestMatch = {
+        signature,
+        similarity,
+        patternData,
+        distance: dtw.distance
+      };
+    }
+  }
+
+  return bestMatch && bestSimilarity > 0.65 ? bestMatch : null; // 65% similarity threshold
+}
+
+// =============================================================================
+
 /**
  * Pattern feature extraction with optimized signal processing
  */
@@ -617,6 +693,34 @@ class PatternMemorySystem {
   }
 
   /**
+   * Find similar patterns using Dynamic Time Warping (handles time-stretched patterns)
+   * DTW can match patterns that are "same shape, different speed" - e.g., fast vs slow MA retests
+   * @param {Array} features - Feature vector to match
+   * @param {number} threshold - Similarity threshold (0-1), default 0.65
+   * @param {number} limit - Maximum number of results
+   * @returns {Array} Similar patterns with DTW similarity scores
+   */
+  findSimilarPatternsDTW(features, threshold = 0.65, limit = 5) {
+    if (!features || !Array.isArray(features) || features.length === 0) {
+      return [];
+    }
+
+    const bestMatch = findBestDTWMatch(features, this.memory);
+
+    if (bestMatch) {
+      return [{
+        key: bestMatch.signature,
+        similarity: bestMatch.similarity,
+        stats: bestMatch.patternData,
+        matchType: 'dtw',
+        distance: bestMatch.distance
+      }];
+    }
+
+    return [];
+  }
+
+  /**
    * Evaluate a pattern and determine its trading potential
    * @param {Array} features - Feature vector
    * @param {Object} options - Evaluation options
@@ -673,7 +777,29 @@ class PatternMemorySystem {
       };
     }
 
-    // If no exact match, look for similar patterns
+    // If no exact match, try DTW match first (catches time-stretched patterns like fast/slow MA retests)
+    const dtwMatches = this.findSimilarPatternsDTW(features, 0.65, 1);
+    if (dtwMatches.length > 0 && dtwMatches[0].stats.timesSeen >= opts.minimumMatches) {
+      const dtwMatch = dtwMatches[0];
+      const winRate = dtwMatch.stats.wins / dtwMatch.stats.timesSeen;
+      const avgPnL = dtwMatch.stats.totalPnL / dtwMatch.stats.timesSeen;
+      const direction = (avgPnL > 0 ? 'buy' : avgPnL < 0 ? 'sell' : 'hold').toLowerCase();
+
+      console.log(`[DTW MATCH] ${(dtwMatch.similarity * 100).toFixed(1)}% similarity to pattern with ${dtwMatch.stats.timesSeen} trades`);
+
+      return {
+        confidence: winRate >= opts.confidenceThreshold ? winRate * dtwMatch.similarity : 0,
+        direction,
+        exactMatch: false,
+        dtwMatch: true,
+        timesSeen: dtwMatch.stats.timesSeen,
+        winRate,
+        avgPnL,
+        reason: `DTW match: ${(dtwMatch.similarity * 100).toFixed(1)}% similar, ${(winRate * 100).toFixed(1)}% win rate`
+      };
+    }
+
+    // If no DTW match, fall back to Euclidean similarity search
     const similarPatterns = this.findSimilarPatterns(
       features,
       opts.similarityThreshold,
