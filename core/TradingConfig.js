@@ -38,7 +38,7 @@ const BASE_CONFIG = {
   // CONFIDENCE THRESHOLDS
   // =========================================================================
   confidence: {
-    minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.01),      // 1% - RSI backtest: remove confidence gate
+    minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.35),      // 35% - Kills CandlePattern noise (10% floor), RSI passes (50%+)
     maxConfidence: env('MAX_CONFIDENCE', 0.95),                  // 95% - cap (nothing is 100%)
     minStrategyConfidence: env('MIN_STRATEGY_CONFIDENCE', 0.35), // 35% - per individual strategy
     // REMOVED 2026-03-10 (dead config - nothing reads these):
@@ -69,6 +69,7 @@ const BASE_CONFIG = {
   positionSizing: {
     basePositionSize: env('BASE_POSITION_SIZE', 0.01),           // 1% base position
     maxPositionSize: env('MAX_POSITION_SIZE_PCT', 0.05),         // 5% max position
+    maxPositions: env('MAX_POSITIONS', 3),                        // Max concurrent positions
 
     // Volatility-based scaling
     lowVolMultiplier: env('LOW_VOL_MULTIPLIER', 1.5),            // 1.5x in calm markets

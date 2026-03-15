@@ -38,20 +38,36 @@ const pattern_performance = {};
 let patternCount = 0;
 
 // =============================================================================
-// DYNAMIC TIME WARPING (DTW) - Handles time-stretched pattern matching
+// DYNAMIC TIME WARPING (DTW) - 15m OPTIMIZED (Trey-approved 2026-03-15)
+// Handles time-stretched pattern matching (fast vs slow MA retests)
 // =============================================================================
+
+/**
+ * Normalize a series to 0-1 range for fair DTW comparison
+ * Critical: Without this, features with different scales dominate unfairly
+ * @param {Array} arr - Feature array
+ * @returns {Array} Normalized array (0-1 range)
+ */
+function normalizeSeries(arr) {
+  const min = Math.min(...arr);
+  const max = Math.max(...arr);
+  return arr.map(v => (max - min) === 0 ? 0.5 : (v - min) / (max - min));
+}
 
 /**
  * Dynamic Time Warping (DTW) for pattern matching - tuned for 15m
  * Compares two feature sequences allowing for time stretching
- * @param {Array} seriesA - First feature sequence
- * @param {Array} seriesB - Second feature sequence
- * @returns {Object} { distance: number } - Lower distance = better match
+ * @param {Array} seriesA - First feature sequence (normalized)
+ * @param {Array} seriesB - Second feature sequence (normalized)
+ * @returns {number} Distance (lower = better match), Infinity if invalid
  */
 function dynamicTimeWarping(seriesA, seriesB) {
   const n = seriesA.length;
   const m = seriesB.length;
-  if (n === 0 || m === 0) return { distance: Infinity };
+  if (n === 0 || m === 0) return Infinity;
+
+  // Early stop if obviously bad match (length mismatch > 8 bars)
+  if (Math.abs(n - m) > 8) return Infinity;
 
   const cost = Array.from({ length: n }, () => Array(m).fill(Infinity));
   cost[0][0] = Math.abs(seriesA[0] - seriesB[0]);
@@ -66,7 +82,7 @@ function dynamicTimeWarping(seriesA, seriesB) {
     }
   }
 
-  return { distance: cost[n-1][m-1] };
+  return cost[n-1][m-1];
 }
 
 /**
@@ -74,41 +90,44 @@ function dynamicTimeWarping(seriesA, seriesB) {
  * Uses shorter windows (8-20 bars) for clean retests
  * @param {Array} newFeatures - Current feature vector
  * @param {Object} storedPatterns - Pattern memory object
- * @param {number} maxWindow - Max features to compare (default 20)
- * @returns {Object|null} Best match or null if below threshold
+ * @returns {Object|null} Best match or null if below 62% threshold
  */
-function findBestDTWMatch(newFeatures, storedPatterns, maxWindow = 20) {
+function findBestDTWMatch(newFeatures, storedPatterns) {
   let bestMatch = null;
   let bestSimilarity = -Infinity;
 
-  // Limit to recent/high-quality patterns for speed
+  // Limit to patterns with at least 2 outcomes for statistical relevance
   const candidates = Object.entries(storedPatterns)
-    .filter(([_, p]) => p.timesSeen > 0)
-    .slice(0, 200); // top 200 most seen
+    .filter(([_, p]) => p.timesSeen >= 2)
+    .slice(0, 250);
 
   for (const [signature, patternData] of candidates) {
     const storedFeatures = signature.split(',').map(Number);
 
-    // Use min length to avoid over-stretching on 15m
-    const len = Math.min(newFeatures.length, storedFeatures.length, maxWindow);
-    const a = newFeatures.slice(0, len);
-    const b = storedFeatures.slice(0, len);
+    // Normalize both series for fair comparison (critical!)
+    const normA = normalizeSeries(newFeatures);
+    const normB = normalizeSeries(storedFeatures);
 
-    const dtw = dynamicTimeWarping(a, b);
-    const similarity = Math.max(0, 1 - (dtw.distance / (len * 2))); // normalized 0-1
+    // Use min length to avoid over-stretching on 15m (max 20 bars)
+    const len = Math.min(normA.length, normB.length, 20);
+    const a = normA.slice(0, len);
+    const b = normB.slice(0, len);
+
+    const distance = dynamicTimeWarping(a, b);
+    const similarity = Math.max(0, 1 - (distance / (len * 1.8))); // tighter divisor
 
     if (similarity > bestSimilarity) {
       bestSimilarity = similarity;
       bestMatch = {
         signature,
-        similarity,
+        similarity: parseFloat(similarity.toFixed(3)),
         patternData,
-        distance: dtw.distance
+        distance
       };
     }
   }
 
-  return bestMatch && bestSimilarity > 0.65 ? bestMatch : null; // 65% similarity threshold
+  return bestMatch && bestSimilarity > 0.62 ? bestMatch : null; // 62% threshold
 }
 
 // =============================================================================
@@ -700,12 +719,17 @@ class PatternMemorySystem {
    * @param {number} limit - Maximum number of results
    * @returns {Array} Similar patterns with DTW similarity scores
    */
-  findSimilarPatternsDTW(features, threshold = 0.65, limit = 5) {
+  findSimilarPatternsDTW(features, threshold = 0.62, limit = 5) {
     if (!features || !Array.isArray(features) || features.length === 0) {
       return [];
     }
 
     const bestMatch = findBestDTWMatch(features, this.memory);
+
+    // Log DTW match for debugging
+    if (bestMatch) {
+      console.log(`[DTW 15m] Match: ${bestMatch.similarity} similarity, ${bestMatch.patternData.timesSeen} trades`);
+    }
 
     if (bestMatch) {
       return [{
@@ -778,14 +802,14 @@ class PatternMemorySystem {
     }
 
     // If no exact match, try DTW match first (catches time-stretched patterns like fast/slow MA retests)
-    const dtwMatches = this.findSimilarPatternsDTW(features, 0.65, 1);
+    const dtwMatches = this.findSimilarPatternsDTW(features, 0.62, 1);
     if (dtwMatches.length > 0 && dtwMatches[0].stats.timesSeen >= opts.minimumMatches) {
       const dtwMatch = dtwMatches[0];
       const winRate = dtwMatch.stats.wins / dtwMatch.stats.timesSeen;
       const avgPnL = dtwMatch.stats.totalPnL / dtwMatch.stats.timesSeen;
       const direction = (avgPnL > 0 ? 'buy' : avgPnL < 0 ? 'sell' : 'hold').toLowerCase();
 
-      console.log(`[DTW MATCH] ${(dtwMatch.similarity * 100).toFixed(1)}% similarity to pattern with ${dtwMatch.stats.timesSeen} trades`);
+      console.log(`[DTW 15m] EVAL: ${(dtwMatch.similarity * 100).toFixed(1)}% similar, ${dtwMatch.stats.timesSeen} trades, ${(winRate * 100).toFixed(1)}% WR`);
 
       return {
         confidence: winRate >= opts.confidenceThreshold ? winRate * dtwMatch.similarity : 0,
