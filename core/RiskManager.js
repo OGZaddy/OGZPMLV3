@@ -83,7 +83,8 @@ class RiskManager {
    * @returns {Object} - { approved, reason, riskLevel, ... }
    */
   assessTradeRisk(tradeParams) {
-    return { approved: true, riskLevel: 'LOW' };  // RSI backtest: bypass risk checks
+    // Bypass for backtest (controlled by env var for parallel backtester)
+    if (process.env.RISK_MANAGER_BYPASS !== 'false') return { approved: true, riskLevel: 'LOW' };
     const { confidence = 0 } = tradeParams;
     const ddState = this.drawdownTracker.getState();
     const breaches = this.pnlTracker.getLimitBreaches();
@@ -153,7 +154,8 @@ class RiskManager {
    * @returns {{ allowed: boolean, reason?: string }}
    */
   isTradingAllowed() {
-    return { allowed: true };  // RSI backtest: bypass
+    // Bypass for backtest (controlled by env var for parallel backtester)
+    if (process.env.RISK_MANAGER_BYPASS !== 'false') return { allowed: true };
     if (this.drawdownTracker.isMaxDrawdownExceeded()) {
       return { allowed: false, reason: 'Max drawdown exceeded' };
     }

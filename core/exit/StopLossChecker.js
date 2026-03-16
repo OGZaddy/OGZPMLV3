@@ -43,9 +43,9 @@ class StopLossChecker {
 
     // === ACCOUNT DRAWDOWN ===
     // FIX 2026-03-13: Use total equity (cash + position value), not just cash
-    // Bug: Buying $1,250 BTC dropped cash 12.5%, triggering instant force-close
-    // BYPASS 2026-03-14: Disabled for backtest baseline testing
-    if (false && context.accountBalance && context.initialBalance) {
+    // Account drawdown check (controlled by env var for parallel backtester)
+    const drawdownEnabled = process.env.ACCOUNT_DRAWDOWN_BYPASS !== 'true';
+    if (drawdownEnabled && context.accountBalance && context.initialBalance) {
       const positionValue = (context.currentPosition || 0) * (context.currentPrice || 0);
       const totalEquity = context.accountBalance + positionValue;
       const accountDrawdown = ((totalEquity - context.initialBalance) / context.initialBalance) * 100;
