@@ -109,11 +109,12 @@ const BASE_CONFIG = {
     profitProtectionLevel: env('PROFIT_PROTECTION', 1.5),        // 1.5% min profit to lock in
 
     // Tiered profit targets (for MaxProfitManager)
+    // FIX 2026-03-16: All tiers must clear 0.65% round-trip fees
     profitTiers: {
-      tier1: env('TIER1_TARGET', 0.007),                         // 0.7% first tier
-      tier2: env('TIER2_TARGET', 0.010),                         // 1.0% second tier
-      tier3: env('TIER3_TARGET', 0.015),                         // 1.5% third tier
-      final: env('FINAL_TARGET', 0.025),                         // 2.5% final target
+      tier1: env('TIER1_TARGET', 0.015),                         // 1.5% first tier (was 0.7% - below fees!)
+      tier2: env('TIER2_TARGET', 0.020),                         // 2.0% second tier
+      tier3: env('TIER3_TARGET', 0.030),                         // 3.0% third tier
+      final: env('FINAL_TARGET', 0.050),                         // 5.0% final target
     },
 
     // Trail distances
