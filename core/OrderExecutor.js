@@ -51,29 +51,17 @@ class OrderExecutor {
 
     // FIXED: Use actual balance from StateManager, not stale systemState
     const currentBalance = stateManager.get('balance') || 10000;
-    // CHANGE 2026-02-28: Use TradingConfig for position sizing
+    // CONFIG D: Flat 4% sizing - validated +0.73% run
+    // Confidence multiplier DISABLED - can be re-tested as alpha booster later
     let basePositionPercent = TradingConfig.get('positionSizing.maxPositionSize');
+    console.log(`📏 Flat sizing: ${(basePositionPercent * 100).toFixed(2)}% of balance (Config D)`);
 
-    // TUNE 2026-02-27: Confidence-scaled position sizing
-    // 50% confidence = 0.5x, 75% = 1.5x, 90%+ = 2.5x (cap)
-    const rawConfidence = decision.confidence;
-    console.log('RAW confidence value:', rawConfidence); // Sanity check: is this 75 or 0.75?
-    // decision.confidence comes as percentage (e.g., 75 = 75%), convert to decimal
-    const tradeConfidence = (rawConfidence > 1 ? rawConfidence / 100 : rawConfidence) || 0.5;
-    // Linear scale: confidence 0.5 → multiplier 0.5, confidence 1.0 → multiplier 2.5
-    const confidenceMultiplier = Math.max(0.5, Math.min(2.5,
-      0.5 + (tradeConfidence - 0.5) * 4.0
-    ));
-    basePositionPercent = basePositionPercent * confidenceMultiplier;
-
-    // FIX 2026-03-06: ENFORCE MAX_POSITION_SIZE cap after confidence multiplier
-    // Bug: confidenceMultiplier (up to 2.5x) was pushing position above max
-    const maxPositionPercent = TradingConfig.get('positionSizing.maxPositionSize') * 2.5; // Allow up to 2.5x max for high confidence
-    if (basePositionPercent > maxPositionPercent) {
-      console.log(`⚠️ Position capped: ${(basePositionPercent * 100).toFixed(2)}% → ${(maxPositionPercent * 100).toFixed(2)}% (MAX_POSITION_SIZE limit)`);
-      basePositionPercent = maxPositionPercent;
-    }
-    console.log(`📏 Confidence sizing: ${(tradeConfidence * 100).toFixed(0)}% → ${confidenceMultiplier.toFixed(1)}x → ${(basePositionPercent * 100).toFixed(2)}% of balance`);
+    // DISABLED FOR CONFIG D BASELINE:
+    // Confidence-scaled position sizing was inflating losing trades
+    // const rawConfidence = decision.confidence;
+    // const tradeConfidence = (rawConfidence > 1 ? rawConfidence / 100 : rawConfidence) || 0.5;
+    // const confidenceMultiplier = Math.max(0.5, Math.min(2.5, 0.5 + (tradeConfidence - 0.5) * 4.0));
+    // basePositionPercent = basePositionPercent * confidenceMultiplier;
 
     // Phase 4 REWRITE: AGGRESSIVE_LEARNING_MODE removed - use TradingConfig for all sizing
     const baseSizeUSD = currentBalance * basePositionPercent;
