@@ -101,16 +101,15 @@ class MaxProfitManager {
       // TIERED EXIT STRATEGY
       // --------------------------------------------------------------------
       enableTieredExit: true,         // Enable multi-tier profit taking
-      // FIX 2026-03-16: All tiers must clear 0.65% round-trip fees
-      // OLD: 0.5-2.5% targets (tier1 was BELOW fees = guaranteed loss)
-      // NEW: 1.5-5.0% targets (all tiers profitable after fees)
-      firstTierTarget: 0.015,          // 1.5% profit - clears fees with margin
+      // FIX 2026-03-16: Validated production config from tuning-summary.json (March 3rd)
+      // Tested across 3 datasets - whole years of unseen data
+      firstTierTarget: 0.007,          // 0.7% profit
       firstTierExit: 0.30,            // Exit 30% to lock in profit
-      secondTierTarget: 0.020,         // 2.0% profit - solid gain
+      secondTierTarget: 0.010,         // 1.0% profit
       secondTierExit: 0.30,           // Exit another 30%
-      thirdTierTarget: 0.030,          // 3.0% profit - great move
+      thirdTierTarget: 0.015,          // 1.5% profit
       thirdTierExit: 0.20,            // Exit 20%
-      finalTarget: 0.050,              // 5.0% - let final 20% ride for big moves
+      finalTarget: 0.025,              // 2.5% - let final 20% ride
       
       // --------------------------------------------------------------------
       // TRAILING STOP MANAGEMENT
