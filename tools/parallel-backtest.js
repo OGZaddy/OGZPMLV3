@@ -157,6 +157,7 @@ function runSingleBacktest(config, dataFile) {
       STATE_FILE: stateFile,
       DATA_DIR: path.join(PROJECT_ROOT, 'data', 'backtest'),
       PAPER_TRADING: 'true',
+      BACKTEST_NO_PATTERN_SAVE: 'true',  // EMFILE fix - disable disk writes in parallel backtest
       // Apply config overrides
       ...config.env,
     };
@@ -168,7 +169,7 @@ function runSingleBacktest(config, dataFile) {
       cwd: PROJECT_ROOT,
       env: env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 300000, // 5 min max per backtest
+      timeout: 1200000, // 20 min max per backtest (Windows is slow)
     });
 
     child.stdout.on('data', (data) => { output += data.toString(); });

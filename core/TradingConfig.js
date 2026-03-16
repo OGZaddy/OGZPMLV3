@@ -68,7 +68,7 @@ const BASE_CONFIG = {
   // =========================================================================
   positionSizing: {
     basePositionSize: env('BASE_POSITION_SIZE', 0.01),           // 1% base position
-    maxPositionSize: env('MAX_POSITION_SIZE_PCT', 0.04),         // 4% flat - Config D validated
+    maxPositionSize: env('MAX_POSITION_SIZE_PCT', 0.05),         // 5% max position
     maxPositions: env('MAX_POSITIONS', 3),                        // Max concurrent positions
 
     // Volatility-based scaling
@@ -125,22 +125,23 @@ const BASE_CONFIG = {
   // =========================================================================
   // STRATEGY-SPECIFIC EXIT CONTRACTS
   // =========================================================================
-  // CONFIG D: Validated +0.73% run (March 3rd) - UNIFORM contracts for all strategies
+  // FIX 2026-03-16: Load validated production config from tuning-summary.json (March 3rd)
+  // All strategies: SL -2.0%, TP 2.5%
   exitContracts: {
     EMASMACrossover: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      trailingStopPercent: 0.8,
+      trailingActivation: 1.0,
+      maxHoldTimeMinutes: 300,
       invalidationConditions: ['ema_cross_reversal'],
     },
     LiquiditySweep: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 180,
       invalidationConditions: ['liquidity_absorbed'],
     },
     RSI: {
@@ -154,33 +155,33 @@ const BASE_CONFIG = {
     MADynamicSR: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 180,
       invalidationConditions: ['sr_break'],
     },
     CandlePattern: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 150,
       invalidationConditions: ['pattern_invalidated'],
     },
     MarketRegime: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      trailingStopPercent: 1.0,
+      trailingActivation: 1.5,
+      maxHoldTimeMinutes: 360,
       invalidationConditions: ['regime_change'],
     },
     MultiTimeframe: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      trailingStopPercent: 0.8,
+      trailingActivation: 1.0,
+      maxHoldTimeMinutes: 300,
       invalidationConditions: [],
     },
     OGZTPO: {
@@ -196,7 +197,7 @@ const BASE_CONFIG = {
       takeProfitPercent: 2.5,
       trailingStopPercent: 0.6,
       trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      maxHoldTimeMinutes: 180,
       invalidationConditions: ['fvg_filled', 'or_break_reversal'],
     },
     default: {

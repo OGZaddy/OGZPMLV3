@@ -317,9 +317,12 @@ class PatternMemorySystem {
     const memoryFileName = `pattern-memory.${mode}.json`;
     console.log(`ðŸ“ Pattern Memory: Using ${memoryFileName} (mode: ${mode})`);
 
+    // EMFILE FIX: Disable disk persistence in parallel backtest (prevents too many open files on Windows)
+    const skipDiskSave = process.env.BACKTEST_NO_PATTERN_SAVE === 'true';
+
     this.options = {
       memoryFile: path.join(process.cwd(), 'data', memoryFileName),
-      persistToDisk: true,
+      persistToDisk: !skipDiskSave,
       maxPatterns: 10000,
       featureWeights: [
         0.25,  // RSI - 25% weight
