@@ -503,6 +503,66 @@ class GeminiAdapter extends IBrokerAdapter {
 
     return pairs[upper] || upper;
   }
+
+  // =========================================================================
+  // BROKER CAPABILITIES (Gemini-specific overrides)
+  // =========================================================================
+
+  supportsFractionalShares() {
+    return true; // Crypto supports fractional
+  }
+
+  supportsExtendedHours() {
+    return true; // 24/7 crypto
+  }
+
+  supportsOptions() {
+    return false;
+  }
+
+  supportsShortSelling() {
+    return false; // Gemini is spot only
+  }
+
+  supportsMarketOrders() {
+    return true;
+  }
+
+  supportsLimitOrders() {
+    return true;
+  }
+
+  supportsStopOrders() {
+    return true;
+  }
+
+  supportsStopLimitOrders() {
+    return true;
+  }
+
+  supportsTrailingStopOrders() {
+    return false;
+  }
+
+  supportsStreamingQuotes() {
+    return true; // WebSocket API
+  }
+
+  supportsStreamingTrades() {
+    return true; // WebSocket API
+  }
+
+  supportsPaperTrading() {
+    return true; // Gemini has sandbox mode
+  }
+
+  supportsMarginTrading() {
+    return false; // Spot only
+  }
+
+  supportsCryptoTrading() {
+    return true;
+  }
 }
 
 module.exports = GeminiAdapter;
