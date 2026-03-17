@@ -320,6 +320,131 @@ class IBrokerAdapter extends EventEmitter {
     fromBrokerSymbol(brokerSymbol) {
         return brokerSymbol; // Default: no conversion
     }
+
+    // =========================================================================
+    // BROKER CAPABILITIES (Override in adapters to reflect actual support)
+    // =========================================================================
+
+    /**
+     * Get all broker capabilities at once
+     * @returns {Object} Capability flags
+     */
+    getCapabilities() {
+        return {
+            fractionalShares: this.supportsFractionalShares(),
+            extendedHours: this.supportsExtendedHours(),
+            options: this.supportsOptions(),
+            shortSelling: this.supportsShortSelling(),
+            marketOrders: this.supportsMarketOrders(),
+            limitOrders: this.supportsLimitOrders(),
+            stopOrders: this.supportsStopOrders(),
+            stopLimitOrders: this.supportsStopLimitOrders(),
+            trailingStopOrders: this.supportsTrailingStopOrders(),
+            streamingQuotes: this.supportsStreamingQuotes(),
+            streamingTrades: this.supportsStreamingTrades(),
+            paperTrading: this.supportsPaperTrading(),
+            marginTrading: this.supportsMarginTrading(),
+            cryptoTrading: this.supportsCryptoTrading(),
+        };
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports fractional share trading
+     */
+    supportsFractionalShares() {
+        return false; // Default: no fractional shares
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports extended hours (pre/after market)
+     */
+    supportsExtendedHours() {
+        return false; // Default: regular hours only
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports options trading
+     */
+    supportsOptions() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports short selling
+     */
+    supportsShortSelling() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports market orders
+     */
+    supportsMarketOrders() {
+        return true; // Most brokers support market orders
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports limit orders
+     */
+    supportsLimitOrders() {
+        return true; // Most brokers support limit orders
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports stop orders
+     */
+    supportsStopOrders() {
+        return true;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports stop-limit orders
+     */
+    supportsStopLimitOrders() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports trailing stop orders
+     */
+    supportsTrailingStopOrders() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports real-time streaming quotes
+     */
+    supportsStreamingQuotes() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports real-time streaming trades
+     */
+    supportsStreamingTrades() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker has paper trading / sandbox mode
+     */
+    supportsPaperTrading() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports margin trading
+     */
+    supportsMarginTrading() {
+        return false;
+    }
+
+    /**
+     * @returns {boolean} Whether broker supports crypto trading
+     */
+    supportsCryptoTrading() {
+        return false;
+    }
 }
 
 module.exports = IBrokerAdapter;

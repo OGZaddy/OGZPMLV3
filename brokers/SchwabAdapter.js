@@ -13,6 +13,7 @@
  */
 
 const IBrokerAdapter = require('./IBrokerAdapter');
+const { getInstance: getMarketCalendar } = require('../foundation/MarketCalendar');
 const axios = require('axios');
 const WebSocket = require('ws');
 const crypto = require('crypto');
@@ -493,21 +494,19 @@ class SchwabAdapter extends IBrokerAdapter {
     };
   }
 
-  isTradeableNow(symbol) {
-    const now = new Date();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const day = now.getDay();
+  isTradeableNow(symbol, session = 'regular') {
+    // Use MarketCalendar for proper holiday/session awareness
+    const calendar = getMarketCalendar();
+    return calendar.isOpen(new Date(), session);
+  }
 
-    // Market hours: 9:30 AM - 4:00 PM ET, Monday-Friday
-    // This is simplified - should check for holidays
-    if (day === 0 || day === 6) return false; // Weekend
-
-    const marketTime = hour * 60 + minute;
-    const marketOpen = 9 * 60 + 30;  // 9:30 AM
-    const marketClose = 16 * 60;     // 4:00 PM
-
-    return marketTime >= marketOpen && marketTime < marketClose;
+  /**
+   * Get detailed session info
+   * @returns {Object} Session details from MarketCalendar
+   */
+  getSessionInfo() {
+    const calendar = getMarketCalendar();
+    return calendar.getSessionInfo();
   }
 
   // SYMBOL NORMALIZATION
@@ -519,6 +518,66 @@ class SchwabAdapter extends IBrokerAdapter {
   fromBrokerSymbol(brokerSymbol) {
     // Schwab symbols are already in standard format
     return brokerSymbol;
+  }
+
+  // =========================================================================
+  // BROKER CAPABILITIES (Schwab-specific overrides)
+  // =========================================================================
+
+  supportsFractionalShares() {
+    return true; // Schwab supports fractional shares for most stocks/ETFs
+  }
+
+  supportsExtendedHours() {
+    return true; // Schwab supports pre-market (7AM-9:28AM ET) and after-hours (4:02PM-8PM ET)
+  }
+
+  supportsOptions() {
+    return true; // Schwab has full options support
+  }
+
+  supportsShortSelling() {
+    return true; // Available with margin account
+  }
+
+  supportsMarketOrders() {
+    return true;
+  }
+
+  supportsLimitOrders() {
+    return true;
+  }
+
+  supportsStopOrders() {
+    return true;
+  }
+
+  supportsStopLimitOrders() {
+    return true;
+  }
+
+  supportsTrailingStopOrders() {
+    return true; // Schwab supports trailing stops
+  }
+
+  supportsStreamingQuotes() {
+    return true; // Via WebSocket API
+  }
+
+  supportsStreamingTrades() {
+    return true; // Via WebSocket API
+  }
+
+  supportsPaperTrading() {
+    return false; // Schwab has no sandbox/paper trading API
+  }
+
+  supportsMarginTrading() {
+    return true; // With margin account approval
+  }
+
+  supportsCryptoTrading() {
+    return false; // Schwab does not offer crypto trading
   }
 }
 
