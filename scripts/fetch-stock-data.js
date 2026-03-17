@@ -1,144 +1,104 @@
 #!/usr/bin/env node
 /**
- * Fetch historical stock data from Polygon.io
- * Downloads 1-minute candles for SPY, QQQ, etc.
- * Outputs in same format as crypto backtester data
+ * Fetch historical stock data from Yahoo Finance
+ * Downloads 1-hour candles for 2 years (Yahoo max for intraday)
+ * No API key needed
  */
 
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const fs = require('fs');
 const path = require('path');
 
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
-if (!POLYGON_API_KEY) {
-  console.error('❌ POLYGON_API_KEY not set in .env');
-  process.exit(1);
-}
+const SYMBOLS = ['SPY', 'QQQ', 'TSLA'];
+const OUTPUT_DIR = path.join(__dirname, '../tuning');
 
-// Config
-const SYMBOLS = ['SPY', 'QQQ', 'IWM'];
-const TIMEFRAME = '1';  // 1 minute
-const TIMEFRAME_UNIT = 'minute';
+async function fetchYahoo(symbol, interval = '1h', range = '2y') {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
 
-// Polygon free tier: 5 calls/min, but paid tier is much higher
-const RATE_LIMIT_MS = 250;  // 4 calls/sec for paid tier
+  console.log(`📡 Fetching ${symbol} (${interval}, ${range})...`);
 
-async function fetchCandles(symbol, from, to) {
-  const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/${TIMEFRAME}/${TIMEFRAME_UNIT}/${from}/${to}?adjusted=true&sort=asc&limit=50000&apiKey=${POLYGON_API_KEY}`;
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+  });
 
-  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
   const data = await response.json();
 
-  if (data.status === 'ERROR') {
-    throw new Error(data.error || 'Unknown error');
+  if (data.chart.error) {
+    throw new Error(data.chart.error.description);
   }
 
-  return data.results || [];
-}
+  const result = data.chart.result[0];
+  const timestamps = result.timestamp;
+  const quote = result.indicators.quote[0];
 
-async function fetchAllData(symbol, startDate, endDate) {
-  console.log(`\n📊 Fetching ${symbol} from ${startDate} to ${endDate}...`);
-
-  const allCandles = [];
-  let currentStart = new Date(startDate);
-  const end = new Date(endDate);
-
-  // Fetch in 7-day chunks (Polygon limit per request)
-  while (currentStart < end) {
-    const chunkEnd = new Date(currentStart);
-    chunkEnd.setDate(chunkEnd.getDate() + 7);
-    if (chunkEnd > end) chunkEnd.setTime(end.getTime());
-
-    const fromStr = currentStart.toISOString().split('T')[0];
-    const toStr = chunkEnd.toISOString().split('T')[0];
-
-    try {
-      const candles = await fetchCandles(symbol, fromStr, toStr);
-      allCandles.push(...candles);
-
-      process.stdout.write(`\r  ✅ ${fromStr} - ${toStr}: ${candles.length} candles (total: ${allCandles.length})`);
-
-      // Rate limit
-      await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
-    } catch (error) {
-      console.error(`\n  ❌ Error fetching ${fromStr}: ${error.message}`);
-    }
-
-    currentStart = new Date(chunkEnd);
-    currentStart.setDate(currentStart.getDate() + 1);
+  if (!timestamps || timestamps.length === 0) {
+    throw new Error('No data returned');
   }
 
-  console.log(`\n  📈 Total: ${allCandles.length} candles for ${symbol}`);
-  return allCandles;
-}
+  // Convert to our backtest format: {t, o, h, l, c, v}
+  const candles = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    if (quote.open[i] === null || quote.close[i] === null) continue;
 
-function convertToBacktestFormat(candles, symbol) {
-  // Convert Polygon format to our backtest format
-  // Polygon: { v, vw, o, c, h, l, t, n }
-  // Our format: { t, o, h, l, c, v }
-  return candles.map(c => ({
-    t: c.t,           // Unix timestamp (ms)
-    o: c.o,           // Open
-    h: c.h,           // High
-    l: c.l,           // Low
-    c: c.c,           // Close
-    v: c.v,           // Volume
-    symbol: symbol    // Add symbol for multi-asset support
-  }));
+    candles.push({
+      t: timestamps[i] * 1000,
+      o: quote.open[i],
+      h: quote.high[i],
+      l: quote.low[i],
+      c: quote.close[i],
+      v: quote.volume[i] || 0
+    });
+  }
+
+  return candles;
 }
 
 async function main() {
-  console.log('🚀 Stock Data Fetcher');
-  console.log('=====================');
+  console.log('🚀 Yahoo Finance Stock Data Fetcher');
+  console.log('====================================');
   console.log(`Symbols: ${SYMBOLS.join(', ')}`);
-  console.log(`Timeframe: ${TIMEFRAME}${TIMEFRAME_UNIT}`);
+  console.log(`Interval: 1h, Range: 2 years (Yahoo max for hourly)`);
+  console.log(`Output: ${OUTPUT_DIR}\n`);
 
-  // Fetch 2 years of data
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setFullYear(startDate.getFullYear() - 2);
-
-  console.log(`Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
-
-  const outputDir = path.join(__dirname, '../tuning');
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  }
 
   for (const symbol of SYMBOLS) {
     try {
-      const rawCandles = await fetchAllData(symbol, startDate, endDate);
+      const candles = await fetchYahoo(symbol, '1h', '2y');
 
-      if (rawCandles.length === 0) {
+      if (candles.length === 0) {
         console.log(`⚠️ No data for ${symbol}`);
         continue;
       }
 
-      const candles = convertToBacktestFormat(rawCandles, symbol);
+      const filename = `${symbol.toLowerCase()}-1h-2y.json`;
+      const filepath = path.join(OUTPUT_DIR, filename);
 
-      // Save to file
-      const filename = `${symbol.toLowerCase()}-2yr-1m.json`;
-      const filepath = path.join(outputDir, filename);
+      fs.writeFileSync(filepath, JSON.stringify(candles));
 
-      fs.writeFileSync(filepath, JSON.stringify(candles, null, 2));
-      console.log(`💾 Saved: ${filepath} (${candles.length} candles)`);
+      const firstDate = new Date(candles[0].t).toISOString().split('T')[0];
+      const lastDate = new Date(candles[candles.length - 1].t).toISOString().split('T')[0];
+      const priceChange = ((candles[candles.length - 1].c / candles[0].o - 1) * 100).toFixed(2);
 
-      // Also save stats
-      const stats = {
-        symbol,
-        candles: candles.length,
-        startDate: new Date(candles[0].t).toISOString(),
-        endDate: new Date(candles[candles.length - 1].t).toISOString(),
-        tradingDays: Math.ceil(candles.length / 390),  // ~390 1m candles per trading day
-        firstPrice: candles[0].o,
-        lastPrice: candles[candles.length - 1].c,
-        priceChange: ((candles[candles.length - 1].c / candles[0].o - 1) * 100).toFixed(2) + '%'
-      };
-      console.log(`📊 ${symbol} Stats:`, stats);
+      console.log(`✅ ${symbol}: ${candles.length} candles (${firstDate} to ${lastDate})`);
+      console.log(`   📈 $${candles[0].o.toFixed(2)} → $${candles[candles.length - 1].c.toFixed(2)} (${priceChange}%)`);
+      console.log(`   💾 ${filepath}\n`);
+
+      await new Promise(r => setTimeout(r, 1000));
 
     } catch (error) {
-      console.error(`❌ Failed to fetch ${symbol}:`, error.message);
+      console.error(`❌ Failed ${symbol}: ${error.message}\n`);
     }
   }
 
-  console.log('\n✅ Done!');
+  console.log('Done!');
 }
 
 main().catch(console.error);
