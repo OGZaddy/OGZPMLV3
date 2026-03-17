@@ -322,7 +322,8 @@ class CandleProcessor {
     };
 
     // CHANGE 663: Broadcast market data to dashboard
-    if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs) {
+    // BACKTEST_FAST: Skip dashboard broadcast entirely
+    if (process.env.BACKTEST_FAST !== 'true' && this.ctx.dashboardWsConnected && this.ctx.dashboardWs) {
       try {
         // CHANGE 2025-12-23: Use IndicatorEngine render packet for dashboard
         const renderPacket = this.ctx.indicatorEngine.getRenderPacket({ maxPoints: 200 });

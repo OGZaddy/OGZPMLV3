@@ -105,7 +105,10 @@ class TradingLoop {
         }
 
         // FIX 2026-02-19: Re-enable entry recording with pnl: null (observation-only mode)
-        if (this.ctx.config.tradingMode !== 'TEST' && process.env.TEST_MODE !== 'true') {
+        // BACKTEST_FAST: Skip observation patterns (not trade outcomes)
+        if (process.env.BACKTEST_FAST !== 'true' &&
+            this.ctx.config.tradingMode !== 'TEST' &&
+            process.env.TEST_MODE !== 'true') {
           this.ctx.patternChecker.recordPatternResult(featuresForRecording, {
             pnl: null,  // null = observation only
             timestamp: Date.now(),
@@ -113,22 +116,25 @@ class TradingLoop {
           });
         }
 
-        // TELEMETRY: Log pattern detection event
-        telemetry.event('pattern_detected', {
-          signature,
-          confidence: pattern.confidence,
-          isNew: pattern.isNew,
-          price: this.ctx.marketData.price
+        // TELEMETRY: Skip in BACKTEST_FAST
+        if (process.env.BACKTEST_FAST !== 'true') {
+          telemetry.event('pattern_detected', {
+            signature,
+            confidence: pattern.confidence,
+            isNew: pattern.isNew,
+            price: this.ctx.marketData.price
+          });
+        }
+      });
+
+      // TELEMETRY: Skip in BACKTEST_FAST
+      if (process.env.BACKTEST_FAST !== 'true') {
+        telemetry.event('pattern_recorded', {
+          count: patterns.length,
+          memorySize: this.ctx.patternChecker.getMemorySize ? this.ctx.patternChecker.getMemorySize() : 0
         });
-      });
-
-      // TELEMETRY: Log batch recording
-      telemetry.event('pattern_recorded', {
-        count: patterns.length,
-        memorySize: this.ctx.patternChecker.getMemorySize ? this.ctx.patternChecker.getMemorySize() : 0
-      });
-
-      console.log(`📊 Recorded ${patterns.length} patterns for learning`);
+        console.log(`📊 Recorded ${patterns.length} patterns for learning`);
+      }
     }
 
     // Update OGZ Two-Pole Oscillator with latest candle
@@ -361,10 +367,14 @@ class TradingLoop {
     const minConfidence = this.ctx.config.minTradeConfidence * 100;
     let decision = { action: 'HOLD', confidence: orchResult.confidence };
 
-    // Check for SELL first (exit existing position)
-    if (pos > 0) {
-      const allTrades = stateManager.getAllTrades();
-      const activeTrade = allTrades.find(t => t.action === 'BUY');
+    // Multi-position support: check active trade count vs max
+    const allTrades = stateManager.getAllTrades();
+    const activeTrades = allTrades.filter(t => t.action === 'BUY');
+    const maxPositions = TradingConfig.get('positionSizing.maxPositions') || 3;
+
+    // Check for SELL first (exit existing positions)
+    if (activeTrades.length > 0) {
+      const activeTrade = activeTrades[0]; // Check oldest position
 
       if (activeTrade) {
         // Update max profit for trailing stop calculation
@@ -423,7 +433,12 @@ class TradingLoop {
           };
         }
       }
-    } else if (tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
+    }
+
+    // BUY: Allow new positions if under max limit (multi-position support)
+    // FIX 2026-03-13: Changed from else-if to separate if, allowing buys with active trades
+    if (decision.action === 'HOLD' && activeTrades.length < maxPositions &&
+        tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
       // FIX 2026-03-06: ENFORCE MAX_DRAWDOWN + MAX_DAILY_LOSS via RiskManager
       // These flags were loaded but never checked - wiring them now
       if (this.ctx.riskManager) {

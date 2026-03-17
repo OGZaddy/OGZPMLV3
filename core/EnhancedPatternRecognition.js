@@ -1192,7 +1192,10 @@ class EnhancedPatternChecker {
     // PatternMemorySystem already has 5-minute periodic saves (line 234-236)
     // Calling saveToDisk on every recordPatternResult caused massive I/O spam
     // DEBUG 2026-02-02: Confirm pattern was recorded
-    console.log(`âœ… Pattern RECORDED: features[${featuresOrSignature.length}], pnl=${result?.pnl?.toFixed(2) || '?'}%, total=${this.stats.tradeResults}`);
+    // BACKTEST_FAST: Skip verbose logging
+    if (process.env.BACKTEST_FAST !== 'true') {
+      console.log(`✅ Pattern RECORDED: features[${featuresOrSignature.length}], pnl=${result?.pnl?.toFixed(2) || '?'}%, total=${this.stats.tradeResults}`);
+    }
     return true;
   }
 
