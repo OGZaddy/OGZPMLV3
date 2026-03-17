@@ -38,7 +38,7 @@ const BASE_CONFIG = {
   // CONFIDENCE THRESHOLDS
   // =========================================================================
   confidence: {
-    minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.50),      // 50% - Validated production config (March 3rd)
+    minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.01),      // 1% default - allows env var overrides to work
     maxConfidence: env('MAX_CONFIDENCE', 0.95),                  // 95% - cap (nothing is 100%)
     minStrategyConfidence: env('MIN_STRATEGY_CONFIDENCE', 0.35), // 35% - per individual strategy
     // REMOVED 2026-03-10 (dead config - nothing reads these):
@@ -129,43 +129,43 @@ const BASE_CONFIG = {
   // All strategies: SL -2.0%, TP 2.5%
   exitContracts: {
     EMASMACrossover: {
-      stopLossPercent: -2.0,
-      takeProfitPercent: 2.5,
-      trailingStopPercent: 0.8,
-      trailingActivation: 1.0,
-      maxHoldTimeMinutes: 300,
+      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
+      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
+      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.8),
+      trailingActivation: env('TRAILING_ACTIVATION', 1.0),
+      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 300),
       invalidationConditions: ['ema_cross_reversal'],
     },
     LiquiditySweep: {
-      stopLossPercent: -2.0,
-      takeProfitPercent: 2.5,
-      trailingStopPercent: 0.5,
-      trailingActivation: 0.7,
-      maxHoldTimeMinutes: 180,
+      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
+      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
+      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.5),
+      trailingActivation: env('TRAILING_ACTIVATION', 0.7),
+      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 180),
       invalidationConditions: ['liquidity_absorbed'],
     },
     RSI: {
-      stopLossPercent: -2.0,
-      takeProfitPercent: 2.5,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
+      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
+      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
+      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.6),
+      trailingActivation: env('TRAILING_ACTIVATION', 0.8),
+      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 240),
       invalidationConditions: [],
     },
     MADynamicSR: {
-      stopLossPercent: -2.0,
-      takeProfitPercent: 2.5,
-      trailingStopPercent: 0.5,
-      trailingActivation: 0.7,
-      maxHoldTimeMinutes: 180,
+      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
+      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
+      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.5),
+      trailingActivation: env('TRAILING_ACTIVATION', 0.7),
+      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 180),
       invalidationConditions: ['sr_break'],
     },
     CandlePattern: {
-      stopLossPercent: -2.0,
-      takeProfitPercent: 2.5,
-      trailingStopPercent: 0.5,
-      trailingActivation: 0.7,
-      maxHoldTimeMinutes: 150,
+      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
+      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
+      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.5),
+      trailingActivation: env('TRAILING_ACTIVATION', 0.7),
+      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 150),
       invalidationConditions: ['pattern_invalidated'],
     },
     MarketRegime: {

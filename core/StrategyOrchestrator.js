@@ -38,7 +38,7 @@ class StrategyOrchestrator {
     // Minimum confidence a single strategy needs to fire a trade
     // This is PER-STRATEGY, not aggregate — much more meaningful
     // TUNE 2026-02-27: Raised from 0.25 to filter garbage signals
-    this.minStrategyConfidence = config.minStrategyConfidence ?? 0.01;  // RSI backtest: remove gate
+    this.minStrategyConfidence = TradingConfig.get('confidence.minStrategyConfidence') ?? 0.01;
 
     // Minimum confluence signals to allow entry (default: 1 = winner alone is enough)
     this.minConfluenceCount = config.minConfluenceCount ?? 1;

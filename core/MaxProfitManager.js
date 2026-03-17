@@ -101,15 +101,14 @@ class MaxProfitManager {
       // TIERED EXIT STRATEGY
       // --------------------------------------------------------------------
       enableTieredExit: true,         // Enable multi-tier profit taking
-      // FIX 2026-03-16: Validated production config from tuning-summary.json (March 3rd)
-      // Tested across 3 datasets - whole years of unseen data
-      firstTierTarget: 0.007,          // 0.7% profit
+      // FIX 2026-03-17: Read from TradingConfig for backtester env var support
+      firstTierTarget: TradingConfig.get('exits.profitTiers.tier1') || 0.007,
       firstTierExit: 0.30,            // Exit 30% to lock in profit
-      secondTierTarget: 0.010,         // 1.0% profit
+      secondTierTarget: TradingConfig.get('exits.profitTiers.tier2') || 0.010,
       secondTierExit: 0.30,           // Exit another 30%
-      thirdTierTarget: 0.015,          // 1.5% profit
+      thirdTierTarget: TradingConfig.get('exits.profitTiers.tier3') || 0.015,
       thirdTierExit: 0.20,            // Exit 20%
-      finalTarget: 0.025,              // 2.5% - let final 20% ride
+      finalTarget: TradingConfig.get('exits.profitTiers.final') || 0.025,
       
       // --------------------------------------------------------------------
       // TRAILING STOP MANAGEMENT
