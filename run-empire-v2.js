@@ -111,13 +111,14 @@ require('./instrument.js');
  * @date 2025-11-20
  */
 
-// CRITICAL: Load environment variables FIRST before any module loads
-// Support DOTENV_CONFIG_PATH for parallel instance testing
-const envPath = process.env.DOTENV_CONFIG_PATH || '.env';
-require('dotenv').config({ path: envPath });
+// CRITICAL: ConfigLoader - Single source of truth for ALL configuration
+// Loads .env, validates, freezes, and tracks sources
+const { load: loadConfig } = require('./foundation/ConfigLoader');
+const resolvedConfig = loadConfig();
+const envPath = resolvedConfig.config.paths.envFile;
 
 // SAFETY INVARIANT: TEST_MODE or gates requires DATA_DIR to prevent data collision
-if (process.env.TEST_MODE === 'true' && !process.env.DATA_DIR) {
+if (resolvedConfig.config.mode.testMode && !resolvedConfig.config.paths.dataDir) {
   console.error('âŒ FATAL: TEST_MODE=true requires DATA_DIR to be set');
   console.error('   This prevents accidental writes to production data.');
   console.error('   Set DATA_DIR=/path/to/test/data in your .env file.');
@@ -125,11 +126,12 @@ if (process.env.TEST_MODE === 'true' && !process.env.DATA_DIR) {
 }
 
 // Log resolved paths for debugging
-console.log('[CHECKPOINT-001] Environment loaded');
+console.log('[CHECKPOINT-001] Environment loaded via ConfigLoader');
+console.log(`   Fingerprint: ${resolvedConfig.fingerprint}`);
 console.log(`   ENV_FILE: ${envPath}`);
-console.log(`   DATA_DIR: ${process.env.DATA_DIR || '(default: ./data)'}`);
-console.log(`   PAPER_TRADING: ${process.env.PAPER_TRADING}`);
-console.log(`   TEST_MODE: ${process.env.TEST_MODE || 'false'}`);
+console.log(`   DATA_DIR: ${resolvedConfig.config.paths.dataDir || '(default: ./data)'}`);
+console.log(`   PAPER_TRADING: ${resolvedConfig.config.mode.paperTrading}`);
+console.log(`   TEST_MODE: ${resolvedConfig.config.mode.testMode || false}`);
 
 // Load feature flags configuration via unified FeatureFlagManager
 const FeatureFlagManager = require('./core/FeatureFlagManager');
