@@ -22,7 +22,7 @@ const TradingConfig = require('./TradingConfig');
 // Phase 10: Delegate to individual exit checkers
 const StopLossChecker = require('./exit/StopLossChecker');
 const TakeProfitChecker = require('./exit/TakeProfitChecker');
-const TrailingStopChecker = require('./exit/TrailingStopChecker');
+const DynamicTrailingStop = require('./exit/DynamicTrailingStop');
 const MaxHoldChecker = require('./exit/MaxHoldChecker');
 // Phase 11: Break-even state machine (single source of truth)
 const BreakEvenManager = require('./exit/BreakEvenManager');
@@ -43,7 +43,7 @@ class ExitContractManager {
     // Phase 10: Delegate to individual checkers
     this.stopLossChecker = new StopLossChecker(this.universalLimits);
     this.takeProfitChecker = new TakeProfitChecker();
-    this.trailingStopChecker = new TrailingStopChecker();
+    this.trailingStopChecker = new DynamicTrailingStop();
     this.maxHoldChecker = new MaxHoldChecker(this.universalLimits);
     // Phase 11: Break-even state machine (for external access/dashboard)
     this.breakEvenManager = new BreakEvenManager();
@@ -122,8 +122,14 @@ class ExitContractManager {
     const tpResult = this.takeProfitChecker.check(trade, pnlPercent);
     if (tpResult.shouldExit) return tpResult;
 
-    // 3. Trailing stop
-    const tsResult = this.trailingStopChecker.check(trade, pnlPercent);
+    // 3. Dynamic trailing stop (passes market context for ATR/trend-aware trailing)
+    const tsResult = this.trailingStopChecker.check(trade, pnlPercent, {
+      atr: context.indicators?.atr || 0,
+      price: currentPrice,
+      trend: context.indicators?.trend || context.indicators?.regime || 'sideways',
+      rsi: context.indicators?.rsi || 50,
+      nearestStructure: context.indicators?.nearestStructure || null
+    });
     if (tsResult.shouldExit) return tsResult;
 
     // 4. Max hold time
