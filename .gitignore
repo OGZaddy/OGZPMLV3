@@ -139,3 +139,4 @@ trai_brain/trai_journal.jsonl
 pr5-broker-refactor.txt
 test/btc-10k.json
 ogz-meta/prodlock-portable
+# SonarQube - uncomment if you put token in properties file\n# sonar-project.properties
