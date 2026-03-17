@@ -1,68 +1,111 @@
 #!/usr/bin/env node
 /**
- * Fetch historical stock data from Yahoo Finance
- * Downloads 1-hour candles for 2 years (Yahoo max for intraday)
- * No API key needed
+ * Fetch historical stock data from Alpaca
+ * Downloads 15-minute candles for 2 years
+ * Uses paper/sandbox API keys
  */
 
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const fs = require('fs');
 const path = require('path');
+
+const API_KEY = process.env.ALPACA_API_KEY;
+const API_SECRET = process.env.ALPACA_API_SECRET;
+
+if (!API_KEY || !API_SECRET) {
+  console.error('❌ ALPACA_API_KEY and ALPACA_API_SECRET required in .env');
+  process.exit(1);
+}
 
 const SYMBOLS = ['SPY', 'QQQ', 'TSLA'];
 const OUTPUT_DIR = path.join(__dirname, '../tuning');
 
-async function fetchYahoo(symbol, interval = '1h', range = '2y') {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
+// Alpaca Sandbox Data API (for sandbox/broker keys)
+const DATA_URL = 'https://data.sandbox.alpaca.markets/v2/stocks';
 
-  console.log(`📡 Fetching ${symbol} (${interval}, ${range})...`);
+async function fetchBars(symbol, start, end, timeframe = '15Min') {
+  const params = new URLSearchParams({
+    start: start,
+    end: end,
+    timeframe: timeframe,
+    limit: '10000',
+    adjustment: 'split'
+  });
+
+  const url = `${DATA_URL}/${symbol}/bars?${params}`;
 
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      'APCA-API-KEY-ID': API_KEY,
+      'APCA-API-SECRET-KEY': API_SECRET
     }
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
   }
 
   const data = await response.json();
+  return data.bars || [];
+}
 
-  if (data.chart.error) {
-    throw new Error(data.chart.error.description);
+async function fetchAllData(symbol, years = 2) {
+  console.log(`📡 Fetching ${symbol} (15m, ${years} years)...`);
+
+  const allBars = [];
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setFullYear(startDate.getFullYear() - years);
+
+  let currentStart = new Date(startDate);
+
+  // Fetch in monthly chunks
+  while (currentStart < endDate) {
+    const chunkEnd = new Date(currentStart);
+    chunkEnd.setMonth(chunkEnd.getMonth() + 1);
+    if (chunkEnd > endDate) chunkEnd.setTime(endDate.getTime());
+
+    const startStr = currentStart.toISOString();
+    const endStr = chunkEnd.toISOString();
+
+    try {
+      const bars = await fetchBars(symbol, startStr, endStr, '15Min');
+      allBars.push(...bars);
+
+      process.stdout.write(`\r   ${currentStart.toISOString().split('T')[0]} → ${chunkEnd.toISOString().split('T')[0]}: +${bars.length} (total: ${allBars.length})`);
+
+      // Rate limit
+      await new Promise(r => setTimeout(r, 200));
+    } catch (error) {
+      console.error(`\n   ❌ Error: ${error.message}`);
+    }
+
+    currentStart = new Date(chunkEnd);
   }
 
-  const result = data.chart.result[0];
-  const timestamps = result.timestamp;
-  const quote = result.indicators.quote[0];
+  console.log();
+  return allBars;
+}
 
-  if (!timestamps || timestamps.length === 0) {
-    throw new Error('No data returned');
-  }
-
-  // Convert to our backtest format: {t, o, h, l, c, v}
-  const candles = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    if (quote.open[i] === null || quote.close[i] === null) continue;
-
-    candles.push({
-      t: timestamps[i] * 1000,
-      o: quote.open[i],
-      h: quote.high[i],
-      l: quote.low[i],
-      c: quote.close[i],
-      v: quote.volume[i] || 0
-    });
-  }
-
-  return candles;
+function convertFormat(bars) {
+  // Alpaca: { t, o, h, l, c, v, n, vw }
+  // Our format: { t, o, h, l, c, v }
+  return bars.map(b => ({
+    t: new Date(b.t).getTime(),
+    o: b.o,
+    h: b.h,
+    l: b.l,
+    c: b.c,
+    v: b.v
+  }));
 }
 
 async function main() {
-  console.log('🚀 Yahoo Finance Stock Data Fetcher');
-  console.log('====================================');
+  console.log('🚀 Alpaca Stock Data Fetcher');
+  console.log('============================');
   console.log(`Symbols: ${SYMBOLS.join(', ')}`);
-  console.log(`Interval: 1h, Range: 2 years (Yahoo max for hourly)`);
+  console.log(`Interval: 15m, Range: 2 years`);
   console.log(`Output: ${OUTPUT_DIR}\n`);
 
   if (!fs.existsSync(OUTPUT_DIR)) {
@@ -71,14 +114,16 @@ async function main() {
 
   for (const symbol of SYMBOLS) {
     try {
-      const candles = await fetchYahoo(symbol, '1h', '2y');
+      const rawBars = await fetchAllData(symbol, 2);
 
-      if (candles.length === 0) {
-        console.log(`⚠️ No data for ${symbol}`);
+      if (rawBars.length === 0) {
+        console.log(`⚠️ No data for ${symbol}\n`);
         continue;
       }
 
-      const filename = `${symbol.toLowerCase()}-1h-2y.json`;
+      const candles = convertFormat(rawBars);
+
+      const filename = `${symbol.toLowerCase()}-15m-2y.json`;
       const filepath = path.join(OUTPUT_DIR, filename);
 
       fs.writeFileSync(filepath, JSON.stringify(candles));
@@ -90,8 +135,6 @@ async function main() {
       console.log(`✅ ${symbol}: ${candles.length} candles (${firstDate} to ${lastDate})`);
       console.log(`   📈 $${candles[0].o.toFixed(2)} → $${candles[candles.length - 1].c.toFixed(2)} (${priceChange}%)`);
       console.log(`   💾 ${filepath}\n`);
-
-      await new Promise(r => setTimeout(r, 1000));
 
     } catch (error) {
       console.error(`❌ Failed ${symbol}: ${error.message}\n`);
