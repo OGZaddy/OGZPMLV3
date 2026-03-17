@@ -2,21 +2,21 @@
 /**
  * OGZPrime PARALLEL BACKTESTER — REAL PIPELINE EDITION v2
  * ========================================================
- *
+ * 
  * Runs the ACTUAL trading pipeline via child processes with env var overrides.
  * Each worker = fresh node run-empire-v2.js with different config.
- *
+ * 
  * Fixes from v1:
  * - Timeout raised to 20 min
  * - BACKTEST_SILENT passes through summary lines for parsing
  * - EMFILE fix: skip pattern saving + CSV export in parallel mode
  * - Reads results from JSON report file as fallback
- *
+ * 
  * Usage:
  *   node tools/parallel-backtest.js --quick
  *   node tools/parallel-backtest.js --full
  *   node tools/parallel-backtest.js --boosters
- *
+ * 
  * @author Claude (Opus) for Trey / OGZPrime
  * @date 2026-03-16
  */
@@ -43,7 +43,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const RUNNER = path.join(PROJECT_ROOT, 'run-empire-v2.js');
 const DEFAULT_DATA = 'tuning/full-45k.json';
 const RESULTS_DIR = path.join(PROJECT_ROOT, 'backtest-results');
-const TIMEOUT_MS = 1200000; // 20 minutes per backtest
+const TIMEOUT_MS = 0; // No timeout - let it finish
 
 if (!fs.existsSync(RESULTS_DIR)) fs.mkdirSync(RESULTS_DIR, { recursive: true });
 
@@ -147,7 +147,7 @@ function runSingleBacktest(config, dataFile) {
     const uniqueId = `${config.name}-${Date.now()}-${Math.random().toString(36).substr(2,4)}`;
     const stateFile = path.join(PROJECT_ROOT, 'data', `state-parallel-${uniqueId}.json`);
     const reportTag = `parallel-${uniqueId}`;
-
+    
     const env = {
       ...process.env,
       EXECUTION_MODE: 'backtest',
@@ -164,6 +164,11 @@ function runSingleBacktest(config, dataFile) {
       // Skip pattern saving and CSV export to avoid EMFILE on Windows
       BACKTEST_NO_PATTERN_SAVE: 'true',
       SKIP_CSV_EXPORT: 'true',
+      // Disable dashboard WebSocket (no server on local PC = infinite reconnect loop)
+      ENABLE_DASHBOARD: 'false',
+      // Disable Sentry (hooks every async op = massive overhead on 45K candles)
+      SENTRY_DSN: '',
+      NODE_ENV: 'test',
       // Tag for finding the right report file
       BACKTEST_REPORT_TAG: reportTag,
       ...config.env,
@@ -177,22 +182,25 @@ function runSingleBacktest(config, dataFile) {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    // Timeout handler
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-      setTimeout(() => child.kill('SIGKILL'), 5000);
-    }, TIMEOUT_MS);
+    // Timeout handler (disabled when TIMEOUT_MS = 0)
+    let timer = null;
+    if (TIMEOUT_MS > 0) {
+      timer = setTimeout(() => {
+        child.kill('SIGTERM');
+        setTimeout(() => child.kill('SIGKILL'), 5000);
+      }, TIMEOUT_MS);
+    }
 
     child.stdout.on('data', (data) => { output += data.toString(); });
     child.stderr.on('data', (data) => { output += data.toString(); });
 
     child.on('close', (code) => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
+      
       // Try parsing from console output first
       let result = parseBacktestOutput(output, config.name);
-
+      
       // If console parsing failed, try reading the report JSON
       if (result.trades == null) {
         const reportResult = tryReadReport(PROJECT_ROOT, reportTag);
@@ -220,7 +228,7 @@ function runSingleBacktest(config, dataFile) {
     });
 
     child.on('error', (err) => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       resolve({
         name: config.name,
         config: config,
@@ -237,23 +245,23 @@ function tryReadReport(projectRoot, tag) {
       .filter(f => f.startsWith('backtest-report-') && f.endsWith('.json'))
       .map(f => ({ name: f, mtime: fs.statSync(path.join(projectRoot, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
-
+    
     if (reports.length === 0) return null;
 
     const reportPath = path.join(projectRoot, reports[0].name);
     const data = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-
+    
     // Clean up
     try { fs.unlinkSync(reportPath); } catch(e) {}
 
     const trades = data.trades || [];
     const summary = data.summary || {};
-
+    
     if (trades.length === 0 && !summary.finalBalance) return null;
 
     const winners = trades.filter(t => (t.netPnlDollars || t.pnl || 0) > 0);
     const totalFees = trades.reduce((s, t) => s + (t.feesDollars || 0), 0);
-    const netPnl = summary.finalBalance ? summary.finalBalance - 10000 :
+    const netPnl = summary.finalBalance ? summary.finalBalance - 10000 : 
                    trades.reduce((s, t) => s + (t.netPnlDollars || 0), 0);
 
     return {
@@ -283,7 +291,7 @@ function parseBacktestOutput(output, name) {
   const feesMatch = output.match(/Total Fees.*?:\s*\$?([\d,.]+)/);
   const drawdownMatch = output.match(/Max Drawdown:\s*([\d.]+)%/);
   const profitFactorMatch = output.match(/Profit Factor:\s*([\d.]+)/);
-
+  
   // Also try the console dump format (when EMFILE prevents file write)
   const consolePnlMatch = output.match(/Total P&L:\s*\$?([-\d,.]+)\s*\(([-\d,.]+)%\)/);
   const consoleBalMatch = output.match(/Final Balance:\s*\$?([\d,.]+)/);
@@ -291,7 +299,7 @@ function parseBacktestOutput(output, name) {
   result.finalBalance = balanceMatch ? parseFloat(balanceMatch[1].replace(',', '')) : null;
   result.trades = tradesMatch ? parseInt(tradesMatch[1]) : null;
   result.winRate = winRateMatch ? parseFloat(winRateMatch[1]) : null;
-  result.netPnl = pnlMatch ? parseFloat(pnlMatch[1].replace(',', '')) :
+  result.netPnl = pnlMatch ? parseFloat(pnlMatch[1].replace(',', '')) : 
                   (consolePnlMatch ? parseFloat(consolePnlMatch[1].replace(',', '')) : null);
   result.fees = feesMatch ? parseFloat(feesMatch[1].replace(',', '')) : null;
   result.maxDrawdown = drawdownMatch ? parseFloat(drawdownMatch[1]) : null;
@@ -315,7 +323,7 @@ async function runParallelSweep(configs, dataFile) {
   console.log(`  ${cpuModel} | ${threadCount} threads | ${MAX_WORKERS} workers`);
   console.log(`  ${configs.length} configurations to test`);
   console.log(`  Data: ${dataFile}`);
-  console.log(`  Timeout: ${TIMEOUT_MS/1000}s per worker`);
+  console.log(`  Timeout: None (runs until complete)`);
   console.log(`${'═'.repeat(70)}\n`);
 
   const results = [];
@@ -328,7 +336,7 @@ async function runParallelSweep(configs, dataFile) {
 
     console.log(`\n── Batch ${batchNum}/${totalBatches} (${batch.length} workers) ──`);
     batch.forEach(c => console.log(`  → ${c.name}`));
-    console.log(`  ⏳ Running... (up to ${TIMEOUT_MS/60000} min)`);
+    console.log(`  ⏳ Running... (no timeout, will finish when done)`);
 
     const batchResults = await Promise.all(
       batch.map(config => runSingleBacktest(config, dataFile))
@@ -337,7 +345,7 @@ async function runParallelSweep(configs, dataFile) {
     batchResults.forEach(r => {
       results.push(r);
       const status = r.error ? '❌' : (r.netPnl > 0 ? '🟢' : (r.netPnl != null ? '🔴' : '⚠️'));
-      const pnl = r.netPnl != null ? `${r.netPnl.toFixed(2)}` : 'PARSE FAIL';
+      const pnl = r.netPnl != null ? `$${r.netPnl.toFixed(2)}` : 'PARSE FAIL';
       const trades = r.trades || '?';
       const wr = r.winRate != null ? `${r.winRate.toFixed(1)}%` : '?';
       console.log(`  ${status} ${r.name.padEnd(25)} | P&L: ${pnl.padEnd(14)} | Trades: ${String(trades).padEnd(5)} | WR: ${wr.padEnd(7)} | ${r.elapsed}s`);
@@ -358,7 +366,7 @@ async function runParallelSweep(configs, dataFile) {
 
   ranked.forEach((r, i) => {
     const icon = i === 0 ? '👑' : (r.netPnl > 0 ? '🟢' : '🔴');
-    const pnl = `${r.netPnl.toFixed(2)}`;
+    const pnl = `$${r.netPnl.toFixed(2)}`;
     const trades = r.trades || '-';
     const wr = r.winRate != null ? `${r.winRate.toFixed(1)}%` : '-';
     const dd = r.maxDrawdown != null ? `${r.maxDrawdown.toFixed(1)}%` : '-';
@@ -392,7 +400,7 @@ async function runParallelSweep(configs, dataFile) {
 
   if (ranked[0]) {
     console.log(`\n👑 WINNER: ${ranked[0].name}`);
-    console.log(`   P&L: ${ranked[0].netPnl.toFixed(2)} | WR: ${ranked[0].winRate?.toFixed(1) || '?'}% | Trades: ${ranked[0].trades || '?'}`);
+    console.log(`   P&L: $${ranked[0].netPnl.toFixed(2)} | WR: ${ranked[0].winRate?.toFixed(1) || '?'}% | Trades: ${ranked[0].trades || '?'}`);
     if (ranked[0].config.env && Object.keys(ranked[0].config.env).length > 0) {
       console.log(`   Config: ${JSON.stringify(ranked[0].config.env)}`);
     }
