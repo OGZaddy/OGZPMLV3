@@ -21,7 +21,7 @@ class OandaAdapter extends IBrokerAdapter {
         this.config = config;
         this.apiKey = config.apiKey;
         this.accountId = config.accountId;
-        this.baseUrl = config.practice ? 'https://stream-fxpractice.oanda.com' : 'https://stream-fxpractice.oanda.com';
+        this.baseUrl = config.practice ? 'https://stream-fxpractice.oanda.com' : 'https://stream-fxtrade.oanda.com';
         this.apiUrl = config.practice ? 'https://api-fxpractice.oanda.com' : 'https://api-fxtrade.oanda.com';
         this.connected = false;
         this.ws = null;

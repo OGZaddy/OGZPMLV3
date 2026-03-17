@@ -87,7 +87,7 @@ function triage(issue, ragResults) {
  * Generate the forced eval table
  */
 function forcedEval(issue, triage, ragResults) {
-  const eval = {
+  const evalResult = {
     'RAG_RETRIEVAL': 'YES - Must retrieve architecture and past fixes',
     'FORENSICS': 'UNKNOWN',
     'FIXER': 'NO',
@@ -98,22 +98,22 @@ function forcedEval(issue, triage, ragResults) {
 
   // Determine what's needed based on triage
   if (triage.severity === 'CRITICAL' || triage.severity === 'HIGH') {
-    eval.FORENSICS = 'YES - Root cause analysis required';
+    evalResult.FORENSICS = 'YES - Root cause analysis required';
   }
 
   if (ragResults.ledger.length === 0) {
-    eval.FORENSICS = 'YES - No prior fixes found, need investigation';
+    evalResult.FORENSICS = 'YES - No prior fixes found, need investigation';
   } else if (ragResults.ledger[0]._score > 100) {
-    eval.FORENSICS = 'MAYBE - Similar issue found, may reuse fix';
+    evalResult.FORENSICS = 'MAYBE - Similar issue found, may reuse fix';
   }
 
-  return eval;
+  return evalResult;
 }
 
 /**
  * Generate mission plan
  */
-function generateMissionPlan(issue, triage, eval, context) {
+function generateMissionPlan(issue, triage, evalResult, context) {
   const plan = `
 # SUPPORT MISSION PLAN
 Generated: ${new Date().toISOString()}
@@ -129,7 +129,7 @@ ${issue}
 
 ## FORCED EVAL (COMMITMENT)
 \`\`\`
-${Object.entries(eval).map(([k,v]) => `${k}: ${v}`).join('\n')}
+${Object.entries(evalResult).map(([k,v]) => `${k}: ${v}`).join('\n')}
 \`\`\`
 
 ## SIMILAR PAST FIXES

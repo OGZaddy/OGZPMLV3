@@ -29,10 +29,8 @@ class SchwabAdapter extends IBrokerAdapter {
       ...config
     };
 
-    // API endpoints
-    this.baseUrl = this.config.sandbox
-      ? 'https://api.schwabapi.com/marketdata/v1'  // Sandbox doesn't exist, using prod
-      : 'https://api.schwabapi.com/marketdata/v1';
+    // API endpoints (no sandbox available)
+    this.baseUrl = 'https://api.schwabapi.com/marketdata/v1';
 
     this.tradingUrl = 'https://api.schwabapi.com/trader/v1';
 

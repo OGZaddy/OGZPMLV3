@@ -140,6 +140,7 @@ class TRAICore extends EventEmitter {
         if (isLoadingBrain) {
             console.log('⏳ Static brain is currently loading, waiting...');
             // Wait for the other load to complete
+            // Note: isLoadingBrain is set to false in finally block below (line ~185)
             while (isLoadingBrain) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }

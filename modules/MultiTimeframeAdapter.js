@@ -1,4 +1,5 @@
-const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require("../core/CandleHelper");
+'use strict';
+
 /**
  * MultiTimeframeAdapter.js — V2-Compatible Rebuild
  * =================================================
@@ -19,8 +20,6 @@ const { c: _c, o: _o, h: _h, l: _l, v: _v, t: _t } = require("../core/CandleHelp
  *   mtf.ingestCandle(candle);  // candle = { c, o, h, l, v, t }
  *   const confluence = mtf.getConfluenceScore();
  */
-
-'use strict';
 
 const EventEmitter = require('events');
 

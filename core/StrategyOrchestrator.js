@@ -189,31 +189,6 @@ class StrategyOrchestrator {
       name: 'BreakRetest',
       evaluate: (ctx) => {
         return null; // DISABLED - re-enable after tuning
-        const sig = ctx.extras?.breakRetestSignal;
-        if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
-        let conf = sig.confidence || 0;
-        if (conf < 0.10) return null;
-
-        // Fib level boost: break/retest at fib level = extra confluence
-        const fib = ctx.extras?.nearestFibLevel;
-        let fibBoost = '';
-        if (fib && fib.distance < 0.5) {
-          const boost = fib.isGoldenZone ? 0.12 : 0.08;
-          conf = Math.min(1.0, conf + boost);
-          fibBoost = ` @ Fib ${(fib.level * 100).toFixed(1)}%${fib.isGoldenZone ? ' GOLDEN' : ''}`;
-        }
-
-        return {
-          direction: sig.direction,
-          confidence: conf,
-          reason: sig.reason || `Break & Retest ${sig.direction}${fibBoost}`,
-          signalData: sig,
-          // FIX 2026-02-23: Use overrideLevels (orchestrator checks this field for structural stops)
-          overrideLevels: sig.stopLoss && sig.takeProfit ? {
-            stopLoss: sig.stopLoss,
-            takeProfit: sig.takeProfit
-          } : null
-        };
       }
     });
 
