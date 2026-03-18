@@ -55,7 +55,7 @@ class PersistentLLMClient {
             // Warm up the model with a quick inference
             console.log(`🔥 Warming up ${this.model} model...`);
             const warmupStart = Date.now();
-            await this.generateResponse('Hello', 10);
+            await this.generateResponse('Hello', 100);  // Reasoning models need room for <think> blocks
             const warmupTime = Date.now() - warmupStart;
             console.log(`✅ Model warm-up complete (${warmupTime}ms)`);
 

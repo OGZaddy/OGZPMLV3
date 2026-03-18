@@ -10,7 +10,7 @@ const IndicatorSnapshotSchema = z.object({
   timestamp: z.number(),
   indicators: z.object({
     // RSI
-    rsi: z.number().min(0).max(100),
+    rsi: z.number().min(0).max(100).nullable(),  // Null during warmup
     // Moving averages
     ema9: z.number(),
     ema20: z.number(),
