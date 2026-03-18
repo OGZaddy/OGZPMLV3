@@ -264,6 +264,11 @@ function validate(config) {
     errors.push(`initialBalance must be positive: ${config.backtest.initialBalance}`);
   }
 
+  // TEST_MODE requires DATA_DIR to prevent data collision
+  if (config.mode.testMode && !config.paths.dataDir) {
+    errors.push('TEST_MODE=true requires DATA_DIR to be set (prevents accidental writes to production data)');
+  }
+
   return { errors, warnings };
 }
 

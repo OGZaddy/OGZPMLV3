@@ -101,13 +101,6 @@ require('./instrument.js');
 // ConfigLoader already loaded at line 4 (before Sentry)
 const envPath = resolvedConfig.config.paths.envFile;
 
-// SAFETY INVARIANT: TEST_MODE or gates requires DATA_DIR to prevent data collision
-if (resolvedConfig.config.mode.testMode && !resolvedConfig.config.paths.dataDir) {
-  console.error('âŒ FATAL: TEST_MODE=true requires DATA_DIR to be set');
-  console.error('   This prevents accidental writes to production data.');
-  console.error('   Set DATA_DIR=/path/to/test/data in your .env file.');
-  process.exit(1);
-}
 
 // Log resolved paths for debugging
 console.log('[CHECKPOINT-001] Environment loaded via ConfigLoader');
