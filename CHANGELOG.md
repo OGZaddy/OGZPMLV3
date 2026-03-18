@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### UnifiedPatternMemory Integration (2026-03-18)
+
+**Session Focus:** Consolidate two separate pattern stores into single source of truth with DTW matching.
+
+#### Refactor: Single Pattern Store Architecture
+- **Files:** `core/UnifiedPatternMemory.js` (NEW), `core/EnhancedPatternRecognition.js`, `core/TRAIDecisionModule.js`, `core/trai_core.js`, `core/OrderExecutor.js`, `run-empire-v2.js`
+- **Problem:** Two separate pattern stores (PatternMemorySystem in EnhancedPatternRecognition + PatternMemoryStore for TRAI) causing data fragmentation
+- **Fix:** Created UnifiedPatternMemory singleton with DTW fuzzy matching. One store - pipeline writes, TRAI reads.
+- **Changes:**
+  - Created `core/UnifiedPatternMemory.js` - singleton with DTW matching, observe/outcome/promote/quarantine lifecycle
+  - Replaced PatternMemorySystem in EnhancedPatternRecognition with UnifiedPatternMemory.getInstance()
+  - Replaced traiCore.checkPatternMemory() with direct UnifiedPatternMemory.getConfidence() call
+  - Replaced PatternMemoryBank in trai_core.js with UnifiedPatternMemory
+  - Added recordOutcome call in OrderExecutor on trade close
+  - Deleted PatternMemoryStore.js (~350 lines), removed PatternMemorySystem class (~740 lines)
+- **Pattern Lifecycle:** observe → outcome (10+ trades) → promote (65%+ WR) or quarantine (<35% WR)
+- **Migration:** 4,276 patterns migrated from old format to unified-patterns.paper.json
+
+#### Fix: Ollama Model Persistence
+- **File:** `core/persistent_llm_client.js:89`
+- **Problem:** TRAI model unloaded from VRAM between 15-minute trade cycles (default 5m keepalive)
+- **Fix:** Added `keep_alive: '20m'` to Ollama generate requests
+- **Impact:** Model stays in VRAM indefinitely during trading
+
+---
+
 ### ConfigLoader Migration Phase 2 (2026-03-17)
 
 **Session Focus:** Migrate process.env reads to ConfigLoader injection pattern.

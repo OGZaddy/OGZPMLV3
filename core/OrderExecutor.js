@@ -16,6 +16,7 @@ const TradingConfig = require('./TradingConfig');
 const exitContractManager = require('./ExitContractManager');
 // Phase 4 REWRITE: FeatureFlagManager removed - AGGRESSIVE_LEARNING_MODE deleted
 const { TradingProofLogger } = require('../ogz-meta/claudito-logger');
+const { getInstance: getUnifiedPatternMemory } = require('./UnifiedPatternMemory');  // CHANGE 2026-03-18: Unified pattern store
 
 const stateManager = getStateManager();
 
@@ -560,6 +561,20 @@ class OrderExecutor {
                 console.log('🧪 TEST MODE: Would record P&L pattern but SKIPPING - pattern base protected');
               }
               console.log(`🧠 Pattern learning: ${patternName} → ${pnl.toFixed(2)}%`);
+
+              // CHANGE 2026-03-18: Direct call to UnifiedPatternMemory for explicit outcome recording
+              // This ensures the outcome is recorded with full metadata
+              try {
+                getUnifiedPatternMemory().recordOutcome(featuresForRecording, {
+                  pnl: pnl,
+                  pnlPercent: pnl,
+                  holdTimeMs: holdDuration,
+                  exitReason: completeTradeResult.exitReason || 'signal',
+                  strategy: buyTrade.entryStrategy || buyTrade.strategy || 'unknown',
+                });
+              } catch (err) {
+                console.warn(`⚠️ UnifiedPatternMemory.recordOutcome failed: ${err.message}`);
+              }
             }
 
             // FIX 2026-02-26: Run health check every 10 trade exits to detect broken pattern recording

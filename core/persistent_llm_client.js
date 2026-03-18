@@ -87,6 +87,7 @@ class PersistentLLMClient {
                 model: this.model,
                 prompt: prompt,
                 stream: false,
+                keep_alive: '20m',  // Keep model in VRAM between 15-min cycles
                 options: {
                     num_predict: maxTokens,
                     temperature: 0.6,  // Match Modelfile setting

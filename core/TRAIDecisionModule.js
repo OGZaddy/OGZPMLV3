@@ -24,6 +24,7 @@ const EventEmitter = require('events');
 const fs = require('fs');
 const path = require('path');
 const TradingConfig = require('./TradingConfig');  // CHANGE 2026-02-28: Centralized config
+const { getInstance: getUnifiedPatternMemory } = require('./UnifiedPatternMemory');  // CHANGE 2026-03-18: Unified pattern store
 
 // Version hash for telemetry
 const VERSION_HASH = 'v2.0.0-telem';
@@ -351,37 +352,43 @@ class TRAIDecisionModule extends EventEmitter {
     let confidence = 0;
     console.log(`[DEBUG] calculateConfidence called with signal.action: ${signal.action}, signal.confidence: ${signal.confidence}`);
 
-    // 🧠 PRIORITY 1: Check TRAI's learned pattern memory first
-    // If TRAI has learned about this pattern, use that knowledge
-    console.log('[TRAI-CALC-3] Checking traiCore');
-    if (this.traiCore) {
-      console.log('[TRAI-CALC-4] traiCore exists, creating marketData');
-      const marketData = {
-        indicators: context.indicators,
-        trend: context.trend,
-        volatility: context.volatility,
-        timestamp: new Date().toISOString()
-      };
+    // 🧠 PRIORITY 1: Check UnifiedPatternMemory for learned patterns
+    // CHANGE 2026-03-18: Direct call to UnifiedPatternMemory instead of traiCore
+    console.log('[TRAI-CALC-3] Checking UnifiedPatternMemory');
+    try {
+      // Extract features from context.indicators
+      const ind = context.indicators || {};
+      const features = [
+        (ind.rsi || 50) / 100,  // RSI normalized to 0-1
+        (ind.macd || 0) - (ind.macdSignal || ind.signal || 0),  // MACD delta
+        context.trend === 'uptrend' ? 1 : context.trend === 'downtrend' ? -1 : 0,  // Trend encoded
+        ind.bbWidth || 0.02,  // Bollinger width
+        context.volatility || 0.01,  // Volatility
+        0.5,  // Wick ratio (default - not available in indicators)
+        0,    // Price change (default)
+        0,    // Volume change (default)
+        0     // Last direction (default)
+      ];
 
-      console.log('[TRAI-CALC-5] Calling checkPatternMemory');
-      const learnedPattern = this.traiCore.checkPatternMemory(marketData);
-      console.log(`[TRAI-CALC-6] learnedPattern result: ${learnedPattern ? JSON.stringify(learnedPattern) : 'null'}`);
+      console.log('[TRAI-CALC-4] Extracted features, calling getConfidence');
+      const learnedPattern = getUnifiedPatternMemory().getConfidence(features);
+      console.log(`[TRAI-CALC-5] learnedPattern result: ${learnedPattern ? JSON.stringify(learnedPattern) : 'null'}`);
 
       if (learnedPattern) {
-        if (learnedPattern.source === 'learned_success') {
-          // TRAI knows this pattern works!
-          console.log(`[TRAI-CALC-7] LEARNED SUCCESS - confidence: ${learnedPattern.confidence}`);
-          console.log(`🧠 [TRAI Memory] Using learned pattern confidence: ${(learnedPattern.confidence * 100).toFixed(1)}%`);
+        if (learnedPattern.source === 'learned_success' || learnedPattern.source === 'dtw_success') {
+          // Pattern memory confirms this pattern works!
+          console.log(`[TRAI-CALC-6] LEARNED SUCCESS - confidence: ${learnedPattern.confidence}`);
+          console.log(`🧠 [Pattern Memory] Using learned pattern confidence: ${(learnedPattern.confidence * 100).toFixed(1)}%`);
           return learnedPattern.confidence;
-        } else if (learnedPattern.source === 'learned_failure') {
-          // TRAI knows to avoid this pattern
-          console.log('[TRAI-CALC-7] LEARNED FAILURE - returning 0');
-          console.log(`⚠️ [TRAI Memory] Avoiding failed pattern`);
+        } else if (learnedPattern.source === 'learned_failure' || learnedPattern.source === 'dtw_failure') {
+          // Pattern memory says avoid this pattern
+          console.log('[TRAI-CALC-6] LEARNED FAILURE - returning 0');
+          console.log(`⚠️ [Pattern Memory] Avoiding failed pattern`);
           return 0.0;
         }
       }
-    } else {
-      console.log('[TRAI-CALC-4] traiCore not available');
+    } catch (error) {
+      console.log(`[TRAI-CALC-4] Pattern memory check failed: ${error.message}`);
     }
 
     // Base confidence from signal strength (Change 586: Fix TRAI confidence for all signals)

@@ -173,7 +173,7 @@ const { RegimeDetector } = require('./core/RegimeDetector');
 
 // REFACTOR Phase 4: FeatureExtractor + PatternMemoryStore
 const FeatureExtractor = require('./core/FeatureExtractor');
-const PatternMemoryStore = require('./core/PatternMemoryStore');
+// CHANGE 2026-03-18: PatternMemoryStore deleted - replaced by UnifiedPatternMemory
 
 // REFACTOR Phase 5: OrderRouter for multi-broker order routing
 const OrderRouter = require('./core/OrderRouter');
@@ -320,8 +320,8 @@ const singletonLock = new OGZSingletonLock('ogz-prime-v14');
   // 1. CANDLE_SOURCE=file (no live exchange connection)
   // 2. EXECUTION_MODE=backtest (explicitly not trading)
   // This prevents $50 mistakes - BOTH gates required!
-  const isFileSource = process.env.CANDLE_SOURCE === 'file';
-  const isBacktestMode = process.env.EXECUTION_MODE === 'backtest' || process.env.BACKTEST_MODE === 'true';
+  const isFileSource = resolvedConfig.config.mode.candleSource === 'file';
+  const isBacktestMode = resolvedConfig.config.mode.execution === 'backtest' || resolvedConfig.config.mode.backtest;
   const skipLock = isFileSource && isBacktestMode;
 
   if (!skipLock) {
@@ -413,7 +413,7 @@ class OGZPrimeV14Bot {
     this.verifyTradingMode();
 
     // Tier configuration
-    this.tier = process.env.BOT_TIER || 'ml';
+    this.tier = resolvedConfig.config.misc.botTier;
     this.tierFlagManager = new TierFeatureFlags(this.tier);
     this.tierFlags = this.tierFlagManager.getTierSummary();
     console.log(`ðŸŽ¯ Tier: ${this.tier.toUpperCase()}`);
@@ -443,7 +443,7 @@ class OGZPrimeV14Bot {
     // AUTO-SWITCHING DISABLED - profiles are user-controlled only
     // Phase 2 REWRITE: TradingProfileManager, OptimizedTradingBrain, tradingOptimizations deleted
     // Profiles now in TradingConfig, orchestrator replaced brain, PatternStatsManager unused
-    const initialProfile = process.env.TRADING_PROFILE || 'balanced';
+    const initialProfile = resolvedConfig.config.misc.tradingProfile;
     console.log(`📊 Trading Profile: ${initialProfile.toUpperCase()} (from TradingConfig)`);
 
     // CHANGE 2026-02-21: Isolated strategy entry pipeline (replaces soupy pooled confidence)
@@ -504,7 +504,7 @@ class OGZPrimeV14Bot {
       minHoldTime: 2,
       staleTradeTime: 30
     });
-    this.tradeIntelligenceShadowMode = process.env.TRADE_INTELLIGENCE_SHADOW === 'true'; // ACTIVE by default
+    this.tradeIntelligenceShadowMode = resolvedConfig.config.misc.tradeIntelligenceShadow; // ACTIVE by default
     console.log(`ðŸ§  Trade Intelligence Engine: ${this.tradeIntelligenceShadowMode ? 'SHADOW MODE' : 'ACTIVE'}`);
 
     // CHANGE 2026-02-10: Modular Entry System (V2 format: c/o/h/l/v/t)
@@ -549,9 +549,9 @@ class OGZPrimeV14Bot {
 
     // CHANGE 2026-02-23: BacktestRecorder for proper trade tracking
     // FIX 2026-02-26: Use same INITIAL_BALANCE as StateManager (was hardcoded 25000 vs 10000 mismatch)
-    if (process.env.BACKTEST_MODE === 'true' || process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
+    if (resolvedConfig.config.mode.backtest || resolvedConfig.config.mode.execution === 'backtest' || resolvedConfig.config.mode.candleSource === 'file') {
       this.backtestRecorder = new BacktestRecorder({
-        startingBalance: parseFloat(process.env.INITIAL_BALANCE) || 10000
+        startingBalance: resolvedConfig.config.backtest.initialBalance
       });
     }
 
@@ -585,7 +585,7 @@ class OGZPrimeV14Bot {
     // EXIT_SYSTEM feature flag: Only ONE exit system active at a time
     // Options: maxprofit, intelligence, pattern, brain, legacy (all active)
     // Hard stop loss + stale trade exit + confidence crash ALWAYS run regardless
-    this.activeExitSystem = process.env.EXIT_SYSTEM || featureFlags.features?.EXIT_SYSTEM?.settings?.activeSystem || 'maxprofit';
+    this.activeExitSystem = resolvedConfig.config.exits.exitSystem || featureFlags.features?.EXIT_SYSTEM?.settings?.activeSystem || 'maxprofit';
     console.log(`ðŸšª Active Exit System: ${this.activeExitSystem.toUpperCase()} (set EXIT_SYSTEM env to change)`);
 
     // Phase 2 REWRITE: GridTradingStrategy deleted - different trading style, feature-flagged off
@@ -597,14 +597,14 @@ class OGZPrimeV14Bot {
     // ðŸ¤– TRAI DECISION MODULE (Change 574 - Opus Architecture + Codex Fix)
     // OPTIMIZECEPTION FIX: Skip TRAI initialization when disabled (4x faster backtests)
     // PIPELINE: Check both legacy env var AND new pipeline toggle
-    if (this.pipeline.enableTRAI !== false && process.env.ENABLE_TRAI !== 'false') {
+    if (this.pipeline.enableTRAI !== false && resolvedConfig.config.trai.enabled !== false) {
       this.trai = new TRAIDecisionModule({
-        mode: process.env.TRAI_MODE || 'advisory',  // Start conservative
-        confidenceWeight: parseFloat(process.env.TRAI_WEIGHT) || 0.2,  // 20% influence
-        enableVetoPower: process.env.TRAI_VETO === 'true',  // Disabled by default
-        maxRiskTolerance: parseFloat(process.env.TRAI_MAX_RISK) || 0.03,
-        minConfidenceOverride: parseFloat(process.env.TRAI_MIN_CONF) || 0.40,
-        maxConfidenceOverride: parseFloat(process.env.TRAI_MAX_CONF) || 0.95,
+        mode: resolvedConfig.config.trai.mode,  // Start conservative
+        confidenceWeight: resolvedConfig.config.trai.weight,  // 20% influence
+        enableVetoPower: resolvedConfig.config.trai.vetoPower,  // Disabled by default
+        maxRiskTolerance: resolvedConfig.config.trai.maxRisk,
+        minConfidenceOverride: resolvedConfig.config.trai.minConf,
+        maxConfidenceOverride: resolvedConfig.config.trai.maxConf,
         enableLLM: true  // Full AI reasoning enabled
       });
     } else {
@@ -627,8 +627,8 @@ class OGZPrimeV14Bot {
     // EMPIRE V2: Create Kraken adapter through BrokerFactory (SINGLE SOURCE OF TRUTH)
     // NO FALLBACK - if BrokerFactory fails, bot fails. No bypasses.
     this.kraken = createBrokerAdapter('kraken', {
-      apiKey: process.env.KRAKEN_API_KEY,
-      apiSecret: process.env.KRAKEN_API_SECRET
+      apiKey: resolvedConfig.config.broker.apiKey,
+      apiSecret: resolvedConfig.config.broker.apiSecret
     });
     console.log('ðŸ­ [EMPIRE V2] Created Kraken adapter via BrokerFactory');
     console.log('ðŸ” [DEBUG] Kraken adapter type:', this.kraken.constructor.name);
@@ -729,7 +729,7 @@ class OGZPrimeV14Bot {
     // CHANGE 2025-12-13: STEP 1 - SINGLE SOURCE OF TRUTH
     // stateManager.get('balance') REMOVED - use stateManager.get('balance') instead
     // this.activeTrades REMOVED - use stateManager.get('activeTrades') instead
-    const initialBalance = parseFloat(process.env.INITIAL_BALANCE) || 10000;
+    const initialBalance = resolvedConfig.config.backtest.initialBalance;
     this.startTime = Date.now();
     this.systemState = {
       currentBalance: initialBalance
@@ -779,12 +779,12 @@ class OGZPrimeV14Bot {
     // MODE DETECTION: Paper, Live, or Backtest (MUTUAL EXCLUSION)
     // PIPELINE: Use this.pipeline set earlier in constructor
 
-    // Support both legacy env vars AND new pipeline toggles
-    const enableLiveTrading = process.env.LIVE_TRADING === 'true' || this.pipeline.executionMode === 'live';
-    const enableBacktestMode = process.env.BACKTEST_MODE === 'true' ||
+    // Support both ConfigLoader values AND new pipeline toggles
+    const enableLiveTrading = resolvedConfig.config.mode.liveTrading || this.pipeline.executionMode === 'live';
+    const enableBacktestMode = resolvedConfig.config.mode.backtest ||
                                this.pipeline.candleSource === 'file' ||
                                this.pipeline.executionMode === 'backtest';
-    const enableTestMode = process.env.TEST_MODE === 'true';  // Signal testing without pattern corruption
+    const enableTestMode = resolvedConfig.config.mode.testMode;  // Signal testing without pattern corruption
 
     // Enforce mutual exclusion: Only ONE mode can be active
     if (enableLiveTrading && enableBacktestMode) {
@@ -807,7 +807,7 @@ class OGZPrimeV14Bot {
     this.config = {
       // CHANGE 2026-02-28: Use TradingConfig for minTradeConfidence
       minTradeConfidence: TradingConfig.get('confidence.minTradeConfidence'),
-      tradingPair: process.env.TRADING_PAIR || 'BTC-USD',
+      tradingPair: resolvedConfig.config.broker.tradingPair,
       enableShorts: TradingConfig.get('features.enableShorts'),
       enableLiveTrading,
       enableBacktestMode,
@@ -916,13 +916,16 @@ class OGZPrimeV14Bot {
    */
   validateEnvironment() {
     // Skip API key validation in backtest mode - not needed for historical data
-    if (process.env.BACKTEST_MODE === 'true' || process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
+    if (resolvedConfig.config.mode.backtest || resolvedConfig.config.mode.execution === 'backtest' || resolvedConfig.config.mode.candleSource === 'file') {
       console.log('⏭️ Skipping API key validation (BACKTEST_MODE)');
       return;
     }
 
-    const required = ['KRAKEN_API_KEY', 'KRAKEN_API_SECRET', 'POLYGON_API_KEY'];
-    const missing = required.filter(key => !process.env[key]);
+    // Check required API keys via ConfigLoader (empty string = missing)
+    const missing = [];
+    if (!resolvedConfig.config.broker.apiKey) missing.push('KRAKEN_API_KEY');
+    if (!resolvedConfig.config.broker.apiSecret) missing.push('KRAKEN_API_SECRET');
+    // Note: POLYGON_API_KEY needs to be added to ConfigLoader if still required
     if (missing.length > 0) {
       console.error('âŒ Missing environment variables:', missing);
       throw new Error(`Missing required environment: ${missing.join(', ')}`);
@@ -934,8 +937,8 @@ class OGZPrimeV14Bot {
    * Prevents accidental live trading activation
    */
   verifyTradingMode() {
-    const enableLive = process.env.LIVE_TRADING === 'true';
-    const confirmLive = process.env.CONFIRM_LIVE_TRADING === 'true';
+    const enableLive = resolvedConfig.config.mode.liveTrading;
+    const confirmLive = resolvedConfig.config.mode.confirmLiveTrading;
 
     // Check if attempting live mode
     if (enableLive) {
@@ -943,16 +946,15 @@ class OGZPrimeV14Bot {
         console.log('\n' + 'â•'.repeat(70));
         console.log('âš ï¸  TWO-KEY SAFETY CHECK FAILED');
         console.log('â•'.repeat(70));
-        console.log('You have set ENABLE_LIVE_TRADING=true');
+        console.log('You have set LIVE_TRADING=true');
         console.log('But CONFIRM_LIVE_TRADING is not set to true');
         console.log('\nTo enable LIVE trading, you must set BOTH:');
-        console.log('  ENABLE_LIVE_TRADING=true');
+        console.log('  LIVE_TRADING=true');
         console.log('  CONFIRM_LIVE_TRADING=true');
         console.log('\nðŸ›¡ï¸ Starting in PAPER TRADING mode for safety');
         console.log('â•'.repeat(70) + '\n');
 
-        // Force paper mode
-        process.env.ENABLE_LIVE_TRADING = 'false';
+        // Force paper mode (via instance flag, config is frozen)
         this.mode = 'PAPER';
       } else {
         // BOTH keys confirmed - show BIG warning
@@ -1030,7 +1032,7 @@ class OGZPrimeV14Bot {
    */
   saveCandleHistory() {
     // FIX 2026-02-19: Skip disk writes in backtest to prevent EMFILE (60k writes exhausts OS file handles)
-    if (process.env.BACKTEST_FAST === 'true' || process.env.BACKTEST_MODE === 'true') return;
+    if (resolvedConfig.config.backtest.fast || resolvedConfig.config.mode.backtest) return;
     const fs = require('fs');
     const path = require('path');
     const candleFile = path.join(__dirname, 'data', 'candle-history.json');
@@ -1114,8 +1116,8 @@ class OGZPrimeV14Bot {
 
     if (this.kraken) {
       // Start market data subscription immediately
-      const symbol = process.env.TRADING_PAIR || 'BTC/USD';
-      const timeframe = process.env.CANDLE_TIMEFRAME || '15m';
+      const symbol = resolvedConfig.config.broker.tradingPair;
+      const timeframe = resolvedConfig.config.broker.candleTimeframe;
 
       // Subscribe to candles if method exists
       if (this.kraken.subscribeToCandles) {
@@ -1246,7 +1248,7 @@ class OGZPrimeV14Bot {
       // CHANGE 2026-02-10: Use active asset from MultiAssetManager if available
       const symbol = this.assetManager
         ? this.assetManager.toSlashFormat(this.assetManager.activeAsset)
-        : (process.env.TRADING_PAIR || 'BTC/USD');
+        : resolvedConfig.config.broker.tradingPair;
       const candles = await this.kraken.getCandles(symbol, timeframe, limit);
 
       if (candles && candles.length > 0) {
@@ -1292,7 +1294,7 @@ class OGZPrimeV14Bot {
    * Main trading cycle - runs every 15 seconds
    */
   startTradingCycle() {
-    const interval = parseInt(process.env.TRADING_INTERVAL) || 15000;
+    const interval = resolvedConfig.config.broker.tradingInterval;
 
     this.tradingInterval = setInterval(async () => {
       // Reduced to 3 candles - fuck the over-engineering
@@ -1436,7 +1438,7 @@ class OGZPrimeV14Bot {
         const primaryPattern = patterns && patterns.length > 0 ? patterns[0] : null;
 
         // Phase 2 REWRITE: profileManager deleted - profiles now in TradingConfig
-        const activeProfile = process.env.TRADING_PROFILE || 'balanced';
+        const activeProfile = resolvedConfig.config.misc.tradingProfile;
 
         // CHANGE 2.0.12: Include pattern memory stats in dashboard
         const patternMemoryCount = this.patternChecker?.memory?.patternCount || 0;

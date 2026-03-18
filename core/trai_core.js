@@ -34,7 +34,7 @@
 const fs = require('fs');
 const path = require('path');
 const EventEmitter = require('events');
-const PatternMemoryBank = require('./PatternMemoryBank');
+const { getInstance: getUnifiedPatternMemory } = require('./UnifiedPatternMemory');  // CHANGE 2026-03-18: Unified pattern store
 const PersistentLLMClient = require('./persistent_llm_client');
 
 // SINGLETON: Static brain loaded only once to prevent memory leak
@@ -62,13 +62,11 @@ class TRAICore extends EventEmitter {
         this.conversationHistory = [];
         this.learningQueue = [];
 
-        // 🧠 PATTERN MEMORY BANK - TRAI learns from trading patterns over time
+        // 🧠 PATTERN MEMORY - Uses UnifiedPatternMemory singleton
+        // CHANGE 2026-03-18: Replaced PatternMemoryBank with UnifiedPatternMemory
+        // One store for pipeline writes + TRAI reads. DTW and exact matching available.
         this.patternMemory = this.config.enablePatternMemory
-            ? new PatternMemoryBank({
-                dbPath: path.join(this.config.staticBrainPath, 'learned_patterns.json'),
-                backupPath: path.join(this.config.staticBrainPath, 'learned_patterns.backup.json'),
-                featureFlags: this.config.featureFlags || {}
-              })
+            ? getUnifiedPatternMemory()
             : null;
 
         this.initialized = false;
@@ -971,7 +969,8 @@ Keep response under 200 words, be direct and technical.`;
 
     /**
      * Check if TRAI has learned about this trading pattern
-     * Returns confidence boost/penalty or null if unknown pattern
+     * CHANGE 2026-03-18: Thin pass-through to UnifiedPatternMemory
+     * Extracts features from marketData and calls getConfidence()
      */
     checkPatternMemory(marketData) {
         if (!this.patternMemory) {
@@ -979,8 +978,17 @@ Keep response under 200 words, be direct and technical.`;
         }
 
         try {
-            const learnedConfidence = this.patternMemory.getPatternConfidence(marketData);
-            return learnedConfidence;
+            // Extract features from marketData
+            const ind = marketData.indicators || {};
+            const features = [
+                (ind.rsi || 50) / 100,  // RSI normalized to 0-1
+                (ind.macd || 0) - (ind.macdSignal || ind.signal || 0),  // MACD delta
+                marketData.trend === 'uptrend' ? 1 : marketData.trend === 'downtrend' ? -1 : 0,
+                ind.bbWidth || 0.02,  // Bollinger width
+                marketData.volatility || 0.01,  // Volatility
+                0.5, 0, 0, 0  // Default values for missing features
+            ];
+            return this.patternMemory.getConfidence(features);
         } catch (error) {
             console.error('❌ [TRAI] Pattern memory check failed:', error.message);
             return null;
@@ -989,7 +997,7 @@ Keep response under 200 words, be direct and technical.`;
 
     /**
      * Record trade result for TRAI to learn from
-     * Call this when a trade closes (win or loss)
+     * CHANGE 2026-03-18: Uses UnifiedPatternMemory.recordOutcome()
      */
     recordTradeResult(trade) {
         if (!this.patternMemory) {
@@ -997,7 +1005,24 @@ Keep response under 200 words, be direct and technical.`;
         }
 
         try {
-            this.patternMemory.recordTradeOutcome(trade);
+            // Extract features from trade entry
+            const ind = trade.entry?.indicators || trade.indicators || {};
+            const features = [
+                (ind.rsi || 50) / 100,
+                (ind.macd || 0) - (ind.macdSignal || ind.signal || 0),
+                (trade.entry?.trend || trade.trend) === 'uptrend' ? 1 :
+                (trade.entry?.trend || trade.trend) === 'downtrend' ? -1 : 0,
+                ind.bbWidth || 0.02,
+                trade.entry?.volatility || trade.volatility || 0.01,
+                0.5, 0, 0, 0
+            ];
+            this.patternMemory.recordOutcome(features, {
+                pnl: trade.pnl || trade.pnlDollars || 0,
+                pnlPercent: trade.pnlPercent || 0,
+                holdTimeMs: trade.holdTimeMs || trade.holdTime || 0,
+                exitReason: trade.exitReason || trade.reason || 'unknown',
+                strategy: trade.strategy || 'unknown',
+            });
         } catch (error) {
             console.error('❌ [TRAI] Failed to record trade result:', error.message);
         }
@@ -1005,21 +1030,17 @@ Keep response under 200 words, be direct and technical.`;
 
     /**
      * Record news correlation for future sentiment analysis
+     * CHANGE 2026-03-18: News correlation removed from UnifiedPatternMemory
+     * This is now a no-op placeholder for future implementation
      */
     recordNewsImpact(keyword, priceImpact, timestamp) {
-        if (!this.patternMemory) {
-            return;
-        }
-
-        try {
-            this.patternMemory.recordNewsCorrelation(keyword, priceImpact, timestamp);
-        } catch (error) {
-            console.error('❌ [TRAI] Failed to record news impact:', error.message);
-        }
+        // News correlation tracking not implemented in UnifiedPatternMemory
+        // Could be added as a separate module if needed
     }
 
     /**
      * Get TRAI's learning statistics
+     * CHANGE 2026-03-18: Uses UnifiedPatternMemory.getStats()
      */
     getMemoryStats() {
         if (!this.patternMemory) {
