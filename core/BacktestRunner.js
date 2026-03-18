@@ -12,6 +12,7 @@
 'use strict';
 
 const { getInstance: getStateManager } = require('./StateManager');
+const { get: getConfigValue } = require('../foundation/ConfigLoader');
 const stateManager = getStateManager();
 
 class BacktestRunner {
@@ -38,13 +39,15 @@ class BacktestRunner {
     try {
       // Load historical candles - check for custom data file first (CHANGE 633)
       let dataPath;
-      if (process.env.CANDLE_DATA_FILE || process.env.CANDLE_FILE) {
+      const candleDataFile = getConfigValue('backtest.candleDataFile');
+      const candleFile = getConfigValue('backtest.candleFile');
+      if (candleDataFile || candleFile) {
         // Use custom candle data file (e.g., 5-second candles for optimization)
-        dataPath = process.env.CANDLE_DATA_FILE || process.env.CANDLE_FILE;
+        dataPath = candleDataFile || candleFile;
         console.log(`📂 Using custom data file: ${dataPath}`);
       } else {
         // Default behavior - CHANGE 633: Use 5-second candles for fast backtest
-        const dataFile = process.env.FAST_BACKTEST === 'true'
+        const dataFile = getConfigValue('backtest.fastBacktest')
           ? 'polygon-btc-5sec.json'  // 60k 5-second candles for rapid testing
           : 'polygon-btc-1y.json';    // 60k 1-minute candles for full validation
         console.log(`📂 Data file: data/${dataFile}`);
@@ -176,7 +179,7 @@ class BacktestRunner {
         trades: trades,
         config: {
           initialBalance: 10000,
-          tier: process.env.SUBSCRIPTION_TIER?.toUpperCase() || 'ML'
+          tier: (getConfigValue('misc.subscriptionTier') || 'ML').toUpperCase()
         },
         timestamp: new Date().toISOString()
       };
