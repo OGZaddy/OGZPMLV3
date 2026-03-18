@@ -19,10 +19,8 @@ const { TradingProofLogger } = require('../ogz-meta/claudito-logger');
 
 const stateManager = getStateManager();
 
-// BACKTEST_FAST: Skip notifications during backtest
-const BACKTEST_FAST = process.env.BACKTEST_FAST === 'true';
-const BACKTEST_MODE = process.env.BACKTEST_MODE === 'true';
-const PAPER_TRADING = process.env.PAPER_TRADING === 'true';
+// CHANGE 2026-03-17: Module-level constants removed, use ctx.backtestFast/backtestMode/paperTrading
+// These are now injected via constructor from ConfigLoader
 
 class OrderExecutor {
   constructor(ctx) {
@@ -111,9 +109,9 @@ class OrderExecutor {
 
       // Phase 4 REWRITE: executionLayer deleted - use orderRouter for live, simulate for backtest/paper
       let tradeResult;
-      if (BACKTEST_MODE || PAPER_TRADING) {
+      if (this.ctx.backtestMode || this.ctx.paperTrading) {
         // Backtest/Paper: Simulate trade execution
-        if (PAPER_TRADING) console.log('📝 PAPER MODE: Simulating order (no real execution)');
+        if (this.ctx.paperTrading) console.log('📝 PAPER MODE: Simulating order (no real execution)');
         tradeResult = {
           success: true,
           orderId: `SIM_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -281,8 +279,8 @@ class OrderExecutor {
           console.log(`💰 MaxProfitManager started - tracking 1-2% profit targets`);
 
           // CHANGE 2026-02-01: Send Telegram notification for trade
-          // BACKTEST_FAST: Skip notifications during backtest
-          if (!BACKTEST_FAST) {
+          // Skip notifications during fast backtest
+          if (!this.ctx.backtestFast) {
             this.ctx.notifyTrade({
               direction: 'BUY',
               asset: this.ctx.config.symbol || 'BTC',
@@ -454,7 +452,7 @@ class OrderExecutor {
 
             // CHANGE 2026-02-01: Send notifications for trade close with P&L
             // BACKTEST_FAST: Skip notifications during backtest
-            if (!BACKTEST_FAST) {
+            if (!this.ctx.backtestFast) {
               this.ctx.notifyTradeClose({
                 pnl: profitLoss,
                 entryPrice: buyTrade.entryPrice,
@@ -551,7 +549,7 @@ class OrderExecutor {
               }
 
               // SAFE TEST MODE CHECK - Never corrupt patterns in test
-              if (this.ctx.config.tradingMode !== 'TEST' && process.env.TEST_MODE !== 'true') {
+              if (this.ctx.config.tradingMode !== 'TEST' && !this.ctx.testMode) {
                 this.ctx.patternChecker.recordPatternResult(featuresForRecording, {
                   pnl: pnl,
                   holdDurationMs: holdDuration,  // Add temporal data

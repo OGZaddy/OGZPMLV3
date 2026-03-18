@@ -821,7 +821,12 @@ class OGZPrimeV14Bot {
       trai: this.trai,
       config: this.config,
       pendingTraiDecisions: this.pendingTraiDecisions,
-      tradingPair: this.tradingPair || process.env.TRADING_PAIR || 'BTC-USD',
+      tradingPair: this.tradingPair || resolvedConfig.config.broker.tradingPair || 'BTC-USD',
+      // CHANGE 2026-03-17: ConfigLoader injection (no more module-level process.env)
+      backtestFast: resolvedConfig.config.backtest.fast,
+      backtestMode: resolvedConfig.config.mode.backtest,
+      paperTrading: resolvedConfig.config.mode.paperTrading,
+      testMode: resolvedConfig.config.mode.testMode,
       // Phase 4 REWRITE: Standalone dependencies (was inside deleted modules)
       orderRouter: this.orderRouter,
       maxProfitManager: this.maxProfitManager,
