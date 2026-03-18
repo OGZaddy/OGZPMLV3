@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ConfigLoader Migration Phase 2 (2026-03-17)
+
+**Session Focus:** Migrate process.env reads to ConfigLoader injection pattern.
+
+#### Refactor: RiskManager ConfigLoader Migration
+- **Files:** `core/RiskManager.js:23,87,158`, `run-empire-v2.js:457-464`
+- **Problem:** RiskManager read `process.env.RISK_MANAGER_BYPASS` directly (2 locations)
+- **Fix:** Inject `riskManagerBypass` via constructor config from `resolvedConfig.config.risk.riskManagerBypass`
+- **Impact:** Runtime env reads: 76 → 74
+- **Pattern:** Constructor injection, no runtime process.env access
+
+---
+
 ### LiquiditySweep Config Sync (2026-03-10)
 
 **Session Focus:** Config key mismatch - TradingConfig sent `entryWindowBars` but detector reads `entryWindowMinutes`.

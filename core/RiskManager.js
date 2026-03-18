@@ -21,6 +21,7 @@ class RiskManager {
     this.config = {
       recoveryConfidenceMultiplier: config.recoveryConfidenceMultiplier ?? 1.5,
       baseConfidenceThreshold: config.baseConfidenceThreshold ?? 0.3,
+      riskManagerBypass: config.riskManagerBypass ?? true,
       alertThresholds: {
         drawdown: config.drawdownAlert ?? 5,
         dailyLoss: config.dailyLossAlert ?? 3,
@@ -83,8 +84,8 @@ class RiskManager {
    * @returns {Object} - { approved, reason, riskLevel, ... }
    */
   assessTradeRisk(tradeParams) {
-    // Bypass for backtest (controlled by env var for parallel backtester)
-    if (process.env.RISK_MANAGER_BYPASS !== 'false') return { approved: true, riskLevel: 'LOW' };
+    // Bypass for backtest (controlled by config injection)
+    if (this.config.riskManagerBypass) return { approved: true, riskLevel: 'LOW' };
     const { confidence = 0 } = tradeParams;
     const ddState = this.drawdownTracker.getState();
     const breaches = this.pnlTracker.getLimitBreaches();
@@ -154,8 +155,8 @@ class RiskManager {
    * @returns {{ allowed: boolean, reason?: string }}
    */
   isTradingAllowed() {
-    // Bypass for backtest (controlled by env var for parallel backtester)
-    if (process.env.RISK_MANAGER_BYPASS !== 'false') return { allowed: true };
+    // Bypass for backtest (controlled by config injection)
+    if (this.config.riskManagerBypass) return { allowed: true };
     if (this.drawdownTracker.isMaxDrawdownExceeded()) {
       return { allowed: false, reason: 'Max drawdown exceeded' };
     }

@@ -457,7 +457,9 @@ class OGZPrimeV14Bot {
     this.riskManager = new RiskManager({
       // CHANGE 2026-02-28: Use TradingConfig
       maxDailyLoss: TradingConfig.get('risk.maxDailyLoss'),
-      maxDrawdown: TradingConfig.get('risk.maxDrawdown')
+      maxDrawdown: TradingConfig.get('risk.maxDrawdown'),
+      // CHANGE 2026-03-17: Inject from ConfigLoader (no more process.env in RiskManager)
+      riskManagerBypass: resolvedConfig.config.risk.riskManagerBypass,
     });
 
     // Phase 3 REWRITE: EntryDecider deleted - decision logic inlined to TradingLoop
