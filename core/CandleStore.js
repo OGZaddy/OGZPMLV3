@@ -254,6 +254,49 @@ class CandleStore {
     store.addCandles(symbol, timeframe, candles);
     return store;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PERSISTENCE (load/save to disk)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Load candle history from disk
+   * Filters out candles older than maxAge (default 4 hours)
+   */
+  loadFromDisk(filePath, symbol, timeframe, maxAgeMs = 4 * 60 * 60 * 1000) {
+    const fs = require('fs');
+    try {
+      if (!fs.existsSync(filePath)) {
+        console.log('[CandleStore] No saved history found - starting fresh');
+        return 0;
+      }
+      const saved = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (!Array.isArray(saved) || saved.length === 0) return 0;
+
+      const cutoff = Date.now() - maxAgeMs;
+      const fresh = saved.filter(c => _t(c) > cutoff);
+      this.addCandles(symbol, timeframe, fresh);
+      console.log(`[CandleStore] Loaded ${fresh.length} candles (filtered from ${saved.length})`);
+      return fresh.length;
+    } catch (error) {
+      console.error('[CandleStore] Failed to load:', error.message);
+      return 0;
+    }
+  }
+
+  /**
+   * Save candle history to disk
+   * Saves the most recent N candles (default 200)
+   */
+  saveToDisk(filePath, symbol, timeframe, maxCandles = 200) {
+    const fs = require('fs');
+    try {
+      const candles = this.getCandles(symbol, timeframe, maxCandles);
+      fs.writeFileSync(filePath, JSON.stringify(candles));
+    } catch (error) {
+      console.error('[CandleStore] Failed to save:', error.message);
+    }
+  }
 }
 
 module.exports = { CandleStore };

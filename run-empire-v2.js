@@ -979,51 +979,30 @@ class OGZPrimeV14Bot {
   }
 
   /**
-   * CHANGE 2026-01-28: Load candle history from disk on startup
-   * Prevents fat bars on dashboard after restart
+   * Load candle history from disk on startup
+   * Delegates to CandleStore.loadFromDisk
    */
   loadCandleHistory() {
-    const fs = require('fs');
     const path = require('path');
     const candleFile = path.join(__dirname, 'data', 'candle-history.json');
-
-    try {
-      if (fs.existsSync(candleFile)) {
-        const saved = JSON.parse(fs.readFileSync(candleFile, 'utf8'));
-        if (Array.isArray(saved) && saved.length > 0) {
-          // Filter out candles older than 4 hours (stale data)
-          const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
-          this.priceHistory = saved.filter(c => c.t > fourHoursAgo);
-          console.log(`ðŸ“‚ Loaded ${this.priceHistory.length} candles from disk (filtered from ${saved.length})`);
-        }
-      } else {
-        console.log('ðŸ“‚ No saved candle history found - starting fresh');
-      }
-    } catch (error) {
-      console.error('âš ï¸ Failed to load candle history:', error.message);
-      this.priceHistory = [];
-    }
+    const symbol = resolvedConfig.config.broker.tradingPair || 'BTC-USD';
+    const count = this._candleStore.loadFromDisk(candleFile, symbol, '1m');
+    this.priceHistory = this._candleStore.getCandles(symbol, '1m');
+    if (count === 0) this.priceHistory = [];
   }
 
   /**
-   * CHANGE 2026-01-28: Save candle history to disk
-   * Called every 5 new candles to avoid disk thrashing
+   * Save candle history to disk
+   * Delegates to CandleStore.saveToDisk
    */
   saveCandleHistory() {
-    // FIX 2026-02-19: Skip disk writes in backtest to prevent EMFILE (60k writes exhausts OS file handles)
     if (resolvedConfig.config.backtest.fast || resolvedConfig.config.mode.backtest) return;
-    const fs = require('fs');
     const path = require('path');
     const candleFile = path.join(__dirname, 'data', 'candle-history.json');
-
-    try {
-      // Save last 200 candles
-      const toSave = this.priceHistory.slice(-200);
-      fs.writeFileSync(candleFile, JSON.stringify(toSave));
-      // Silent save - only log errors
-    } catch (error) {
-      console.error('âš ï¸ Failed to save candle history:', error.message);
-    }
+    const symbol = resolvedConfig.config.broker.tradingPair || 'BTC-USD';
+    // Sync priceHistory to CandleStore before saving
+    this._candleStore.addCandles(symbol, '1m', this.priceHistory);
+    this._candleStore.saveToDisk(candleFile, symbol, '1m', 200);
   }
 
   /**
