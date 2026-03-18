@@ -69,6 +69,7 @@
  */
 
 const TradingConfig = require('./TradingConfig');
+const { get: getConfigValue } = require('../foundation/ConfigLoader');
 
 class StateManager {
   /**
@@ -731,14 +732,14 @@ class StateManager {
   save() {
     try {
       // Skip state saving in backtest mode - don't corrupt real state
-      if (process.env.BACKTEST_MODE === 'true') {
+      if (getConfigValue('mode.backtest')) {
         return;
       }
 
       const fs = require('fs');
       const path = require('path');
-      const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-      const stateFile = process.env.STATE_FILE || path.join(dataDir, 'state.json');
+      const dataDir = getConfigValue('paths.dataDir') || path.join(__dirname, '..', 'data');
+      const stateFile = getConfigValue('paths.stateFile') || path.join(dataDir, 'state.json');
 
       // Create data directory if it doesn't exist
       if (!fs.existsSync(dataDir)) {
@@ -767,14 +768,14 @@ class StateManager {
   load() {
     try {
       // Skip state loading in backtest mode - start fresh
-      if (process.env.BACKTEST_MODE === 'true') {
+      if (getConfigValue('mode.backtest')) {
         console.log('[StateManager] BACKTEST_MODE: Starting with clean state');
         return;
       }
 
       // CHANGE 2026-01-23: Option to start fresh in paper mode
       // Set FRESH_START=true to reset paper trading state on boot
-      if (process.env.FRESH_START === 'true') {
+      if (getConfigValue('backtest.freshStart')) {
         console.log('[StateManager] FRESH_START: Resetting to clean $10k state');
         this.state.balance = 10000;
         this.state.totalBalance = 10000;
@@ -795,8 +796,8 @@ class StateManager {
 
       const fs = require('fs');
       const path = require('path');
-      const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-      const stateFile = process.env.STATE_FILE || path.join(dataDir, 'state.json');
+      const dataDir = getConfigValue('paths.dataDir') || path.join(__dirname, '..', 'data');
+      const stateFile = getConfigValue('paths.stateFile') || path.join(dataDir, 'state.json');
 
       if (fs.existsSync(stateFile)) {
         const savedState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
