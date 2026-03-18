@@ -102,6 +102,12 @@ function buildConfig() {
       dataDir: track('paths.dataDir', envStr('DATA_DIR', '')),
     },
 
+    // ─── MONITORING ───
+    monitoring: {
+      sentryDsn: track('monitoring.sentryDsn', envStr('SENTRY_DSN', '')),
+      sentryEnabled: track('monitoring.sentryEnabled', envBool('SENTRY_ENABLED', true)),
+    },
+
     // ─── CONFIDENCE GATES ───
     confidence: {
       minTradeConfidence: track('confidence.minTradeConfidence', envFloat('MIN_TRADE_CONFIDENCE', 0.50)),
@@ -306,6 +312,13 @@ function load(opts = {}) {
   // Normalize BACKTEST_MODE
   if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
     process.env.BACKTEST_MODE = 'true';
+  }
+
+  // Backtest state isolation - set before buildConfig reads these values
+  if (process.env.BACKTEST_MODE === 'true') {
+    const path = require('path');
+    process.env.STATE_FILE = process.env.STATE_FILE || path.join(process.cwd(), 'data', 'state-backtest.json');
+    process.env.DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data', 'backtest');
   }
 
   const { config, sources } = buildConfig();

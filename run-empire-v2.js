@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
-// SILENT MODE: Disable logging during backtest for 100x speed boost
-// Set BACKTEST_SILENT=true or it auto-enables when BACKTEST_MODE=true
+// CRITICAL: ConfigLoader MUST be first - loads .env, normalizes BACKTEST_MODE, isolates state
+const { load: loadConfig } = require('./foundation/ConfigLoader');
+const resolvedConfig = loadConfig({ silent: true }); // Silent here, verbose logging comes later
+
 // BACKTEST_FAST: Skip notifications, file I/O during backtest (explicit opt-in)
-const BACKTEST_FAST = process.env.BACKTEST_FAST === 'true';
-if (process.env.BACKTEST_SILENT === 'true' ||
-    (process.env.BACKTEST_MODE === 'true' && process.env.BACKTEST_VERBOSE !== 'true')) {
+const BACKTEST_FAST = resolvedConfig.config.backtest.fast;
+// SILENT MODE: Disable logging during backtest for 100x speed boost
+if (resolvedConfig.config.backtest.silent ||
+    (resolvedConfig.config.mode.backtest && !resolvedConfig.config.backtest.verbose)) {
   const originalLog = console.log;
   let lastProgress = 0;
   console.log = (...args) => {
@@ -23,23 +26,7 @@ if (process.env.BACKTEST_SILENT === 'true' ||
   console.warn = () => {};
 }
 
-// FIX 2026-03-12: Isolate backtest state BEFORE any modules load StateManager
-// This MUST run before require('./core/StateManager') at line ~214
-if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
-  const path = require('path');
-  process.env.STATE_FILE = path.join(__dirname, 'data', 'state-backtest.json');
-  process.env.DATA_DIR = path.join(__dirname, 'data', 'backtest');
-  console.log(`📁 [BACKTEST] Isolated state: ${process.env.STATE_FILE}`);
-  console.log(`📁 [BACKTEST] Isolated data dir: ${process.env.DATA_DIR}`);
-}
-
-// FIX 2026-03-14: Normalize BACKTEST_MODE for all downstream modules
-// 15+ files check BACKTEST_MODE but backtest launches via EXECUTION_MODE
-if (process.env.EXECUTION_MODE === 'backtest' || process.env.CANDLE_SOURCE === 'file') {
-  process.env.BACKTEST_MODE = 'true';
-}
-
-// SENTRY: Must be first import - catches all unhandled errors
+// SENTRY: Error monitoring (DSN configurable via SENTRY_DSN, disable via SENTRY_ENABLED=false)
 require('./instrument.js');
 
 /**
@@ -111,10 +98,7 @@ require('./instrument.js');
  * @date 2025-11-20
  */
 
-// CRITICAL: ConfigLoader - Single source of truth for ALL configuration
-// Loads .env, validates, freezes, and tracks sources
-const { load: loadConfig } = require('./foundation/ConfigLoader');
-const resolvedConfig = loadConfig();
+// ConfigLoader already loaded at line 4 (before Sentry)
 const envPath = resolvedConfig.config.paths.envFile;
 
 // SAFETY INVARIANT: TEST_MODE or gates requires DATA_DIR to prevent data collision

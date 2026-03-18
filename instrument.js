@@ -36,8 +36,19 @@
 
 const Sentry = require("@sentry/node");
 
+// SENTRY_DSN from .env (loaded by ConfigLoader before this file)
+// Set SENTRY_ENABLED=false to disable error reporting
+const sentryDsn = process.env.SENTRY_DSN || "https://c9c25aed186f9ab079bf338bb4cb9df5@o4509868139085824.ingest.us.sentry.io/4509868141772800";
+const sentryEnabled = process.env.SENTRY_ENABLED !== 'false';
+
+if (!sentryEnabled) {
+  console.log('🛡️ Sentry disabled via SENTRY_ENABLED=false');
+  module.exports = { captureException: () => {}, captureMessage: () => {} };
+  return;
+}
+
 Sentry.init({
-  dsn: "https://c9c25aed186f9ab079bf338bb4cb9df5@o4509868139085824.ingest.us.sentry.io/4509868141772800",
+  dsn: sentryDsn,
 
   // Send default PII (IP addresses, etc) - useful for debugging
   sendDefaultPii: true,
