@@ -852,6 +852,10 @@ class OGZPrimeV14Bot {
       trai: this.trai,
       backtestRecorder: this.backtestRecorder,
       orderExecutor: this.orderExecutor,
+      // ConfigLoader injection - mode flags
+      backtestFast: resolvedConfig.config.backtest.fast,
+      testMode: resolvedConfig.config.mode.testMode,
+      traiEnableBacktest: TradingConfig.get('features.traiEnableBacktest'),
       // Phase 4 REWRITE: MaxProfitManager standalone
       maxProfitManager: this.maxProfitManager,
       // Additional context for strategy orchestration

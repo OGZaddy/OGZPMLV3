@@ -106,9 +106,9 @@ class TradingLoop {
 
         // FIX 2026-02-19: Re-enable entry recording with pnl: null (observation-only mode)
         // BACKTEST_FAST: Skip observation patterns (not trade outcomes)
-        if (process.env.BACKTEST_FAST !== 'true' &&
+        if (!this.ctx.backtestFast &&
             this.ctx.config.tradingMode !== 'TEST' &&
-            process.env.TEST_MODE !== 'true') {
+            !this.ctx.testMode) {
           this.ctx.patternChecker.recordPatternResult(featuresForRecording, {
             pnl: null,  // null = observation only
             timestamp: Date.now(),
@@ -117,7 +117,7 @@ class TradingLoop {
         }
 
         // TELEMETRY: Skip in BACKTEST_FAST
-        if (process.env.BACKTEST_FAST !== 'true') {
+        if (!this.ctx.backtestFast) {
           telemetry.event('pattern_detected', {
             signature,
             confidence: pattern.confidence,
@@ -128,7 +128,7 @@ class TradingLoop {
       });
 
       // TELEMETRY: Skip in BACKTEST_FAST
-      if (process.env.BACKTEST_FAST !== 'true') {
+      if (!this.ctx.backtestFast) {
         telemetry.event('pattern_recorded', {
           count: patterns.length,
           memorySize: this.ctx.patternChecker.getMemorySize ? this.ctx.patternChecker.getMemorySize() : 0
@@ -302,7 +302,7 @@ class TradingLoop {
     // TRAI DECISION PROCESSING
     let finalConfidence = confidenceData.totalConfidence;
     let traiDecision = null;
-    const skipTRAI = this.ctx.config.enableBacktestMode && process.env.TRAI_ENABLE_BACKTEST === 'false';
+    const skipTRAI = this.ctx.config.enableBacktestMode && !this.ctx.traiEnableBacktest;
 
     if (this.ctx.trai && !skipTRAI) {
       try {

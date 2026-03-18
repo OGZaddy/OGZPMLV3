@@ -440,6 +440,7 @@ const BASE_CONFIG = {
     // Component toggles
     enableRiskManager: envBool('ENABLE_RISK', true),
     enableTRAI: envBool('ENABLE_TRAI', false),
+    traiEnableBacktest: envBool('TRAI_ENABLE_BACKTEST', true),  // Skip TRAI in backtest if false
     enableDashboard: envBool('ENABLE_DASHBOARD', true),
     enableNotifications: envBool('ENABLE_NOTIFICATIONS', true),
 
