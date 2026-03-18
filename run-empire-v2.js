@@ -136,10 +136,10 @@ console.log(`   TEST_MODE: ${resolvedConfig.config.mode.testMode || false}`);
 // DEBUG: Log key config toggles to verify env vars are being read
 if (resolvedConfig.config.mode.backtest) {
   console.log('[CONFIG VERIFY] Backtest mode - key toggle values:');
-  console.log(`   ATR_FILTER_ENABLED: ${process.env.ATR_FILTER_ENABLED} → TradingConfig reads at load`);
-  console.log(`   RISK_MANAGER_BYPASS: ${process.env.RISK_MANAGER_BYPASS}`);
-  console.log(`   MIN_TRADE_CONFIDENCE: ${process.env.MIN_TRADE_CONFIDENCE}`);
-  console.log(`   ACCOUNT_DRAWDOWN_BYPASS: ${process.env.ACCOUNT_DRAWDOWN_BYPASS}`);
+  console.log(`   ATR_FILTER_ENABLED: ${resolvedConfig.config.filters.atrEnabled}`);
+  console.log(`   RISK_MANAGER_BYPASS: ${resolvedConfig.config.risk.riskManagerBypass}`);
+  console.log(`   MIN_TRADE_CONFIDENCE: ${resolvedConfig.config.confidence.minTradeConfidence}`);
+  console.log(`   ACCOUNT_DRAWDOWN_BYPASS: ${resolvedConfig.config.risk.accountDrawdownBypass}`);
 }
 
 // Load feature flags configuration via unified FeatureFlagManager
