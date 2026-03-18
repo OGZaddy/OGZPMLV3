@@ -217,6 +217,23 @@ class BacktestRecorder {
             exitStats[t.exitReason].pnl += t.netPnlDollars;
         });
 
+        // Calculate streaks
+        let currentLosingStreak = 0;
+        let maxLosingStreak = 0;
+        let currentWinningStreak = 0;
+        let maxWinningStreak = 0;
+        this.trades.forEach(t => {
+            if (t.netPnlDollars < 0) {
+                currentLosingStreak++;
+                currentWinningStreak = 0;
+                if (currentLosingStreak > maxLosingStreak) maxLosingStreak = currentLosingStreak;
+            } else if (t.netPnlDollars > 0) {
+                currentWinningStreak++;
+                currentLosingStreak = 0;
+                if (currentWinningStreak > maxWinningStreak) maxWinningStreak = currentWinningStreak;
+            }
+        });
+
         return {
             // Core metrics
             totalTrades: this.trades.length,
@@ -248,6 +265,8 @@ class BacktestRecorder {
             profitFactor: losers.length > 0
                 ? (winners.reduce((sum, t) => sum + t.netPnlDollars, 0) / Math.abs(losers.reduce((sum, t) => sum + t.netPnlDollars, 0))).toFixed(2)
                 : 'N/A',
+            maxLosingStreak,
+            maxWinningStreak,
 
             // Extremes
             bestTrade: {
@@ -297,6 +316,8 @@ class BacktestRecorder {
 
         console.log(`\n⚠️  RISK:`);
         console.log(`   Max Drawdown:      ${s.maxDrawdownPercent}% ($${s.maxDrawdownDollars})`);
+        console.log(`   Losing Streak:     ${s.maxLosingStreak} trades`);
+        console.log(`   Winning Streak:    ${s.maxWinningStreak} trades`);
         console.log(`   Best Trade:        #${s.bestTrade.number} ${s.bestTrade.strategy} +$${s.bestTrade.pnl}`);
         console.log(`   Worst Trade:       #${s.worstTrade.number} ${s.worstTrade.strategy} $${s.worstTrade.pnl}`);
 

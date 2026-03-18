@@ -266,8 +266,8 @@ function tryReadReport(projectRoot, tag) {
 
     return {
       finalBalance: summary.finalBalance || null,
-      trades: trades.length > 0 ? Math.floor(trades.length / 2) : (summary.totalTrades || null), // BUY+SELL pairs
-      winRate: trades.length > 0 ? (winners.length / (trades.length/2)) * 100 : null,
+      trades: trades.length > 0 ? trades.length : (summary.totalTrades || null), // Each trade is a complete round-trip
+      winRate: trades.length > 0 ? (winners.length / trades.length) * 100 : null,
       netPnl: netPnl,
       fees: totalFees || null,
     };
@@ -291,7 +291,10 @@ function parseBacktestOutput(output, name) {
   const feesMatch = output.match(/Total Fees.*?:\s*\$?([\d,.]+)/);
   const drawdownMatch = output.match(/Max Drawdown:\s*([\d.]+)%/);
   const profitFactorMatch = output.match(/Profit Factor:\s*([\d.]+)/);
-  
+  const avgWinnerMatch = output.match(/Avg Winner:\s*\+?\$?([\d,.]+)/);
+  const avgLoserMatch = output.match(/Avg Loser:\s*-?\$?([\d,.]+)/);
+  const losingStreakMatch = output.match(/Losing Streak:\s*(\d+)/);
+
   // Also try the console dump format (when EMFILE prevents file write)
   const consolePnlMatch = output.match(/Total P&L:\s*\$?([-\d,.]+)\s*\(([-\d,.]+)%\)/);
   const consoleBalMatch = output.match(/Final Balance:\s*\$?([\d,.]+)/);
@@ -299,11 +302,14 @@ function parseBacktestOutput(output, name) {
   result.finalBalance = balanceMatch ? parseFloat(balanceMatch[1].replace(',', '')) : null;
   result.trades = tradesMatch ? parseInt(tradesMatch[1]) : null;
   result.winRate = winRateMatch ? parseFloat(winRateMatch[1]) : null;
-  result.netPnl = pnlMatch ? parseFloat(pnlMatch[1].replace(',', '')) : 
+  result.netPnl = pnlMatch ? parseFloat(pnlMatch[1].replace(',', '')) :
                   (consolePnlMatch ? parseFloat(consolePnlMatch[1].replace(',', '')) : null);
   result.fees = feesMatch ? parseFloat(feesMatch[1].replace(',', '')) : null;
   result.maxDrawdown = drawdownMatch ? parseFloat(drawdownMatch[1]) : null;
   result.profitFactor = profitFactorMatch ? parseFloat(profitFactorMatch[1]) : null;
+  result.avgWinner = avgWinnerMatch ? parseFloat(avgWinnerMatch[1].replace(',', '')) : null;
+  result.avgLoser = avgLoserMatch ? parseFloat(avgLoserMatch[1].replace(',', '')) : null;
+  result.losingStreak = losingStreakMatch ? parseInt(losingStreakMatch[1]) : null;
 
   // If we got balance but no PnL, calculate it
   if (result.finalBalance && result.netPnl == null) {
@@ -401,6 +407,8 @@ async function runParallelSweep(configs, dataFile) {
   if (ranked[0]) {
     console.log(`\n👑 WINNER: ${ranked[0].name}`);
     console.log(`   P&L: $${ranked[0].netPnl.toFixed(2)} | WR: ${ranked[0].winRate?.toFixed(1) || '?'}% | Trades: ${ranked[0].trades || '?'}`);
+    console.log(`   Max DD: ${ranked[0].maxDrawdown?.toFixed(1) || '?'}% | PF: ${ranked[0].profitFactor?.toFixed(2) || '?'} | Lose Streak: ${ranked[0].losingStreak || '?'}`);
+    console.log(`   Avg Winner: $${ranked[0].avgWinner?.toFixed(2) || '?'} | Avg Loser: $${ranked[0].avgLoser?.toFixed(2) || '?'}`);
     if (ranked[0].config.env && Object.keys(ranked[0].config.env).length > 0) {
       console.log(`   Config: ${JSON.stringify(ranked[0].config.env)}`);
     }

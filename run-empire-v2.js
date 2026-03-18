@@ -133,6 +133,15 @@ console.log(`   DATA_DIR: ${resolvedConfig.config.paths.dataDir || '(default: ./
 console.log(`   PAPER_TRADING: ${resolvedConfig.config.mode.paperTrading}`);
 console.log(`   TEST_MODE: ${resolvedConfig.config.mode.testMode || false}`);
 
+// DEBUG: Log key config toggles to verify env vars are being read
+if (resolvedConfig.config.mode.backtest) {
+  console.log('[CONFIG VERIFY] Backtest mode - key toggle values:');
+  console.log(`   ATR_FILTER_ENABLED: ${process.env.ATR_FILTER_ENABLED} → TradingConfig reads at load`);
+  console.log(`   RISK_MANAGER_BYPASS: ${process.env.RISK_MANAGER_BYPASS}`);
+  console.log(`   MIN_TRADE_CONFIDENCE: ${process.env.MIN_TRADE_CONFIDENCE}`);
+  console.log(`   ACCOUNT_DRAWDOWN_BYPASS: ${process.env.ACCOUNT_DRAWDOWN_BYPASS}`);
+}
+
 // Load feature flags configuration via unified FeatureFlagManager
 const FeatureFlagManager = require('./core/FeatureFlagManager');
 

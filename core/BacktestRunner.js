@@ -157,7 +157,9 @@ class BacktestRunner {
 
       // Collect trades from backtestRecorder (executionLayer.trades deleted in Phase 4)
       const trades = this.ctx.backtestRecorder?.trades || [];
-      const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+      const winners = trades.filter(t => t.netPnlDollars > 0);
+      const losers = trades.filter(t => t.netPnlDollars < 0);
+      const totalPnL = trades.reduce((sum, t) => sum + (t.netPnlDollars || 0), 0);
 
       const report = {
         summary: {
@@ -171,9 +173,9 @@ class BacktestRunner {
         },
         metrics: {
           totalTrades: trades.length,
-          winningTrades: trades.filter(t => t.pnl > 0).length,
-          losingTrades: trades.filter(t => t.pnl < 0).length,
-          winRate: trades.length > 0 ? trades.filter(t => t.pnl > 0).length / trades.length : 0,
+          winningTrades: winners.length,
+          losingTrades: losers.length,
+          winRate: trades.length > 0 ? winners.length / trades.length : 0,
           totalPnL: totalPnL
         },
         trades: trades,
