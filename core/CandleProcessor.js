@@ -16,6 +16,7 @@
 'use strict';
 
 const { getInstance: getStateManager } = require('./StateManager');
+const { get: getConfigValue } = require('../foundation/ConfigLoader');
 const stateManager = getStateManager();
 
 // Candle accessors (V2 format)
@@ -225,7 +226,7 @@ class CandleProcessor {
 
     // STALE DATA DETECTION: Check if DATA ITSELF is old (not arrival time)
     // FIX BACKTEST_001: Skip stale check in backtest mode - historical data is intentionally old
-    const isBacktesting = process.env.BACKTEST_MODE === 'true' || this.ctx.config?.enableBacktestMode;
+    const isBacktesting = getConfigValue('mode.backtest') || this.ctx.config?.enableBacktestMode;
     const now = Date.now();
     const dataAge = now - (etime * 1000); // etime is in SECONDS, convert to milliseconds
 
@@ -323,7 +324,7 @@ class CandleProcessor {
 
     // CHANGE 663: Broadcast market data to dashboard
     // BACKTEST_FAST: Skip dashboard broadcast entirely
-    if (process.env.BACKTEST_FAST !== 'true' && this.ctx.dashboardWsConnected && this.ctx.dashboardWs) {
+    if (!getConfigValue('backtest.fast') && this.ctx.dashboardWsConnected && this.ctx.dashboardWs) {
       try {
         // CHANGE 2025-12-23: Use IndicatorEngine render packet for dashboard
         const renderPacket = this.ctx.indicatorEngine.getRenderPacket({ maxPoints: 200 });
@@ -335,7 +336,7 @@ class CandleProcessor {
         const positionValue = currentPosition * price;  // Current market value of position
         const totalAccountValue = currentBalance + positionValue;
         // FIX 2026-02-26: Use StateManager instead of hardcoded value
-        const initialBalance = stateManager.get('initialBalance') || parseFloat(process.env.INITIAL_BALANCE) || 10000;
+        const initialBalance = stateManager.get('initialBalance') || getConfigValue('backtest.initialBalance') || 10000;
         const totalPnL = totalAccountValue - initialBalance;  // Correct: includes open position
         // Phase 4 REWRITE: executionLayer deleted - use stateManager for trade stats
         const closedTrades = stateManager.get('closedTrades') || [];
