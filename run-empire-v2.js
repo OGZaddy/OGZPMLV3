@@ -145,6 +145,7 @@ const contractValidator = ContractValidator.createMonitor();
 const { CandleStore } = require('./core/CandleStore');
 const { IndicatorCalculator } = require('./core/IndicatorCalculator');
 const TRAIWebContext = require('./core/TRAIWebContext');
+const patternDescriptions = require('./config/pattern-descriptions.json');
 
 // FIX 2026-03-12: IndicatorSnapshot deleted - use IndicatorEngine.getSnapshot() directly
 // TradingLoop now uses getSnapshot() which returns validated DTO format
@@ -1496,30 +1497,8 @@ class OGZPrimeV14Bot {
     if (!pattern) {
       return `Market scanning - RSI: ${indicators.rsi?.toFixed(1)}, Trend: ${indicators.trend}, MACD: ${(indicators.macd?.macd || 0).toFixed(4)}`;
     }
-
     const patternName = pattern.name || pattern.type || 'unknown';
-
-    // Pattern descriptions for education
-    const descriptions = {
-      'head_and_shoulders': 'Bearish reversal pattern with three peaks - left shoulder, head (highest), right shoulder. Suggests trend change from bullish to bearish.',
-      'inverse_head_and_shoulders': 'Bullish reversal pattern with three troughs. Signals potential trend change from bearish to bullish.',
-      'double_top': 'Bearish reversal pattern showing two peaks at similar price levels. Indicates resistance and potential downward move.',
-      'double_bottom': 'Bullish reversal pattern with two troughs at similar levels. Suggests support and potential upward breakout.',
-      'triple_top': 'Strong bearish reversal with three peaks. More reliable than double top, signals strong resistance.',
-      'triple_bottom': 'Strong bullish reversal with three troughs. More reliable than double bottom, indicates strong support.',
-      'ascending_triangle': 'Bullish continuation pattern with flat upper resistance and rising support. Breakout expected upward.',
-      'descending_triangle': 'Bearish continuation pattern with flat lower support and declining resistance. Breakout expected downward.',
-      'symmetrical_triangle': 'Neutral pattern showing convergence. Breakout direction determines trend continuation or reversal.',
-      'bull_flag': 'Bullish continuation pattern after strong uptrend. Brief consolidation before continuing higher.',
-      'bear_flag': 'Bearish continuation pattern after strong downtrend. Brief consolidation before continuing lower.',
-      'cup_and_handle': 'Bullish continuation pattern forming U-shape followed by slight pullback. Strong continuation signal.',
-      'golden_cross': 'Bullish signal when short-term EMA crosses above long-term EMA. Indicates momentum shift to upside.',
-      'death_cross': 'Bearish signal when short-term EMA crosses below long-term EMA. Indicates momentum shift to downside.',
-      'bullish_divergence': 'Price makes lower lows while indicator (RSI/MACD) makes higher lows. Suggests trend reversal to upside.',
-      'bearish_divergence': 'Price makes higher highs while indicator makes lower highs. Suggests trend reversal to downside.'
-    };
-
-    return descriptions[patternName] || `${patternName} pattern detected with ${(pattern.confidence * 100).toFixed(1)}% confidence. Analyzing market structure and momentum.`;
+    return patternDescriptions[patternName] || `${patternName} pattern detected with ${(pattern.confidence * 100).toFixed(1)}% confidence. Analyzing market structure and momentum.`;
   }
 
   /**
