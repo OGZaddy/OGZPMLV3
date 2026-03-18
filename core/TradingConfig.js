@@ -288,6 +288,7 @@ const BASE_CONFIG = {
     hardStopLossPercent: -5.0,                                    // -5% absolute max loss (was -2%, too tight for BTC)
     accountDrawdownPercent: -10.0,                                // -10% force close all
     maxHoldTimeMinutes: 360,                                      // 6 hours max hold (matches MarketRegime)
+    accountDrawdownBypass: envBool('ACCOUNT_DRAWDOWN_BYPASS', false), // Skip drawdown check (for parallel backtester)
   },
 
   // =========================================================================

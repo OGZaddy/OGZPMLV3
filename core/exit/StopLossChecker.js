@@ -43,8 +43,8 @@ class StopLossChecker {
 
     // === ACCOUNT DRAWDOWN ===
     // FIX 2026-03-13: Use total equity (cash + position value), not just cash
-    // Account drawdown check (controlled by env var for parallel backtester)
-    const drawdownEnabled = process.env.ACCOUNT_DRAWDOWN_BYPASS !== 'true';
+    // Account drawdown check (controlled by config injection, not process.env)
+    const drawdownEnabled = !this.universalLimits.accountDrawdownBypass;
     if (drawdownEnabled && context.accountBalance && context.initialBalance) {
       const positionValue = (context.currentPosition || 0) * (context.currentPrice || 0);
       const totalEquity = context.accountBalance + positionValue;
