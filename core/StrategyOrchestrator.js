@@ -482,9 +482,9 @@ class StrategyOrchestrator {
     const filterATR = indicators?.atr || 0;
     const filterATRpct = (filterATR && filterPrice > 0) ? (filterATR / filterPrice) * 100 : 0;
 
-    // ATR filter: Skip trades in dead markets (controlled by env var for parallel backtester)
-    const atrFilterEnabled = process.env.ATR_FILTER_ENABLED === 'true';
-    const atrMinPercent = parseFloat(process.env.ATR_MIN_PERCENT) || 0.15;
+    // ATR filter: Skip trades in dead markets (controlled by TradingConfig, not process.env)
+    const atrFilterEnabled = TradingConfig.get('filters.atrEnabled');
+    const atrMinPercent = TradingConfig.get('filters.atrMinPercent');
     if (atrFilterEnabled && filterATRpct > 0 && filterATRpct < atrMinPercent && results.length > 0) {
       for (const r of results) {
         if (this.evalCount % 200 === 0) {

@@ -324,6 +324,14 @@ const BASE_CONFIG = {
   },
 
   // =========================================================================
+  // FILTERS (for StrategyOrchestrator)
+  // =========================================================================
+  filters: {
+    atrEnabled: envBool('ATR_FILTER_ENABLED', false),             // Skip trades in dead markets
+    atrMinPercent: env('ATR_MIN_PERCENT', 0.15),                  // Minimum ATR % to allow trades
+  },
+
+  // =========================================================================
   // TIMEFRAME-SPECIFIC ADJUSTMENTS
   // =========================================================================
   timeframeConfig: {
