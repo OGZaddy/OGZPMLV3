@@ -38,7 +38,8 @@ const BASE_CONFIG = {
   // CONFIDENCE THRESHOLDS
   // =========================================================================
   confidence: {
-    minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.01),      // 1% default - allows env var overrides to work
+    // FIX 2026-03-19: Raised from 0.01 to 0.35 - was letting everything through at 1%
+    minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.35),      // 35% default - minimum total confidence to enter trade
     maxConfidence: env('MAX_CONFIDENCE', 0.95),                  // 95% - cap (nothing is 100%)
     minStrategyConfidence: env('MIN_STRATEGY_CONFIDENCE', 0.35), // 35% - per individual strategy
     // REMOVED 2026-03-10 (dead config - nothing reads these):
