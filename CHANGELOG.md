@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Architecture: Self-Contained Strategies (2026-03-19)
+
+**Session Focus:** Refactor all strategies to be fully self-contained per user architecture spec.
+
+#### Refactor: Self-Contained Signal Computation
+- **Files:** `core/StrategyOrchestrator.js`, `core/TradingConfig.js`
+- **Problem:** Strategies received pre-computed signals via ctx.extras from CandleProcessor
+- **Architecture Change:** Each strategy now computes its own signals internally from raw candles
+- **Strategies Refactored:**
+  1. EMASMACrossover → calls `emaCrossoverModule.update(candle, candles)`
+  2. MADynamicSR → calls `maDynamicSRModule.update(candle, candles)`
+  3. LiquiditySweep → calls `liquiditySweepModule.feedCandle(candle)`
+  4. MultiTimeframe → calls `mtfAdapter.ingestCandle()` + `.getConfluence()`
+  5. OGZTPO → calls `tpoIntegration.update(candle)`
+- **Config Extracted:** New `TradingConfig.orchestrator` section with:
+  - `minCandlesEMA/MASR/Sweep/MTF/TPO` - minimum candle requirements
+  - `fibDistanceEMA/MASR/Sweep` - fib boost distance thresholds
+  - `fibBoostNormal/Golden` - confidence boost values
+  - `tpoStrengthMultiplier` - TPO signal scaling
+  - `mtfTimeframes` - MTF adapter timeframes
+- **Impact:** Clean architecture, no ctx.extras signal handoff, each strategy is a black box
+
+---
+
 ### Priority Fixes - Mercury-2 Continuation (2026-03-19)
 
 **Session Focus:** Complete remaining priority fixes from Mercury-2 audit.
