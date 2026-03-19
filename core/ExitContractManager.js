@@ -290,10 +290,14 @@ class ExitContractManager {
     // Adjust for volatility if provided
     // FIX 2026-02-21: Raised threshold from 2.0 to 5.0 for 1-minute data
     // On 1m candles, volatility 2.0 is normal - only widen on extreme vol
-    if (context.volatility && context.volatility > 5.0) {
-      // High volatility - widen stops (reduced multipliers)
-      contract.stopLossPercent *= 1.15;
-      contract.takeProfitPercent *= 1.2;
+    // FIX 2026-03-19: Extracted hardcoded values to TradingConfig
+    const volThreshold = TradingConfig.get('exits.volatilityThreshold') || 5.0;
+    const volSlMult = TradingConfig.get('exits.volatilitySlMultiplier') || 1.15;
+    const volTpMult = TradingConfig.get('exits.volatilityTpMultiplier') || 1.20;
+    if (context.volatility && context.volatility > volThreshold) {
+      // High volatility - widen stops
+      contract.stopLossPercent *= volSlMult;
+      contract.takeProfitPercent *= volTpMult;
     }
 
     // Freeze contract metadata

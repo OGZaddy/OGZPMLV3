@@ -348,7 +348,7 @@ class TradingLoop {
           volume: this.ctx.marketData.volume || 'normal',
           regime: regime.currentRegime || 'unknown',
           indicators: indicators,
-          positionSize: stateManager.get('balance') * 0.01,
+          positionSize: stateManager.get('balance') * TradingConfig.get('positionSizing.basePositionSize'),
           currentPosition: stateManager.get('position')
         };
 
@@ -379,7 +379,7 @@ class TradingLoop {
     if (tpoResult && tpoResult.signal && tpoResult.signal.highProbability) {
       console.log(`\n⚡ TPO Override: High probability ${tpoResult.signal.zone} signal`);
 
-      if (tpoResult.signal.strength > 0.03) {
+      if (tpoResult.signal.strength > TradingConfig.get('confidence.tpoStrengthMin')) {
         overrideSignal = tpoResult.signal;
         signalSource = 'TPO';
         tradingDirection = tpoResult.signal.action === 'BUY' ? 'buy' : 'sell';

@@ -40,6 +40,11 @@ class StrategyOrchestrator {
     // TUNE 2026-02-27: Raised from 0.25 to filter garbage signals
     this.minStrategyConfidence = TradingConfig.get('confidence.minStrategyConfidence') ?? 0.01;
 
+    // FIX 2026-03-19: Extracted hardcoded thresholds to config
+    this.regimeMinConfidence = TradingConfig.get('confidence.regimeMinConfidence') ?? 0.30;
+    this.confluenceMinScore = TradingConfig.get('confidence.confluenceMinScore') ?? 0.30;
+    this.tpoStrengthMin = TradingConfig.get('confidence.tpoStrengthMin') ?? 0.03;
+
     // Minimum confluence signals to allow entry (default: 1 = winner alone is enough)
     this.minConfluenceCount = config.minConfluenceCount ?? 1;
 
@@ -85,7 +90,7 @@ class StrategyOrchestrator {
         const sig = ctx.extras?.emaCrossoverSignal;
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
-        if (conf < 0.05) return null;
+        if (conf < this.minStrategyConfidence) return null;
 
         // Fib level boost: if price is bouncing at a fib level, this is a stronger setup
         const fib = ctx.extras?.nearestFibLevel;
@@ -115,7 +120,7 @@ class StrategyOrchestrator {
         const sig = ctx.extras?.maDynamicSRSignal;
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
-        if (conf < 0.05) return null;
+        if (conf < this.minStrategyConfidence) return null;
 
         // ─── MAExtensionFilter Gate ───
         // DISABLED 2026-03-09: MADynamicSR now handles extension detection internally
@@ -158,7 +163,7 @@ class StrategyOrchestrator {
         if (!sig || !sig.hasSignal) return null;
         if (!sig.direction || sig.direction === 'neutral') return null;
         let conf = sig.confidence || 0;
-        if (conf < 0.05) return null;
+        if (conf < this.minStrategyConfidence) return null;
 
         // Fib level boost: sweep reversal at a fib level = institutional level
         const fib = ctx.extras?.nearestFibLevel;
@@ -243,7 +248,7 @@ class StrategyOrchestrator {
 
         if (!best || !best.direction || best.direction === 'neutral') return null;
         const conf = best.confidence || 0;
-        if (conf < 0.1) return null;
+        if (conf < this.minStrategyConfidence) return null;
 
         return {
           direction: best.direction === 'bullish' ? 'buy' : best.direction === 'bearish' ? 'sell' : best.direction,
@@ -263,7 +268,7 @@ class StrategyOrchestrator {
         if (!regime || !regime.currentRegime || regime.currentRegime === 'unknown') return null;
 
         const regimeConf = regime.confidence || 0;
-        if (regimeConf < 0.3) return null;
+        if (regimeConf < this.regimeMinConfidence) return null;
 
         // Only fire on strong trending regimes with trend confirmation
         const regimeName = regime.currentRegime.toLowerCase();
@@ -309,7 +314,7 @@ class StrategyOrchestrator {
         }
 
         if (!confluence || !confluence.direction || confluence.direction === 'neutral') return null;
-        if ((confluence.score || 0) < 0.3) return null;
+        if ((confluence.score || 0) < this.confluenceMinScore) return null;
 
         return {
           direction: confluence.direction,
@@ -330,7 +335,7 @@ class StrategyOrchestrator {
 
         const action = tpo.signal.action;
         const strength = tpo.signal.strength || 0;
-        if (strength < 0.03) return null;
+        if (strength < this.tpoStrengthMin) return null;
 
         const direction = action === 'BUY' ? 'buy' : action === 'SELL' ? 'sell' : null;
         if (!direction) return null;

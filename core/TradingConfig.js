@@ -45,11 +45,10 @@ const BASE_CONFIG = {
     // FIX 2026-03-19: Filter weak candle patterns (hammer, engulfing, etc.)
     // Requires trend OR RSI confirmation to pass (base 0.55 + bonuses)
     candlePatternMinConfidence: env('CANDLE_PATTERN_MIN_CONFIDENCE', 0.70), // 70% - filters marginal patterns
-    // REMOVED 2026-03-10 (dead config - nothing reads these):
-    // minSignalConfidence: env('MIN_SIGNAL_CONFIDENCE', 0.25),
-    // minSignalsToTrade: env('MIN_SIGNALS_TO_TRADE', 2),
-    // confidencePenalty: env('CONFIDENCE_PENALTY', 0.10),
-    // confidenceBoost: env('CONFIDENCE_BOOST', 0.05),
+    // FIX 2026-03-19: Extracted from hardcoded values in StrategyOrchestrator
+    regimeMinConfidence: env('REGIME_MIN_CONFIDENCE', 0.30),     // 30% - regime filter threshold
+    confluenceMinScore: env('CONFLUENCE_MIN_SCORE', 0.30),       // 30% - minimum confluence score
+    tpoStrengthMin: env('TPO_STRENGTH_MIN', 0.03),               // 3% - TPO/MTF strength minimum
   },
 
   // =========================================================================
@@ -124,6 +123,12 @@ const BASE_CONFIG = {
     // Trail distances
     normalTrailDistance: env('TRAIL_DISTANCE', 0.025),           // 2.5% normal trail
     tightTrailDistance: env('TIGHT_TRAIL_DISTANCE', 0.015),      // 1.5% tight trail
+
+    // FIX 2026-03-19: Extracted from ExitContractManager hardcodes
+    // Volatility-based stop widening
+    volatilityThreshold: env('EXIT_VOL_THRESHOLD', 5.0),         // ATR > 5% triggers widening
+    volatilitySlMultiplier: env('EXIT_VOL_SL_MULT', 1.15),       // Widen SL by 15% in high vol
+    volatilityTpMultiplier: env('EXIT_VOL_TP_MULT', 1.20),       // Widen TP by 20% in high vol
   },
 
   // =========================================================================
