@@ -375,18 +375,28 @@ class StateManager {
       : 0;
     const pnlPercent = priceChangePercent * 100;
 
-    // CRITICAL FIX: Remove closed trades from activeTrades Map
-    // BUGFIX 2026-01-23: Clear ALL trades on full close, not just type='BUY'
-    // Previous bug: trades with action='SELL' weren't removed, causing accumulation
-    if (!partial && this.state.activeTrades && this.state.activeTrades.size > 0) {
-      // Clear ALL active trades on full position close
-      const tradeCount = this.state.activeTrades.size;
-      for (const [id, trade] of this.state.activeTrades.entries()) {
-        // Remove ALL trades (BUY or SELL) - no position means no active trades
-        this.state.activeTrades.delete(id);
-        console.log(`🔒 [StateManager] Removed trade ${id} (${trade.action || trade.type}) from activeTrades`);
+    // FIX 2026-03-19: Remove ONLY the specific trade being closed, not all trades
+    // Previous bug: Closing any trade wiped ALL activeTrades, breaking multi-position
+    // Now: If context.tradeId provided, remove only that trade
+    //      If full close (position → 0), clear all remaining trades
+    if (this.state.activeTrades && this.state.activeTrades.size > 0) {
+      const tradeId = context.tradeId || context.orderId;
+
+      if (tradeId && this.state.activeTrades.has(tradeId)) {
+        // Remove only the specific trade being closed
+        const trade = this.state.activeTrades.get(tradeId);
+        this.state.activeTrades.delete(tradeId);
+        console.log(`🔒 [StateManager] Removed trade ${tradeId} (${trade.action || trade.type}) from activeTrades`);
+        console.log(`📊 [StateManager] ${this.state.activeTrades.size} active trades remaining`);
+      } else if (!partial && (this.state.position - closeSize) <= 0) {
+        // Full close with no position remaining - clear all trades
+        const tradeCount = this.state.activeTrades.size;
+        for (const [id, trade] of this.state.activeTrades.entries()) {
+          this.state.activeTrades.delete(id);
+          console.log(`🔒 [StateManager] Removed trade ${id} (${trade.action || trade.type}) from activeTrades`);
+        }
+        console.log(`📊 [StateManager] Cleared ${tradeCount} active trades (position fully closed)`);
       }
-      console.log(`📊 [StateManager] Cleared ${tradeCount} active trades on position close`);
     }
 
     // CRITICAL BUGFIX 2026-02-01: Balance was adding BTC amount instead of USD value!
