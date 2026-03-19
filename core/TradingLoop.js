@@ -383,7 +383,7 @@ class TradingLoop {
     console.log(`🔍 PRE-DECISION: tradingDirection=${tradingDirection}, conf=${confidenceData.totalConfidence.toFixed(1)}%`);
 
     const pos = stateManager.get('position');
-    const minConfidence = this.ctx.config.minTradeConfidence * 100;
+    const minConfidence = this.ctx.config.minTradeConfidence;
     let decision = { action: 'HOLD', confidence: orchResult.confidence };
 
     // Multi-position support: check active trade count vs max
@@ -458,7 +458,7 @@ class TradingLoop {
 
     if (decision.action === 'HOLD' && !sameDirectionBlock &&
         activeTrades.length < maxPositions &&
-        tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
+        tradingDirection === 'buy' && (orchResult.confidence / 100) >= minConfidence) {
       // FIX 2026-03-06: ENFORCE MAX_DRAWDOWN + MAX_DAILY_LOSS via RiskManager
       // These flags were loaded but never checked - wiring them now
       if (this.ctx.riskManager) {
@@ -477,7 +477,7 @@ class TradingLoop {
             decision = { action: 'HOLD', confidence: 0, blockReason: riskAssessment.reason };
           } else {
             // BUY when flat and orchestrator signals buy with sufficient confidence
-            console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${minConfidence}% | Direction: ${tradingDirection}`);
+            console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${(minConfidence * 100).toFixed(0)}% | Direction: ${tradingDirection}`);
             if (riskAssessment.riskLevel !== 'LOW') {
               console.log(`   ⚠️ Risk level: ${riskAssessment.riskLevel} - ${riskAssessment.recommendation}`);
             }
@@ -492,7 +492,7 @@ class TradingLoop {
         }
       } else {
         // Fallback if riskManager not available (shouldn't happen)
-        console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${minConfidence}% | Direction: ${tradingDirection}`);
+        console.log(`✅ BUY DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${(minConfidence * 100).toFixed(0)}% | Direction: ${tradingDirection}`);
         decision = {
           action: 'BUY',
           direction: 'long',
