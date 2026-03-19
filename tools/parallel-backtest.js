@@ -141,7 +141,7 @@ function generateExitSweep() {
 // WORKER — Runs a single backtest as a child process
 // ═══════════════════════════════════════════════════════════════
 
-function runSingleBacktest(config, dataFile) {
+function runSingleBacktest(config, dataFile, stockMode = false) {
   return new Promise((resolve) => {
     const startTime = Date.now();
     const uniqueId = `${config.name}-${Date.now()}-${Math.random().toString(36).substr(2,4)}`;
@@ -171,6 +171,8 @@ function runSingleBacktest(config, dataFile) {
       NODE_ENV: 'test',
       // Tag for finding the right report file
       BACKTEST_REPORT_TAG: reportTag,
+      // Stock mode: zero commission
+      ...(stockMode ? { FEE_MAKER: '0', FEE_TAKER: '0' } : {}),
       ...config.env,
     };
 
@@ -266,8 +268,8 @@ function tryReadReport(projectRoot, tag) {
 
     return {
       finalBalance: summary.finalBalance || null,
-      trades: trades.length > 0 ? trades.length : (summary.totalTrades || null), // Each trade is a complete round-trip
-      winRate: trades.length > 0 ? (winners.length / trades.length) * 100 : null,
+      trades: trades.length > 0 ? Math.floor(trades.length / 2) : (summary.totalTrades || null), // BUY+SELL pairs
+      winRate: trades.length > 0 ? (winners.length / (trades.length/2)) * 100 : null,
       netPnl: netPnl,
       fees: totalFees || null,
     };
@@ -291,10 +293,7 @@ function parseBacktestOutput(output, name) {
   const feesMatch = output.match(/Total Fees.*?:\s*\$?([\d,.]+)/);
   const drawdownMatch = output.match(/Max Drawdown:\s*([\d.]+)%/);
   const profitFactorMatch = output.match(/Profit Factor:\s*([\d.]+)/);
-  const avgWinnerMatch = output.match(/Avg Winner:\s*\+?\$?([\d,.]+)/);
-  const avgLoserMatch = output.match(/Avg Loser:\s*-?\$?([\d,.]+)/);
-  const losingStreakMatch = output.match(/Losing Streak:\s*(\d+)/);
-
+  
   // Also try the console dump format (when EMFILE prevents file write)
   const consolePnlMatch = output.match(/Total P&L:\s*\$?([-\d,.]+)\s*\(([-\d,.]+)%\)/);
   const consoleBalMatch = output.match(/Final Balance:\s*\$?([\d,.]+)/);
@@ -302,14 +301,11 @@ function parseBacktestOutput(output, name) {
   result.finalBalance = balanceMatch ? parseFloat(balanceMatch[1].replace(',', '')) : null;
   result.trades = tradesMatch ? parseInt(tradesMatch[1]) : null;
   result.winRate = winRateMatch ? parseFloat(winRateMatch[1]) : null;
-  result.netPnl = pnlMatch ? parseFloat(pnlMatch[1].replace(',', '')) :
+  result.netPnl = pnlMatch ? parseFloat(pnlMatch[1].replace(',', '')) : 
                   (consolePnlMatch ? parseFloat(consolePnlMatch[1].replace(',', '')) : null);
   result.fees = feesMatch ? parseFloat(feesMatch[1].replace(',', '')) : null;
   result.maxDrawdown = drawdownMatch ? parseFloat(drawdownMatch[1]) : null;
   result.profitFactor = profitFactorMatch ? parseFloat(profitFactorMatch[1]) : null;
-  result.avgWinner = avgWinnerMatch ? parseFloat(avgWinnerMatch[1].replace(',', '')) : null;
-  result.avgLoser = avgLoserMatch ? parseFloat(avgLoserMatch[1].replace(',', '')) : null;
-  result.losingStreak = losingStreakMatch ? parseInt(losingStreakMatch[1]) : null;
 
   // If we got balance but no PnL, calculate it
   if (result.finalBalance && result.netPnl == null) {
@@ -323,13 +319,14 @@ function parseBacktestOutput(output, name) {
 // PARALLEL RUNNER
 // ═══════════════════════════════════════════════════════════════
 
-async function runParallelSweep(configs, dataFile) {
+async function runParallelSweep(configs, dataFile, stockMode = false) {
   console.log(`\n${'═'.repeat(70)}`);
-  console.log(`  OGZPrime PARALLEL BACKTESTER v2`);
+  console.log(`  OGZPrime PARALLEL BACKTESTER v2${stockMode ? ' [STOCK MODE - Zero Fees]' : ''}`);
   console.log(`  ${cpuModel} | ${threadCount} threads | ${MAX_WORKERS} workers`);
   console.log(`  ${configs.length} configurations to test`);
   console.log(`  Data: ${dataFile}`);
   console.log(`  Timeout: None (runs until complete)`);
+  if (stockMode) console.log(`  Fees: $0 (zero commission stocks)`);
   console.log(`${'═'.repeat(70)}\n`);
 
   const results = [];
@@ -345,7 +342,7 @@ async function runParallelSweep(configs, dataFile) {
     console.log(`  ⏳ Running... (no timeout, will finish when done)`);
 
     const batchResults = await Promise.all(
-      batch.map(config => runSingleBacktest(config, dataFile))
+      batch.map(config => runSingleBacktest(config, dataFile, stockMode))
     );
 
     batchResults.forEach(r => {
@@ -407,8 +404,6 @@ async function runParallelSweep(configs, dataFile) {
   if (ranked[0]) {
     console.log(`\n👑 WINNER: ${ranked[0].name}`);
     console.log(`   P&L: $${ranked[0].netPnl.toFixed(2)} | WR: ${ranked[0].winRate?.toFixed(1) || '?'}% | Trades: ${ranked[0].trades || '?'}`);
-    console.log(`   Max DD: ${ranked[0].maxDrawdown?.toFixed(1) || '?'}% | PF: ${ranked[0].profitFactor?.toFixed(2) || '?'} | Lose Streak: ${ranked[0].losingStreak || '?'}`);
-    console.log(`   Avg Winner: $${ranked[0].avgWinner?.toFixed(2) || '?'} | Avg Loser: $${ranked[0].avgLoser?.toFixed(2) || '?'}`);
     if (ranked[0].config.env && Object.keys(ranked[0].config.env).length > 0) {
       console.log(`   Config: ${JSON.stringify(ranked[0].config.env)}`);
     }
@@ -425,6 +420,7 @@ async function main() {
   const args = process.argv.slice(2);
   let sweepName = 'quick';
   let dataFile = DEFAULT_DATA;
+  let stockMode = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--sweep' && args[i+1]) sweepName = args[++i];
@@ -436,6 +432,7 @@ async function main() {
     else if (args[i] === '--confidence') sweepName = 'confidence';
     else if (args[i] === '--sizing') sweepName = 'sizing';
     else if (args[i] === '--tiers') sweepName = 'tiers';
+    else if (args[i] === '--stocks') stockMode = true;
     else if (args[i] === '--help') {
       console.log(`
 OGZPrime Parallel Backtester v2
@@ -473,7 +470,7 @@ Notes:
     process.exit(1);
   }
 
-  await runParallelSweep(configs, dataFile);
+  await runParallelSweep(configs, dataFile, stockMode);
 }
 
 main().catch(err => {
