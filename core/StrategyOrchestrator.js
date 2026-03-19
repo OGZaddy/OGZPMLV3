@@ -88,6 +88,10 @@ class StrategyOrchestrator {
       name: 'EMASMACrossover',
       evaluate: (ctx) => {
         const sig = ctx.extras?.emaCrossoverSignal;
+        // DIAGNOSTIC: Log signal arrival
+        if (process.env.STRATEGY_DIAG === 'true' && sig) {
+          console.log(`[DIAG] EMACrossover signal: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        }
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
         if (conf < this.minStrategyConfidence) return null;
@@ -118,6 +122,10 @@ class StrategyOrchestrator {
       name: 'MADynamicSR',
       evaluate: (ctx) => {
         const sig = ctx.extras?.maDynamicSRSignal;
+        // DIAGNOSTIC: Log signal arrival
+        if (process.env.STRATEGY_DIAG === 'true' && sig) {
+          console.log(`[DIAG] MADynamicSR signal: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        }
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
         if (conf < this.minStrategyConfidence) return null;
@@ -160,6 +168,10 @@ class StrategyOrchestrator {
       name: 'LiquiditySweep',
       evaluate: (ctx) => {
         const sig = ctx.extras?.liquiditySweepSignal;
+        // DIAGNOSTIC: Log signal arrival
+        if (process.env.STRATEGY_DIAG === 'true' && sig) {
+          console.log(`[DIAG] LiquiditySweep signal: hasSignal=${sig.hasSignal} dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        }
         if (!sig || !sig.hasSignal) return null;
         if (!sig.direction || sig.direction === 'neutral') return null;
         let conf = sig.confidence || 0;

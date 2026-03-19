@@ -219,16 +219,18 @@ class TradingLoop {
       regime,
       this.ctx.priceHistory,
       {
-        emaCrossoverSignal: this.ctx.emaCrossoverSignal,
-        maDynamicSRSignal: this.ctx.maDynamicSRSignal,
-        breakRetestSignal: this.ctx.breakRetestSignal,
-        liquiditySweepSignal: this.ctx.liquiditySweepSignal,
-        mtfAdapter: this.ctx.mtfAdapter,
+        // FIX 2026-03-19: Read signals from runner (bot instance) - CandleProcessor updates there
+        // Old code read from ctx snapshot which was empty at init time
+        emaCrossoverSignal: this.ctx.runner?.emaCrossoverSignal || this.ctx.emaCrossoverSignal,
+        maDynamicSRSignal: this.ctx.runner?.maDynamicSRSignal || this.ctx.maDynamicSRSignal,
+        breakRetestSignal: this.ctx.runner?.breakRetestSignal || this.ctx.breakRetestSignal,
+        liquiditySweepSignal: this.ctx.runner?.liquiditySweepSignal || this.ctx.liquiditySweepSignal,
+        mtfAdapter: this.ctx.runner?.mtfAdapter || this.ctx.mtfAdapter,
         tpoResult: tpoResult,
         price: price,
         fibLevels: fibLevels,
         nearestFibLevel: nearestFibLevel,
-        volumeProfile: this.ctx.volumeProfile,
+        volumeProfile: this.ctx.runner?.volumeProfile || this.ctx.volumeProfile,
       }
     );
 
@@ -279,20 +281,21 @@ class TradingLoop {
             signals: strategySignals,
           },
           modules: {
-            emaCrossover: this.ctx.emaCrossoverSignal ? {
-              active: this.ctx.emaCrossoverSignal.direction !== 'neutral',
-              direction: this.ctx.emaCrossoverSignal.direction,
-              confidence: this.ctx.emaCrossoverSignal.confidence || 0,
+            // FIX 2026-03-19: Read from runner (bot instance) where CandleProcessor updates
+            emaCrossover: (this.ctx.runner?.emaCrossoverSignal || this.ctx.emaCrossoverSignal) ? {
+              active: (this.ctx.runner?.emaCrossoverSignal || this.ctx.emaCrossoverSignal).direction !== 'neutral',
+              direction: (this.ctx.runner?.emaCrossoverSignal || this.ctx.emaCrossoverSignal).direction,
+              confidence: (this.ctx.runner?.emaCrossoverSignal || this.ctx.emaCrossoverSignal).confidence || 0,
             } : { active: false },
-            liquiditySweep: this.ctx.liquiditySweepSignal ? {
-              active: this.ctx.liquiditySweepSignal.hasSignal || false,
-              direction: this.ctx.liquiditySweepSignal.direction,
-              confidence: this.ctx.liquiditySweepSignal.confidence || 0,
+            liquiditySweep: (this.ctx.runner?.liquiditySweepSignal || this.ctx.liquiditySweepSignal) ? {
+              active: (this.ctx.runner?.liquiditySweepSignal || this.ctx.liquiditySweepSignal).hasSignal || false,
+              direction: (this.ctx.runner?.liquiditySweepSignal || this.ctx.liquiditySweepSignal).direction,
+              confidence: (this.ctx.runner?.liquiditySweepSignal || this.ctx.liquiditySweepSignal).confidence || 0,
             } : { active: false },
-            maDynamicSR: this.ctx.maDynamicSRSignal ? {
-              active: this.ctx.maDynamicSRSignal.direction !== 'neutral',
-              direction: this.ctx.maDynamicSRSignal.direction,
-              confidence: this.ctx.maDynamicSRSignal.confidence || 0,
+            maDynamicSR: (this.ctx.runner?.maDynamicSRSignal || this.ctx.maDynamicSRSignal) ? {
+              active: (this.ctx.runner?.maDynamicSRSignal || this.ctx.maDynamicSRSignal).direction !== 'neutral',
+              direction: (this.ctx.runner?.maDynamicSRSignal || this.ctx.maDynamicSRSignal).direction,
+              confidence: (this.ctx.runner?.maDynamicSRSignal || this.ctx.maDynamicSRSignal).confidence || 0,
             } : { active: false },
             tpo: this.ctx.ogzTpo ? { active: true } : { active: false },
             regime: {
