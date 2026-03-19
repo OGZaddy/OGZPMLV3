@@ -411,8 +411,14 @@ class StateManager {
     // Calculate USD that was locked in position (at entry price)
     const usdCostLocked = closeSize * this.state.entryPrice;
 
+    // FIX 2026-03-19: Force position to 0 when all activeTrades are closed
+    // This ensures position scalar stays in sync with activeTrades Map
+    const noActiveTradesRemaining = !this.state.activeTrades || this.state.activeTrades.size === 0;
+    const calculatedPosition = Math.max(0, this.state.position - closeSize);
+    const finalPosition = noActiveTradesRemaining ? 0 : calculatedPosition;
+
     const updates = {
-      position: Math.max(0, this.state.position - closeSize),
+      position: finalPosition,
       positionCount: partial ? this.state.positionCount : 0,
       entryPrice: partial ? this.state.entryPrice : 0,
       entryTime: partial ? this.state.entryTime : null,
