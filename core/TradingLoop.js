@@ -19,7 +19,11 @@ const FeatureExtractor = require('./FeatureExtractor');
 const FeatureFlagManager = require('./FeatureFlagManager');
 const TradingConfig = require('./TradingConfig');
 const { getInstance: getExitContractManager } = require('./ExitContractManager');
+const CandlePatternDetector = require('./CandlePatternDetector');
 const flagManager = FeatureFlagManager.getInstance();
+
+// Singleton candle pattern detector
+const candlePatternDetector = new CandlePatternDetector();
 
 const stateManager = getStateManager();
 const exitContractManager = getExitContractManager();
@@ -69,8 +73,8 @@ class TradingLoop {
 
     // Phase 3 REWRITE: RSI smoothing deleted - IndicatorEngine owns RSI calculation
 
-    // Detect patterns
-    const patterns = this.ctx.patternChecker.analyzePatterns({
+    // Detect patterns from memory system
+    const memoryPatterns = this.ctx.patternChecker.analyzePatterns({
       candles: this.ctx.priceHistory,
       trend: indicators.trend,
       macd: indicators.macd?.macd || indicators.macd?.macdLine || 0,
@@ -78,6 +82,18 @@ class TradingLoop {
       rsi: indicators.rsi,
       volume: this.ctx.marketData.volume || 0
     });
+
+    // FIX 2026-03-19: Detect REAL candle patterns (hammer, engulfing, doji, etc.)
+    // CandlePatternDetector was orphan code - now wired into pipeline
+    const candlePatterns = candlePatternDetector.detect(this.ctx.priceHistory, {
+      rsi: indicators.rsi,
+      trend: indicators.trend,
+      macd: indicators.macd?.macd || 0,
+      volume: this.ctx.marketData?.volume || 0
+    });
+
+    // Merge both pattern sources - real candle patterns take priority
+    const patterns = [...candlePatterns, ...memoryPatterns];
 
     // CRITICAL FIX: Record patterns immediately when detected for learning
     // Don't wait for trade completion - patterns need to be recorded NOW
