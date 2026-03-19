@@ -88,11 +88,27 @@ class TradingLoop {
 
     // FIX 2026-03-19: Detect REAL candle patterns (hammer, engulfing, doji, etc.)
     // CandlePatternDetector was orphan code - now wired into pipeline
-    const candlePatterns = candlePatternDetector.detect(this.ctx.priceHistory, {
+    const rawCandlePatterns = candlePatternDetector.detect(this.ctx.priceHistory, {
       rsi: indicators.rsi,
       trend: indicators.trend,
       macd: indicators.macd?.macd || 0,
       volume: this.ctx.marketData?.volume || 0
+    });
+
+    // FIX 2026-03-19: Filter weak candle patterns - only high confidence (>= 70%) generate signals
+    // Prevents signal flood from marginal hammers/engulfings without proper confirmation
+    const MIN_CANDLE_PATTERN_CONFIDENCE = 0.70;
+    const candlePatterns = rawCandlePatterns.filter(p => {
+      const conf = p.confidence || 0;
+      if (conf < MIN_CANDLE_PATTERN_CONFIDENCE) {
+        // Log filtered patterns in verbose mode only
+        if (process.env.VERBOSE_PATTERNS === 'true') {
+          console.log(`[CandlePattern] FILTERED: ${p.name || p.signature} conf=${(conf * 100).toFixed(0)}% < 70%`);
+        }
+        return false;
+      }
+      console.log(`[CandlePattern] PASSED: ${p.name || p.signature} conf=${(conf * 100).toFixed(0)}%`);
+      return true;
     });
 
     // Merge both pattern sources - real candle patterns take priority
