@@ -95,19 +95,19 @@ class TradingLoop {
       volume: this.ctx.marketData?.volume || 0
     });
 
-    // FIX 2026-03-19: Filter weak candle patterns - only high confidence (>= 70%) generate signals
+    // FIX 2026-03-19: Filter weak candle patterns - only high confidence patterns generate signals
     // Prevents signal flood from marginal hammers/engulfings without proper confirmation
-    const MIN_CANDLE_PATTERN_CONFIDENCE = 0.70;
+    const minPatternConf = TradingConfig.get('confidence.candlePatternMinConfidence') || 0.70;
     const candlePatterns = rawCandlePatterns.filter(p => {
       const conf = p.confidence || 0;
-      if (conf < MIN_CANDLE_PATTERN_CONFIDENCE) {
+      if (conf < minPatternConf) {
         // Log filtered patterns in verbose mode only
         if (process.env.VERBOSE_PATTERNS === 'true') {
-          console.log(`[CandlePattern] FILTERED: ${p.name || p.signature} conf=${(conf * 100).toFixed(0)}% < 70%`);
+          console.log(`[CandlePattern] FILTERED: ${p.name || p.signature} conf=${(conf * 100).toFixed(0)}% < ${(minPatternConf * 100).toFixed(0)}%`);
         }
         return false;
       }
-      console.log(`[CandlePattern] PASSED: ${p.name || p.signature} conf=${(conf * 100).toFixed(0)}%`);
+      console.log(`[CandlePattern] PASSED: ${p.name || p.signature} conf=${(conf * 100).toFixed(0)}% >= ${(minPatternConf * 100).toFixed(0)}%`);
       return true;
     });
 

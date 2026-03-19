@@ -42,6 +42,9 @@ const BASE_CONFIG = {
     minTradeConfidence: env('MIN_TRADE_CONFIDENCE', 0.35),      // 35% default - minimum total confidence to enter trade
     maxConfidence: env('MAX_CONFIDENCE', 0.95),                  // 95% - cap (nothing is 100%)
     minStrategyConfidence: env('MIN_STRATEGY_CONFIDENCE', 0.35), // 35% - per individual strategy
+    // FIX 2026-03-19: Filter weak candle patterns (hammer, engulfing, etc.)
+    // Requires trend OR RSI confirmation to pass (base 0.55 + bonuses)
+    candlePatternMinConfidence: env('CANDLE_PATTERN_MIN_CONFIDENCE', 0.70), // 70% - filters marginal patterns
     // REMOVED 2026-03-10 (dead config - nothing reads these):
     // minSignalConfidence: env('MIN_SIGNAL_CONFIDENCE', 0.25),
     // minSignalsToTrade: env('MIN_SIGNALS_TO_TRADE', 2),
