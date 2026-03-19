@@ -31,6 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fix:** Added `keep_alive: '20m'` to Ollama generate requests
 - **Impact:** Model stays in VRAM indefinitely during trading
 
+#### Fix: RSI Warmup DTO Validation
+- **File:** `core/dto/IndicatorSnapshotDTO.js:13`
+- **Problem:** RSI null during indicator warmup caused DTO validation errors spamming logs
+- **Fix:** Made RSI nullable in schema: `z.number().min(0).max(100).nullable()`
+- **Impact:** Clean logs during warmup period
+
+#### Fix: TRAI Model Improvements
+- **Files:** `core/persistent_llm_client.js:58`, `trai_brain/Modelfile.trai`
+- **Problem:** TRAI warmup returned empty (10 tokens too few for reasoning model), and system prompt was crypto-only
+- **Fix:**
+  - Increased warmup tokens from 10 to 100
+  - Expanded system prompt to cover stocks, ETFs, and crypto
+- **Impact:** TRAI now handles all asset types, no empty warmup responses
+
 ---
 
 ### ConfigLoader Migration Phase 2 (2026-03-17)
