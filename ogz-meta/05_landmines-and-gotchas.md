@@ -417,3 +417,105 @@
 **Date Fixed:** 2026-02-04
 
 **Note:** This fix was applied outside the Claudito pipeline - Warden should have caught it
+
+---
+
+## Mercury-2 Audit Landmines (2026-03-19)
+
+### ORPHAN_CODE_001 – CandlePatternDetector Never Imported
+
+**Symptom:**  
+- CandlePattern strategy in StrategyOrchestrator always returns null
+- 12+ pattern types (hammer, engulfing, doji) never generate signals
+
+**Root Cause:**  
+- `core/CandlePatternDetector.js` existed but was NEVER IMPORTED
+- TradingLoop only called `patternChecker.analyzePatterns()` which queries memory, not detect patterns
+
+**Fix (2026-03-19):**  
+- Import CandlePatternDetector in TradingLoop
+- Call `detect()` alongside `analyzePatterns()`
+- Merge results into patterns array
+
+**Rule:**  
+- Before writing new code, grep for existing implementations
+- Dead code MUST be deleted or wired, not left orphan
+
+---
+
+### TIMEFRAME_CONFIG_001 – Per-Timeframe Exits Never Read
+
+**Symptom:**  
+- All trades use 15m default stops regardless of actual timeframe
+- 1m scalps get 2% stops (way too wide), 4h swings get same (way too tight)
+
+**Root Cause:**  
+- TradingConfig.timeframeConfig had beautiful per-TF settings
+- ExitContractManager.createExitContract() never called getTimeframeConfig()
+
+**Fix (2026-03-19):**  
+- Add timeframe parameter to createExitContract()
+- Use TradingConfig.getTimeframeConfig(timeframe)
+
+**Rule:**  
+- When adding config, ALSO wire the code that reads it
+- Configs without readers are dead config
+
+---
+
+### CONFIDENCE_GATE_001 – 1% Threshold Let Everything Through
+
+**Symptom:**  
+- 15,633 trades in 2yr backtest (should be ~300-500)
+- Massive churn, tiny wins eaten by fees
+
+**Root Cause:**  
+- minTradeConfidence = 0.01 (1%) "to allow env var overrides"
+- Comparison: orchResult.confidence (0-100) >= 1 → always true
+
+**Fix (2026-03-19):**  
+- Raised minTradeConfidence from 0.01 to 0.35 (35%)
+
+**Rule:**  
+- Default configs should be PRODUCTION-SAFE, not dev convenience
+- If unsure, err toward stricter filtering
+
+---
+
+### DTO_MISMATCH_001 – superTrendDirection vs trend
+
+**Symptom:**  
+- indicators.trend always undefined
+- RegimeDetector receives undefined, defaults to 'unknown'
+
+**Root Cause:**  
+- IndicatorEngine.getSnapshot() returns `superTrendDirection`
+- TradingLoop and downstream expects `trend`
+
+**Fix (2026-03-19):**  
+- Add backward compat: `indicators.trend = superTrendDirection || 'sideways'`
+
+**Rule:**  
+- DTO field names MUST match consumer expectations
+- When renaming fields, grep ALL consumers first
+
+---
+
+### POSITION_STACKING_001 – Multi-Position Without Direction Check
+
+**Symptom:**  
+- Opening 50 longs on consecutive candles
+- Each RSI signal stacks new position instead of recognizing existing one
+
+**Root Cause:**  
+- Multi-position fix checked `activeTrades.length < maxPositions`
+- Never checked if already holding a LONG before opening another LONG
+
+**Fix (2026-03-19):**  
+- Add hasLongPosition/hasShortPosition checks
+- sameDirectionBlock gate before entry
+
+**Rule:**  
+- Position awareness: 1 long at a time, 1 short at a time
+- Flipping allowed, stacking same direction NOT allowed
+

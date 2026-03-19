@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Mercury-2 Audit Fixes (2026-03-19)
+
+**Session Focus:** External audit by Mercury-2 AI identified critical pipeline gaps and data structure mismatches.
+
+#### Fix: Wire CandlePatternDetector into Pipeline
+- **File:** `core/TradingLoop.js:21-25, 84-92`
+- **Problem:** CandlePatternDetector.js existed with 12+ pattern types (hammer, engulfing, doji, etc.) but was NEVER IMPORTED - orphan code
+- **Fix:** Import detector, call `detect()` alongside `analyzePatterns()`, merge results into patterns array
+- **Impact:** Real candle patterns now generate actual trade signals
+
+#### Fix: Wire Timeframe Config to ExitContractManager
+- **Files:** `core/ExitContractManager.js:257-270`, `core/StrategyOrchestrator.js:573-578`
+- **Problem:** TradingConfig had beautiful per-timeframe SL/TP/trail settings (1m: 0.5%, 4h: 3.5%) but ExitContractManager never read them
+- **Fix:** Add timeframe parameter to `createExitContract()`, call `TradingConfig.getTimeframeConfig(timeframe)`
+- **Impact:** 1m trades get tight stops (0.5%), 4h trades get wide stops (3.5%)
+
+#### Fix: Confidence Gate from 1% to 35%
+- **File:** `core/TradingConfig.js:41`
+- **Problem:** `minTradeConfidence: 0.01` (1%) let EVERYTHING pass - rubber stamp gate
+- **Fix:** Raised default to 0.35 (35%) to match `minStrategyConfidence`
+- **Impact:** Actual confidence filtering, reduced churn
+
+#### Fix: Add Trend Field to Indicator DTO
+- **File:** `core/TradingLoop.js:73`
+- **Problem:** IndicatorEngine returns `superTrendDirection` but downstream expects `indicators.trend` - always undefined
+- **Fix:** Add backward compat: `indicators.trend = indicators.superTrendDirection || 'sideways'`
+- **Impact:** RegimeDetector and pattern analysis now receive proper trend data
+
+#### Fix: Position Stacking Prevention
+- **File:** `core/TradingLoop.js:431-442`
+- **Problem:** Multi-position fix (d08e288) allowed stacking 50 longs on same candle - 15,633 trades in 2yr backtest
+- **Fix:** Add `hasLongPosition`/`hasShortPosition` checks with `sameDirectionBlock` gate
+- **Impact:** 1 long at a time, 1 short at a time, flipping allowed
+
+---
+
 ### UnifiedPatternMemory Integration (2026-03-18)
 
 **Session Focus:** Consolidate two separate pattern stores into single source of truth with DTW matching.
