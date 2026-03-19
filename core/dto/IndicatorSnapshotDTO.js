@@ -9,8 +9,8 @@ const { z } = require('zod');
 const IndicatorSnapshotSchema = z.object({
   timestamp: z.number(),
   indicators: z.object({
-    // RSI
-    rsi: z.number().min(0).max(100).nullable(),  // Null during warmup
+    // RSI - zod 4 syntax: use union for nullable with constraints
+    rsi: z.union([z.number().min(0).max(100), z.null()]),  // Null during warmup
     // Moving averages
     ema9: z.number(),
     ema20: z.number(),
