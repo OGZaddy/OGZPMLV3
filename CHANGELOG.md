@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Priority Fixes - Mercury-2 Continuation (2026-03-19)
+
+**Session Focus:** Complete remaining priority fixes from Mercury-2 audit.
+
+#### Fix: Normalize Confidence Gate Comparison
+- **File:** `core/TradingLoop.js:386, 461, 480, 495`
+- **Problem:** `minConfidence = minTradeConfidence * 100` (35) compared against `orchResult.confidence` (0-100 scale) was correct, but comparison logic was inconsistent
+- **Fix:** Remove `* 100` from minConfidence, compare `(orchResult.confidence / 100) >= minConfidence` for proper 0-1 scale normalization
+- **Impact:** Consistent confidence comparison across all thresholds
+
+#### Fix: Remove Dead PatternMemoryBank Code
+- **File:** `trai_brain/PatternMemoryBank.js` (DELETED)
+- **Problem:** 540 lines of dead code - PatternMemoryBank was NEVER IMPORTED anywhere
+- **Fix:** `git rm trai_brain/PatternMemoryBank.js`
+- **Impact:** Cleaner codebase, UnifiedPatternMemory is now the single source of truth
+
+#### Fix: Remove Per-Candle Pattern Observation Spam
+- **File:** `core/TradingLoop.js:126-136`
+- **Problem:** `recordPatternResult()` called on EVERY candle with `pnl: null` - massive observation spam
+- **Fix:** Removed observation recording, patterns now ONLY recorded at trade CLOSE with real P&L
+- **Impact:** Clean pattern learning from actual outcomes, not detection spam
+
+#### Fix: Force Position to Zero When ActiveTrades Empty
+- **File:** `core/StateManager.js:414-419`
+- **Problem:** Position scalar could desync from activeTrades Map in multi-position scenarios
+- **Fix:** Added check: `if (activeTrades.size === 0) position = 0`
+- **Impact:** Position scalar always in sync with activeTrades
+
+#### Feature: Pattern Pack Generator Tool
+- **File:** `tools/generate-pattern-pack.js` (NEW)
+- **Purpose:** Export patterns from UnifiedPatternMemory into categorized packs
+- **Categories:** entry, exit, regime, continuation, reversal
+- **Usage:** `node tools/generate-pattern-pack.js --ticker TSLA --mode paper`
+- **Impact:** Foundation for premium pattern packs and TRAI Pattern Library Architecture
+
+---
+
 ### Mercury-2 Audit Fixes (2026-03-19)
 
 **Session Focus:** External audit by Mercury-2 AI identified critical pipeline gaps and data structure mismatches.
