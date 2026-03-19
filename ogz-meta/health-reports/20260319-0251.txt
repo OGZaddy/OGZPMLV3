@@ -1,0 +1,36 @@
+=== OGZ Prime Health Check Thu Mar 19 02:51:40 AM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m5[39m[22m  │ ogz-prime-v2     │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 2828467  │ 4h     │ 75   │ [32m[1monline[22m[39m    │ 0%       │ 543.9mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+
+📈 CONFIDENCE LEVELS (last 50):
+     57 confidence: 0
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 29 occurrences
+
+❌ ERRORS (last 10):
+
+🧠 PATTERNS WITH PnL:
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9803547118678511,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2643478876}}
+✅ Pattern RECORDED: features[9], pnl=?%, total=1058
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9823060200087302,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2643493876}}
+✅ Pattern RECORDED: features[9], pnl=?%, total=1059
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9547156332795091,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.00004659052842086444,"timesSeen":3,"status":"learning","age":2643508877}}
+✅ Pattern RECORDED: features[9], pnl=?%, total=1060
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9811543277183598,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2643523878}}
+
+🎯 RECENT DECISIONS:
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=0.0%
+
+=== END REPORT ===

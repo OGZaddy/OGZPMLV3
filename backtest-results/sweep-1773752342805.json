@@ -1,0 +1,124 @@
+{
+  "timestamp": "2026-03-17T12:59:02.805Z",
+  "hardware": {
+    "cpu": "Intel Core Processor (Broadwell, no TSX, IBRS)",
+    "threads": 3,
+    "workers": 1
+  },
+  "dataFile": "tuning/full-45k.json",
+  "totalConfigs": 5,
+  "parsedConfigs": 5,
+  "totalTime": "5453.5s",
+  "results": [
+    {
+      "name": "tight-stops",
+      "finalBalance": 6485.309031298482,
+      "trades": 332,
+      "winRate": 30.075187969924812,
+      "netPnl": -3514.6909687015177,
+      "fees": 2651.491765428169,
+      "maxDrawdown": null,
+      "profitFactor": null,
+      "elapsed": "828.3",
+      "exitCode": 0,
+      "config": {
+        "name": "tight-stops",
+        "env": {
+          "STOP_LOSS_PERCENT": "0.5",
+          "TAKE_PROFIT_PERCENT": "1.0"
+        }
+      }
+    },
+    {
+      "name": "low-conf",
+      "finalBalance": 6437.548728167616,
+      "trades": 315,
+      "winRate": 29.4770206022187,
+      "netPnl": -3562.451271832384,
+      "fees": 2582.743958876966,
+      "maxDrawdown": null,
+      "profitFactor": null,
+      "elapsed": "792.7",
+      "exitCode": 0,
+      "config": {
+        "name": "low-conf",
+        "env": {
+          "MIN_TRADE_CONFIDENCE": "0.25"
+        }
+      }
+    },
+    {
+      "name": "high-conf",
+      "finalBalance": 6430.762739006804,
+      "trades": 315,
+      "winRate": 29.160063391442154,
+      "netPnl": -3569.2372609931963,
+      "fees": 2591.0506924282877,
+      "maxDrawdown": null,
+      "profitFactor": null,
+      "elapsed": "785.3",
+      "exitCode": 0,
+      "config": {
+        "name": "high-conf",
+        "env": {
+          "MIN_TRADE_CONFIDENCE": "0.60"
+        }
+      }
+    },
+    {
+      "name": "wide-stops",
+      "finalBalance": 5959.939500418697,
+      "trades": 467,
+      "winRate": 24.81283422459893,
+      "netPnl": -4040.060499581303,
+      "fees": 2892.348687603813,
+      "maxDrawdown": null,
+      "profitFactor": null,
+      "elapsed": "1190.9",
+      "exitCode": 0,
+      "config": {
+        "name": "wide-stops",
+        "env": {
+          "STOP_LOSS_PERCENT": "2.0",
+          "TAKE_PROFIT_PERCENT": "2.5"
+        }
+      }
+    },
+    {
+      "name": "baseline",
+      "finalBalance": 4792.947788645169,
+      "trades": 776,
+      "winRate": 21.00515463917526,
+      "netPnl": -5207.052211354831,
+      "fees": 3832.5497623328347,
+      "maxDrawdown": null,
+      "profitFactor": null,
+      "elapsed": "1856.3",
+      "exitCode": 0,
+      "config": {
+        "name": "baseline",
+        "env": {}
+      }
+    }
+  ],
+  "failed": [],
+  "winner": {
+    "name": "tight-stops",
+    "finalBalance": 6485.309031298482,
+    "trades": 332,
+    "winRate": 30.075187969924812,
+    "netPnl": -3514.6909687015177,
+    "fees": 2651.491765428169,
+    "maxDrawdown": null,
+    "profitFactor": null,
+    "elapsed": "828.3",
+    "exitCode": 0,
+    "config": {
+      "name": "tight-stops",
+      "env": {
+        "STOP_LOSS_PERCENT": "0.5",
+        "TAKE_PROFIT_PERCENT": "1.0"
+      }
+    }
+  }
+}

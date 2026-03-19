@@ -1,0 +1,30 @@
+=== OGZ Prime Health Check Mon Mar 16 08:51:21 AM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m5[39m[22m  │ ogz-prime-v2     │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 4083013  │ 2D     │ 57   │ [32m[1monline[22m[39m    │ 0%       │ 621.8mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+
+📈 CONFIDENCE LEVELS (last 50):
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 26 occurrences
+
+❌ ERRORS (last 10):
+
+🧠 PATTERNS WITH PnL:
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17215
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17216
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17217
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17218
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17219
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17220
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17221
+âœ… Pattern RECORDED: features[9], pnl=-0.09%, total=17222
+âœ… Pattern RECORDED: features[9], pnl=?%, total=17223
+âœ… Pattern RECORDED: features[9], pnl=-0.08%, total=17224
+
+🎯 RECENT DECISIONS:
+🔍 PRE-DECISION: tradingDirection=buy, conf=50.7%
+
+=== END REPORT ===

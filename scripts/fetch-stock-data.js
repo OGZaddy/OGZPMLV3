@@ -17,7 +17,7 @@ if (!API_KEY || !API_SECRET) {
   process.exit(1);
 }
 
-const SYMBOLS = ['SPY', 'QQQ', 'TSLA'];
+const SYMBOLS = ['SPY', 'QQQ', 'TSLA', 'NVDA', 'AMD', 'COIN', 'MARA', 'RIOT', 'PLTR'];
 const OUTPUT_DIR = path.join(__dirname, '../tuning');
 
 // Alpaca Sandbox Data API (for sandbox/broker keys)

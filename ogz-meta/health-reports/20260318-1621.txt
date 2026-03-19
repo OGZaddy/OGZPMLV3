@@ -1,0 +1,42 @@
+=== OGZ Prime Health Check Wed Mar 18 04:21:37 PM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m5[39m[22m  │ ogz-prime-v2     │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 2463169  │ 80m    │ 70   │ [32m[1monline[22m[39m    │ 0%       │ 542.7mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+
+📈 CONFIDENCE LEVELS (last 50):
+     12 confidence: 50
+     12 confidence: 0
+      6 confidence: 90
+      6 confidence: 81
+      3 confidence: 74
+      3 confidence: 68
+      3 confidence: 61
+      3 confidence: 51
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 24 occurrences
+
+❌ ERRORS (last 10):
+
+🧠 PATTERNS WITH PnL:
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9862314613235137,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2605681382}}
+✅ Pattern RECORDED: features[9], pnl=?%, total=323
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.983275653548001,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2605696383}}
+✅ Pattern RECORDED: features[9], pnl=?%, total=324
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9811709651808888,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2605711385}}
+✅ Pattern RECORDED: features[9], pnl=?%, total=325
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9815618463290222,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2605726384}}
+
+🎯 RECENT DECISIONS:
+🔍 PRE-DECISION: tradingDirection=buy, conf=90.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=50.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=50.0%
+🔍 PRE-DECISION: tradingDirection=hold, conf=68.6%
+🔍 PRE-DECISION: tradingDirection=hold, conf=51.0%
+
+=== END REPORT ===

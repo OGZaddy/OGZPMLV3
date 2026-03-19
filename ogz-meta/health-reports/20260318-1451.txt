@@ -1,0 +1,34 @@
+=== OGZ Prime Health Check Wed Mar 18 02:51:36 PM UTC 2026 ===
+
+📊 PM2 STATUS:
+│ [1m[36m5[39m[22m  │ ogz-prime-v2     │ default     │ 14.0.0  │ [7m[1mfork[22m[27m    │ 2451813  │ 18s    │ 69   │ [32m[1monline[22m[39m    │ 100%     │ 568.9mb  │ [1mlin… │ [90mdisabled[39m │
+
+🌡️ REGIME (last 50 occurrences):
+
+📈 CONFIDENCE LEVELS (last 50):
+     14 confidence: 50
+      5 confidence: 0
+
+⚠️ NaN/UNDEFINED COUNT:
+  Found: 21 occurrences
+
+❌ ERRORS (last 10):
+🛡️ Sentry error monitoring initialized
+  ✅ ErrorHandler
+
+🧠 PATTERNS WITH PnL:
+✅ Pattern RECORDED: features[9], pnl=?%, total=19
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9815588763446481,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2600299280}}
+  ✅ PatternMemoryBank
+  ✅ UnifiedPatternMemory
+[UnifiedPatternMemory] Loaded 4756 patterns from disk
+[UnifiedPatternMemory] Initialized: 4756 patterns, mode=paper, persist=true
+✅ Pattern RECORDED: features[9], pnl=?%, total=1
+[TRAI-CALC-3] Checking UnifiedPatternMemory
+[TRAI-CALC-5] learnedPattern result: {"confidence":0.5,"source":"dtw_insufficient","status":"learning","similarity":0.9923289246750302,"stats":{"totalTrades":3,"wins":1,"losses":2,"winRate":0.3333333333333333,"avgPnL":-0.009571929164218156,"timesSeen":4,"status":"learning","age":2600330849}}
+
+🎯 RECENT DECISIONS:
+🔍 PRE-DECISION: tradingDirection=hold, conf=50.0%
+
+=== END REPORT ===

@@ -1,0 +1,760 @@
+{
+  "fingerprint": "ca5d4e085d3b7251",
+  "timestamp": "2026-03-17T23:51:37.716Z",
+  "envFile": ".env",
+  "resolved": {
+    "mode.execution": {
+      "value": "paper",
+      "source": "TradingConfig:pipeline.executionMode",
+      "raw": false
+    },
+    "mode.backtest": {
+      "value": "false",
+      "source": "env:BACKTEST_MODE",
+      "raw": true
+    },
+    "mode.paperTrading": {
+      "value": "true",
+      "source": "env:PAPER_TRADING",
+      "raw": true
+    },
+    "mode.liveTading": {
+      "value": "false",
+      "source": "env:LIVE_TRADING",
+      "raw": true
+    },
+    "mode.candleSource": {
+      "value": "live",
+      "source": "TradingConfig:pipeline.candleSource",
+      "raw": false
+    },
+    "confidence.minTradeConfidence": {
+      "value": "0.50",
+      "source": "env:MIN_TRADE_CONFIDENCE",
+      "raw": true
+    },
+    "confidence.minStrategyConfidence": {
+      "value": 0.35,
+      "source": "TradingConfig:confidence.minStrategyConfidence",
+      "raw": false
+    },
+    "confidence.maxConfidence": {
+      "value": "0.95",
+      "source": "env:MAX_CONFIDENCE",
+      "raw": true
+    },
+    "sizing.basePositionSize": {
+      "value": "0.01",
+      "source": "env:BASE_POSITION_SIZE",
+      "raw": true
+    },
+    "sizing.maxPositionSize": {
+      "value": "0.05",
+      "source": "env:MAX_POSITION_SIZE_PCT",
+      "raw": true
+    },
+    "sizing.maxPositions": {
+      "value": 3,
+      "source": "TradingConfig:positionSizing.maxPositions",
+      "raw": false
+    },
+    "exits.stopLossPercent": {
+      "value": 1.5,
+      "source": "TradingConfig:exits.stopLossPercent",
+      "raw": false
+    },
+    "exits.takeProfitPercent": {
+      "value": 2,
+      "source": "TradingConfig:exits.takeProfitPercent",
+      "raw": false
+    },
+    "exits.trailingStopPercent": {
+      "value": 3.5,
+      "source": "TradingConfig:exits.trailingStopPercent",
+      "raw": false
+    },
+    "exits.trailingActivation": {
+      "value": 2.5,
+      "source": "TradingConfig:exits.trailingActivation",
+      "raw": false
+    },
+    "tiers.tier1": {
+      "value": "0.007",
+      "source": "env:TIER1_TARGET",
+      "raw": true
+    },
+    "tiers.tier2": {
+      "value": "0.01",
+      "source": "env:TIER2_TARGET",
+      "raw": true
+    },
+    "tiers.tier3": {
+      "value": "0.015",
+      "source": "env:TIER3_TARGET",
+      "raw": true
+    },
+    "tiers.final": {
+      "value": "0.025",
+      "source": "env:FINAL_TARGET",
+      "raw": true
+    },
+    "fees.makerFee": {
+      "value": "0.0025",
+      "source": "env:FEE_MAKER",
+      "raw": true
+    },
+    "fees.takerFee": {
+      "value": "0.0040",
+      "source": "env:FEE_TAKER",
+      "raw": true
+    },
+    "fees.totalRoundTrip": {
+      "value": 0.005,
+      "source": "TradingConfig:fees.totalRoundTrip"
+    },
+    "risk.riskManagerBypass": {
+      "value": "true (BYPASSED)",
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "risk.accountDrawdownBypass": {
+      "value": "true",
+      "source": "env:ACCOUNT_DRAWDOWN_BYPASS",
+      "raw": true
+    },
+    "risk.maxDrawdown": {
+      "value": "18",
+      "source": "env:MAX_DRAWDOWN",
+      "raw": true
+    },
+    "risk.maxDailyLoss": {
+      "value": "10.0",
+      "source": "env:MAX_DAILY_LOSS",
+      "raw": true
+    },
+    "limits.hardStopLoss": {
+      "value": -5,
+      "source": "TradingConfig:universalLimits.hardStopLossPercent"
+    },
+    "limits.accountDrawdown": {
+      "value": -10,
+      "source": "TradingConfig:universalLimits.accountDrawdownPercent"
+    },
+    "limits.maxHoldTime": {
+      "value": 360,
+      "source": "TradingConfig:universalLimits.maxHoldTimeMinutes"
+    },
+    "strategies.RSI": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableRSI"
+    },
+    "strategies.MADynamicSR": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableMADynamicSR"
+    },
+    "strategies.EMACrossover": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableEMACrossover"
+    },
+    "strategies.LiquiditySweep": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableLiquiditySweep"
+    },
+    "strategies.BreakRetest": {
+      "value": false,
+      "source": "TradingConfig:pipeline.enableBreakRetest"
+    },
+    "strategies.MarketRegime": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableMarketRegime"
+    },
+    "strategies.MultiTimeframe": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableMultiTimeframe"
+    },
+    "strategies.OGZTPO": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableOGZTPO"
+    },
+    "strategies.ORB": {
+      "value": false,
+      "source": "TradingConfig:pipeline.enableOpeningRangeBreakout"
+    },
+    "strategies.TRAI": {
+      "value": false,
+      "source": "TradingConfig:pipeline.enableTRAI"
+    },
+    "strategies.Dashboard": {
+      "value": true,
+      "source": "TradingConfig:pipeline.enableDashboard"
+    },
+    "filters.atrEnabled": {
+      "value": "false (DISABLED)",
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "filters.atrMinPercent": {
+      "value": 0.15,
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "backtest.candleDataFile": {
+      "value": "none",
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "backtest.initialBalance": {
+      "value": 10000,
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "backtest.silent": {
+      "value": "false",
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "backtest.fast": {
+      "value": "false",
+      "source": "env:BACKTEST_FAST",
+      "raw": true
+    },
+    "backtest.verbose": {
+      "value": "false",
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "backtest.noPatternSave": {
+      "value": "false",
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "trail.atrMultiplier": {
+      "value": 2,
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "trail.minActivation": {
+      "value": 1.5,
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "trail.trendWiden": {
+      "value": 1.5,
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "trail.structureTighten": {
+      "value": 0.5,
+      "source": "hardcoded-default",
+      "raw": false
+    },
+    "exitContract.RSI.SL": {
+      "value": -2,
+      "source": "TradingConfig:exitContracts.RSI.stopLossPercent"
+    },
+    "exitContract.RSI.TP": {
+      "value": 2.5,
+      "source": "TradingConfig:exitContracts.RSI.takeProfitPercent"
+    },
+    "exitContract.RSI.trail": {
+      "value": 0.6,
+      "source": "TradingConfig:exitContracts.RSI.trailingStopPercent"
+    },
+    "exitContract.RSI.trailAct": {
+      "value": 0.8,
+      "source": "TradingConfig:exitContracts.RSI.trailingActivation"
+    },
+    "exitContract.RSI.maxHold": {
+      "value": 240,
+      "source": "TradingConfig:exitContracts.RSI.maxHoldTimeMinutes"
+    },
+    "exitContract.EMASMACrossover.SL": {
+      "value": -2,
+      "source": "TradingConfig:exitContracts.EMASMACrossover.stopLossPercent"
+    },
+    "exitContract.EMASMACrossover.TP": {
+      "value": 2.5,
+      "source": "TradingConfig:exitContracts.EMASMACrossover.takeProfitPercent"
+    },
+    "exitContract.EMASMACrossover.trail": {
+      "value": 0.8,
+      "source": "TradingConfig:exitContracts.EMASMACrossover.trailingStopPercent"
+    },
+    "exitContract.EMASMACrossover.trailAct": {
+      "value": 1,
+      "source": "TradingConfig:exitContracts.EMASMACrossover.trailingActivation"
+    },
+    "exitContract.EMASMACrossover.maxHold": {
+      "value": 300,
+      "source": "TradingConfig:exitContracts.EMASMACrossover.maxHoldTimeMinutes"
+    },
+    "exitContract.LiquiditySweep.SL": {
+      "value": -2,
+      "source": "TradingConfig:exitContracts.LiquiditySweep.stopLossPercent"
+    },
+    "exitContract.LiquiditySweep.TP": {
+      "value": 2.5,
+      "source": "TradingConfig:exitContracts.LiquiditySweep.takeProfitPercent"
+    },
+    "exitContract.LiquiditySweep.trail": {
+      "value": 0.5,
+      "source": "TradingConfig:exitContracts.LiquiditySweep.trailingStopPercent"
+    },
+    "exitContract.LiquiditySweep.trailAct": {
+      "value": 0.7,
+      "source": "TradingConfig:exitContracts.LiquiditySweep.trailingActivation"
+    },
+    "exitContract.LiquiditySweep.maxHold": {
+      "value": 180,
+      "source": "TradingConfig:exitContracts.LiquiditySweep.maxHoldTimeMinutes"
+    },
+    "exitContract.MADynamicSR.SL": {
+      "value": -2,
+      "source": "TradingConfig:exitContracts.MADynamicSR.stopLossPercent"
+    },
+    "exitContract.MADynamicSR.TP": {
+      "value": 2.5,
+      "source": "TradingConfig:exitContracts.MADynamicSR.takeProfitPercent"
+    },
+    "exitContract.MADynamicSR.trail": {
+      "value": 0.5,
+      "source": "TradingConfig:exitContracts.MADynamicSR.trailingStopPercent"
+    },
+    "exitContract.MADynamicSR.trailAct": {
+      "value": 0.7,
+      "source": "TradingConfig:exitContracts.MADynamicSR.trailingActivation"
+    },
+    "exitContract.MADynamicSR.maxHold": {
+      "value": 180,
+      "source": "TradingConfig:exitContracts.MADynamicSR.maxHoldTimeMinutes"
+    },
+    "exitContract.CandlePattern.SL": {
+      "value": -2,
+      "source": "TradingConfig:exitContracts.CandlePattern.stopLossPercent"
+    },
+    "exitContract.CandlePattern.TP": {
+      "value": 2.5,
+      "source": "TradingConfig:exitContracts.CandlePattern.takeProfitPercent"
+    },
+    "exitContract.CandlePattern.trail": {
+      "value": 0.5,
+      "source": "TradingConfig:exitContracts.CandlePattern.trailingStopPercent"
+    },
+    "exitContract.CandlePattern.trailAct": {
+      "value": 0.7,
+      "source": "TradingConfig:exitContracts.CandlePattern.trailingActivation"
+    },
+    "exitContract.CandlePattern.maxHold": {
+      "value": 150,
+      "source": "TradingConfig:exitContracts.CandlePattern.maxHoldTimeMinutes"
+    },
+    "exitContract.MarketRegime.SL": {
+      "value": -2,
+      "source": "TradingConfig:exitContracts.MarketRegime.stopLossPercent"
+    },
+    "exitContract.MarketRegime.TP": {
+      "value": 2.5,
+      "source": "TradingConfig:exitContracts.MarketRegime.takeProfitPercent"
+    },
+    "exitContract.MarketRegime.trail": {
+      "value": 1,
+      "source": "TradingConfig:exitContracts.MarketRegime.trailingStopPercent"
+    },
+    "exitContract.MarketRegime.trailAct": {
+      "value": 1.5,
+      "source": "TradingConfig:exitContracts.MarketRegime.trailingActivation"
+    },
+    "exitContract.MarketRegime.maxHold": {
+      "value": 360,
+      "source": "TradingConfig:exitContracts.MarketRegime.maxHoldTimeMinutes"
+    }
+  },
+  "envReads": [
+    {
+      "file": "run-empire-v2.js",
+      "line": 6,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 7,
+      "envVar": "BACKTEST_SILENT"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 8,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 28,
+      "envVar": "EXECUTION_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 30,
+      "envVar": "STATE_FILE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 31,
+      "envVar": "DATA_DIR"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 32,
+      "envVar": "STATE_FILE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 33,
+      "envVar": "DATA_DIR"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 38,
+      "envVar": "EXECUTION_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 39,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 314,
+      "envVar": "CANDLE_SOURCE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 315,
+      "envVar": "EXECUTION_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 407,
+      "envVar": "BOT_TIER"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 437,
+      "envVar": "TRADING_PROFILE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 496,
+      "envVar": "TRADE_INTELLIGENCE_SHADOW"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 541,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 543,
+      "envVar": "INITIAL_BALANCE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 577,
+      "envVar": "EXIT_SYSTEM"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 589,
+      "envVar": "ENABLE_TRAI"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 591,
+      "envVar": "TRAI_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 592,
+      "envVar": "TRAI_WEIGHT"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 593,
+      "envVar": "TRAI_VETO"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 594,
+      "envVar": "TRAI_MAX_RISK"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 595,
+      "envVar": "TRAI_MIN_CONF"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 596,
+      "envVar": "TRAI_MAX_CONF"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 619,
+      "envVar": "KRAKEN_API_KEY"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 620,
+      "envVar": "KRAKEN_API_SECRET"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 721,
+      "envVar": "INITIAL_BALANCE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 772,
+      "envVar": "LIVE_TRADING"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 773,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 776,
+      "envVar": "TEST_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 799,
+      "envVar": "TRADING_PAIR"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 822,
+      "envVar": "TRADING_PAIR"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 899,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 917,
+      "envVar": "LIVE_TRADING"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 918,
+      "envVar": "CONFIRM_LIVE_TRADING"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 935,
+      "envVar": "ENABLE_LIVE_TRADING"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 1013,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 1097,
+      "envVar": "TRADING_PAIR"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 1098,
+      "envVar": "CANDLE_TIMEFRAME"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 1229,
+      "envVar": "TRADING_PAIR"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 1275,
+      "envVar": "TRADING_INTERVAL"
+    },
+    {
+      "file": "run-empire-v2.js",
+      "line": 1419,
+      "envVar": "TRADING_PROFILE"
+    },
+    {
+      "file": "core/TradingLoop.js",
+      "line": 109,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "core/TradingLoop.js",
+      "line": 111,
+      "envVar": "TEST_MODE"
+    },
+    {
+      "file": "core/TradingLoop.js",
+      "line": 120,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "core/TradingLoop.js",
+      "line": 131,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "core/TradingLoop.js",
+      "line": 305,
+      "envVar": "TRAI_ENABLE_BACKTEST"
+    },
+    {
+      "file": "core/OrderExecutor.js",
+      "line": 23,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "core/OrderExecutor.js",
+      "line": 24,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "core/OrderExecutor.js",
+      "line": 25,
+      "envVar": "PAPER_TRADING"
+    },
+    {
+      "file": "core/OrderExecutor.js",
+      "line": 554,
+      "envVar": "TEST_MODE"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 734,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 740,
+      "envVar": "DATA_DIR"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 741,
+      "envVar": "STATE_FILE"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 770,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 777,
+      "envVar": "FRESH_START"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 798,
+      "envVar": "DATA_DIR"
+    },
+    {
+      "file": "core/StateManager.js",
+      "line": 799,
+      "envVar": "STATE_FILE"
+    },
+    {
+      "file": "core/RiskManager.js",
+      "line": 87,
+      "envVar": "RISK_MANAGER_BYPASS"
+    },
+    {
+      "file": "core/RiskManager.js",
+      "line": 158,
+      "envVar": "RISK_MANAGER_BYPASS"
+    },
+    {
+      "file": "core/BacktestRunner.js",
+      "line": 41,
+      "envVar": "CANDLE_DATA_FILE"
+    },
+    {
+      "file": "core/BacktestRunner.js",
+      "line": 43,
+      "envVar": "CANDLE_DATA_FILE"
+    },
+    {
+      "file": "core/BacktestRunner.js",
+      "line": 47,
+      "envVar": "FAST_BACKTEST"
+    },
+    {
+      "file": "core/BacktestRunner.js",
+      "line": 179,
+      "envVar": "SUBSCRIPTION_TIER"
+    },
+    {
+      "file": "core/StrategyOrchestrator.js",
+      "line": 486,
+      "envVar": "ATR_FILTER_ENABLED"
+    },
+    {
+      "file": "core/StrategyOrchestrator.js",
+      "line": 487,
+      "envVar": "ATR_MIN_PERCENT"
+    },
+    {
+      "file": "core/CandleProcessor.js",
+      "line": 228,
+      "envVar": "BACKTEST_MODE"
+    },
+    {
+      "file": "core/CandleProcessor.js",
+      "line": 326,
+      "envVar": "BACKTEST_FAST"
+    },
+    {
+      "file": "core/CandleProcessor.js",
+      "line": 338,
+      "envVar": "INITIAL_BALANCE"
+    },
+    {
+      "file": "core/exit/StopLossChecker.js",
+      "line": 47,
+      "envVar": "ACCOUNT_DRAWDOWN_BYPASS"
+    },
+    {
+      "file": "core/exit/DynamicTrailingStop.js",
+      "line": 38,
+      "envVar": "TRAIL_ATR_MULTIPLIER"
+    },
+    {
+      "file": "core/exit/DynamicTrailingStop.js",
+      "line": 42,
+      "envVar": "TRAIL_MIN_ACTIVATION"
+    },
+    {
+      "file": "core/exit/DynamicTrailingStop.js",
+      "line": 45,
+      "envVar": "TRAIL_TREND_WIDEN"
+    },
+    {
+      "file": "core/exit/DynamicTrailingStop.js",
+      "line": 48,
+      "envVar": "TRAIL_STRUCTURE_TIGHTEN"
+    },
+    {
+      "file": "core/exit/DynamicTrailingStop.js",
+      "line": 60,
+      "envVar": "FEE_TOTAL_ROUNDTRIP"
+    },
+    {
+      "file": "instrument.js",
+      "line": 46,
+      "envVar": "NODE_ENV"
+    }
+  ],
+  "runtimeEnvReads": 76
+}
