@@ -246,7 +246,7 @@ class ExitContractManager {
    * Create an exit contract from strategy signal
    * @param {string} strategyName - Name of the triggering strategy
    * @param {Object} signal - Strategy's signal object
-   * @param {Object} context - Market context at entry
+   * @param {Object} context - Market context at entry (includes timeframe)
    * @returns {Object} Complete exit contract
    */
   createExitContract(strategyName, signal = {}, context = {}) {
@@ -256,6 +256,19 @@ class ExitContractManager {
 
     // Start with default contract for this strategy
     const contract = this.getDefaultContract(strategyName);
+
+    // FIX 2026-03-19: Apply timeframe-specific exit parameters
+    // 1m trades get tight stops (0.5%), 4h trades get wide stops (3.5%)
+    const timeframe = context.timeframe || '15m';
+    const tfConfig = TradingConfig.getTimeframeConfig(timeframe);
+    if (tfConfig) {
+      // Convert decimal to percent and apply as base (strategy can still override)
+      contract.stopLossPercent = -1 * (tfConfig.slPct * 100);  // 0.015 → -1.5
+      contract.takeProfitPercent = tfConfig.tpPct * 100;       // 0.025 → 2.5
+      contract.trailingStopPercent = tfConfig.trailPct * 100;  // 0.010 → 1.0
+      contract.maxHoldTimeMinutes = tfConfig.maxHoldMin;       // 120
+      console.log(`[EXIT] Using ${timeframe} config: SL=${contract.stopLossPercent}%, TP=${contract.takeProfitPercent}%, Trail=${contract.trailingStopPercent}%`);
+    }
 
     // Override with signal-specific values if provided
     if (signal.stopLossPercent !== undefined) {

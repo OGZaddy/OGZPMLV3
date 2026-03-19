@@ -571,10 +571,12 @@ class StrategyOrchestrator {
 
       // FIX 2026-02-23: Convert ATR to percentage (was passing raw $ causing inflation)
       const volPct = indicators?.atr && price ? (indicators.atr / price * 100) : (indicators?.volatility || 0);
+      // FIX 2026-03-19: Pass timeframe for per-timeframe exit parameters
+      const timeframe = extras.timeframe || TradingConfig.get('candle.interval') || '15m';
       exitContract = ecm.createExitContract(
         winner.strategyName,
         { ...signalOverrides, confidence: winner.confidence },
-        { volatility: volPct }
+        { volatility: volPct, timeframe }
       );
     } catch (err) {
       console.warn(`⚠️ [StrategyOrchestrator] Failed to create exit contract: ${err.message}`);
