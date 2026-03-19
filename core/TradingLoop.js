@@ -70,6 +70,9 @@ class TradingLoop {
     indicators.volatility = indicators.atr || 0;
     indicators.bbWidth = indicators.bb?.bandwidth || 0;
     indicators.bollingerBands = indicators.bb;
+    // FIX 2026-03-19: Add trend field from superTrendDirection (Mercury-2 audit)
+    // IndicatorEngine returns superTrendDirection but downstream expects 'trend'
+    indicators.trend = indicators.superTrendDirection || 'sideways';
 
     // Phase 3 REWRITE: RSI smoothing deleted - IndicatorEngine owns RSI calculation
 
