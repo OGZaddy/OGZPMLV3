@@ -123,17 +123,9 @@ class TradingLoop {
           });
         }
 
-        // FIX 2026-02-19: Re-enable entry recording with pnl: null (observation-only mode)
-        // BACKTEST_FAST: Skip observation patterns (not trade outcomes)
-        if (!this.ctx.backtestFast &&
-            this.ctx.config.tradingMode !== 'TEST' &&
-            !this.ctx.testMode) {
-          this.ctx.patternChecker.recordPatternResult(featuresForRecording, {
-            pnl: null,  // null = observation only
-            timestamp: Date.now(),
-            type: 'observation'
-          });
-        }
+        // FIX 2026-03-19: REMOVED per-candle observation recording (caused pattern spam)
+        // Patterns are now ONLY recorded at trade CLOSE with real P&L (OrderExecutor.js)
+        // This is the correct learning path - we learn from outcomes, not detections
 
         // TELEMETRY: Skip in BACKTEST_FAST
         if (!this.ctx.backtestFast) {
