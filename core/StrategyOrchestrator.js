@@ -33,6 +33,14 @@ const MAExtensionFilter = require('./MAExtensionFilter');
 const TradingConfig = require('./TradingConfig');
 const OpeningRangeBreakout = require('../modules/OpeningRangeBreakout');
 
+// FIX 2026-03-19: Self-contained strategies — each computes its own signals
+// No more ctx.extras handoff — each strategy owns its signal computation
+const EMASMACrossoverSignal = require('../modules/EMASMACrossoverSignal');
+const MADynamicSR = require('../modules/MADynamicSR');
+const LiquiditySweepDetector = require('../modules/LiquiditySweepDetector');
+const MultiTimeframeAdapter = require('../modules/MultiTimeframeAdapter');
+const OgzTpoIntegration = require('./OgzTpoIntegration');
+
 class StrategyOrchestrator {
   constructor(config = {}) {
     // Minimum confidence a single strategy needs to fire a trade
@@ -67,6 +75,29 @@ class StrategyOrchestrator {
     // MA Extension Filter for trend confirmation + first-touch skip
     this.maExtensionFilter = new MAExtensionFilter();
 
+    // FIX 2026-03-19: Self-contained signal modules
+    // Each strategy owns its signal computation — no ctx.extras handoff
+    this.emaCrossoverModule = new EMASMACrossoverSignal();
+    this.maDynamicSRModule = new MADynamicSR();
+    this.liquiditySweepModule = new LiquiditySweepDetector({ disableSessionCheck: true });
+    this.mtfAdapter = new MultiTimeframeAdapter({
+      activeTimeframes: TradingConfig.get('orchestrator.mtfTimeframes') || ['1m', '5m', '15m', '1h', '4h']
+    });
+    this.tpoIntegration = new OgzTpoIntegration();
+
+    // FIX 2026-03-19: Load orchestrator config from TradingConfig (no hardcodes)
+    this.minCandlesEMA = TradingConfig.get('orchestrator.minCandlesEMA') ?? 20;
+    this.minCandlesMASR = TradingConfig.get('orchestrator.minCandlesMASR') ?? 50;
+    this.minCandlesSweep = TradingConfig.get('orchestrator.minCandlesSweep') ?? 20;
+    this.minCandlesMTF = TradingConfig.get('orchestrator.minCandlesMTF') ?? 30;
+    this.minCandlesTPO = TradingConfig.get('orchestrator.minCandlesTPO') ?? 30;
+    this.fibDistanceEMA = TradingConfig.get('orchestrator.fibDistanceEMA') ?? 0.5;
+    this.fibDistanceMASR = TradingConfig.get('orchestrator.fibDistanceMASR') ?? 0.5;
+    this.fibDistanceSweep = TradingConfig.get('orchestrator.fibDistanceSweep') ?? 0.8;
+    this.fibBoostNormal = TradingConfig.get('orchestrator.fibBoostNormal') ?? 0.10;
+    this.fibBoostGolden = TradingConfig.get('orchestrator.fibBoostGolden') ?? 0.15;
+    this.tpoStrengthMultiplier = TradingConfig.get('orchestrator.tpoStrengthMultiplier') ?? 10;
+
     // Register built-in strategies
     this._registerBuiltinStrategies();
 
@@ -84,13 +115,25 @@ class StrategyOrchestrator {
   _registerBuiltinStrategies() {
 
     // ─── 1. EMA/SMA Crossover Strategy ───
+    // FIX 2026-03-19: Self-contained — computes crossovers internally from raw candles
+    const emaCrossoverModule = this.emaCrossoverModule;
+    const minCandlesEMA = this.minCandlesEMA;
+    const fibDistanceEMA = this.fibDistanceEMA;
+    const fibBoostNormal = this.fibBoostNormal;
+    const fibBoostGolden = this.fibBoostGolden;
     this.strategies.push({
       name: 'EMASMACrossover',
       evaluate: (ctx) => {
-        const sig = ctx.extras?.emaCrossoverSignal;
-        // DIAGNOSTIC: Log signal arrival
-        if (process.env.STRATEGY_DIAG === 'true' && sig) {
-          console.log(`[DIAG] EMACrossover signal: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        // Self-contained: compute signal from raw candle data
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length < minCandlesEMA) return null;
+
+        const latestCandle = candles[candles.length - 1];
+        const sig = emaCrossoverModule.update(latestCandle, candles);
+
+        // DIAGNOSTIC: Log signal computation
+        if (process.env.STRATEGY_DIAG === 'true' && sig && sig.direction !== 'neutral') {
+          console.log(`[DIAG] EMACrossover computed: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
         }
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
@@ -99,9 +142,9 @@ class StrategyOrchestrator {
         // Fib level boost: if price is bouncing at a fib level, this is a stronger setup
         const fib = ctx.extras?.nearestFibLevel;
         let fibBoost = '';
-        if (fib && fib.distance < 0.5) {
-          // Price is within 0.5% of a fib level — boost confidence
-          const boost = fib.isGoldenZone ? 0.15 : 0.10;
+        if (fib && fib.distance < fibDistanceEMA) {
+          // Price is within fib distance — boost confidence
+          const boost = fib.isGoldenZone ? fibBoostGolden : fibBoostNormal;
           conf = Math.min(1.0, conf + boost);
           fibBoost = ` + Fib ${(fib.level * 100).toFixed(1)}% (${fib.isGoldenZone ? 'GOLDEN ZONE' : 'near level'})`;
         }
@@ -116,31 +159,36 @@ class StrategyOrchestrator {
     });
 
     // ─── 2. MA Dynamic S/R Strategy ───
-    // NOTE: 'this' context is bound via arrow function in evaluate wrapper below
-    const orchestrator = this;
+    // FIX 2026-03-19: Self-contained — computes S/R levels internally from raw candles
+    const maDynamicSRModule = this.maDynamicSRModule;
+    const minCandlesMASR = this.minCandlesMASR;
+    const fibDistanceMASR = this.fibDistanceMASR;
     this.strategies.push({
       name: 'MADynamicSR',
       evaluate: (ctx) => {
-        const sig = ctx.extras?.maDynamicSRSignal;
-        // DIAGNOSTIC: Log signal arrival
-        if (process.env.STRATEGY_DIAG === 'true' && sig) {
-          console.log(`[DIAG] MADynamicSR signal: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        // Self-contained: compute signal from raw candle data
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length < minCandlesMASR) return null;
+
+        const latestCandle = candles[candles.length - 1];
+        const sig = maDynamicSRModule.update(latestCandle, candles);
+
+        // DIAGNOSTIC: Log signal computation
+        if (process.env.STRATEGY_DIAG === 'true' && sig && sig.direction !== 'neutral') {
+          console.log(`[DIAG] MADynamicSR computed: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
         }
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
         let conf = sig.confidence || 0;
         if (conf < this.minStrategyConfidence) return null;
 
-        // ─── MAExtensionFilter Gate ───
-        // DISABLED 2026-03-09: MADynamicSR now handles extension detection internally
-        // (slope detection, extension skip, first-touch skip per Trader DNA rewrite)
-        // Having two extension filters stacked was killing 362 out of 383 signals.
-        const price = ctx.extras?.price || (ctx.priceHistory?.length > 0 ? ctx.priceHistory[ctx.priceHistory.length - 1]?.c : null);
+        // MADynamicSR handles extension detection internally (slope detection, first-touch skip)
+        const price = candles.length > 0 ? candles[candles.length - 1]?.c : null;
 
         // Fib level boost: bounce at MA + fib level = very strong S/R
         const fib = ctx.extras?.nearestFibLevel;
         let fibBoost = '';
-        if (fib && fib.distance < 0.5) {
-          const boost = fib.isGoldenZone ? 0.15 : 0.10;
+        if (fib && fib.distance < fibDistanceMASR) {
+          const boost = fib.isGoldenZone ? fibBoostGolden : fibBoostNormal;
           conf = Math.min(1.0, conf + boost);
           fibBoost = ` + Fib ${(fib.level * 100).toFixed(1)}%${fib.isGoldenZone ? ' GOLDEN' : ''}`;
         }
@@ -164,13 +212,23 @@ class StrategyOrchestrator {
     });
 
     // ─── 3. Liquidity Sweep Strategy ───
+    // FIX 2026-03-19: Self-contained — computes sweeps internally from raw candles
+    const liquiditySweepModule = this.liquiditySweepModule;
+    const minCandlesSweep = this.minCandlesSweep;
+    const fibDistanceSweep = this.fibDistanceSweep;
     this.strategies.push({
       name: 'LiquiditySweep',
       evaluate: (ctx) => {
-        const sig = ctx.extras?.liquiditySweepSignal;
-        // DIAGNOSTIC: Log signal arrival
-        if (process.env.STRATEGY_DIAG === 'true' && sig) {
-          console.log(`[DIAG] LiquiditySweep signal: hasSignal=${sig.hasSignal} dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        // Self-contained: compute signal from raw candle data
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length < minCandlesSweep) return null;
+
+        const latestCandle = candles[candles.length - 1];
+        const sig = liquiditySweepModule.feedCandle(latestCandle);
+
+        // DIAGNOSTIC: Log signal computation
+        if (process.env.STRATEGY_DIAG === 'true' && sig && sig.hasSignal) {
+          console.log(`[DIAG] LiquiditySweep computed: hasSignal=${sig.hasSignal} dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
         }
         if (!sig || !sig.hasSignal) return null;
         if (!sig.direction || sig.direction === 'neutral') return null;
@@ -180,8 +238,8 @@ class StrategyOrchestrator {
         // Fib level boost: sweep reversal at a fib level = institutional level
         const fib = ctx.extras?.nearestFibLevel;
         let fibBoost = '';
-        if (fib && fib.distance < 0.8) {
-          const boost = fib.isGoldenZone ? 0.12 : 0.08;
+        if (fib && fib.distance < fibDistanceSweep) {
+          const boost = fib.isGoldenZone ? fibBoostGolden : fibBoostNormal;
           conf = Math.min(1.0, conf + boost);
           fibBoost = ` @ Fib ${(fib.level * 100).toFixed(1)}%${fib.isGoldenZone ? ' GOLDEN' : ''}`;
         }
@@ -312,21 +370,38 @@ class StrategyOrchestrator {
     });
 
     // ─── 7. Multi-Timeframe Confluence Strategy ───
+    // FIX 2026-03-19: Self-contained — owns its MTF adapter internally
+    const mtfAdapterModule = this.mtfAdapter;
+    const minCandlesMTF = this.minCandlesMTF;
     this.strategies.push({
       name: 'MultiTimeframe',
       evaluate: (ctx) => {
-        const mtf = ctx.extras?.mtfAdapter;
-        if (!mtf || typeof mtf.getConfluence !== 'function') return null;
+        // Self-contained: ingest candle and compute confluence internally
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length < minCandlesMTF) return null;
+
+        // Feed latest candle to MTF adapter
+        const latestCandle = candles[candles.length - 1];
+        try {
+          mtfAdapterModule.ingestCandle(latestCandle);
+        } catch (e) {
+          return null;
+        }
 
         let confluence;
         try {
-          confluence = mtf.getConfluence();
+          confluence = mtfAdapterModule.getConfluence ? mtfAdapterModule.getConfluence() : mtfAdapterModule.getConfluenceScore();
         } catch (e) {
           return null;
         }
 
         if (!confluence || !confluence.direction || confluence.direction === 'neutral') return null;
         if ((confluence.score || 0) < this.confluenceMinScore) return null;
+
+        // DIAGNOSTIC: Log MTF signal computation
+        if (process.env.STRATEGY_DIAG === 'true') {
+          console.log(`[DIAG] MultiTimeframe computed: dir=${confluence.direction} score=${(confluence.score||0).toFixed(2)}`);
+        }
 
         return {
           direction: confluence.direction,
@@ -338,10 +413,25 @@ class StrategyOrchestrator {
     });
 
     // ─── 8. OGZ TPO Strategy ───
+    // FIX 2026-03-19: Self-contained — owns its TPO integration internally
+    const tpoIntegrationModule = this.tpoIntegration;
+    const minCandlesTPO = this.minCandlesTPO;
+    const tpoStrengthMultiplier = this.tpoStrengthMultiplier;
     this.strategies.push({
       name: 'OGZTPO',  // OGZ TPO strategy
       evaluate: (ctx) => {
-        const tpo = ctx.extras?.tpoResult;
+        // Self-contained: compute TPO signal from raw candle data
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length < minCandlesTPO) return null;
+
+        const latestCandle = candles[candles.length - 1];
+        let tpo;
+        try {
+          tpo = tpoIntegrationModule.update(latestCandle);
+        } catch (e) {
+          return null;
+        }
+
         if (!tpo || !tpo.signal) return null;
         if (!tpo.signal.highProbability) return null; // Only fire on high probability
 
@@ -352,9 +442,14 @@ class StrategyOrchestrator {
         const direction = action === 'BUY' ? 'buy' : action === 'SELL' ? 'sell' : null;
         if (!direction) return null;
 
+        // DIAGNOSTIC: Log TPO signal computation
+        if (process.env.STRATEGY_DIAG === 'true') {
+          console.log(`[DIAG] OGZTPO computed: dir=${direction} strength=${(strength * 100).toFixed(1)}%`);
+        }
+
         return {
           direction,
-          confidence: Math.min(1.0, strength * 10), // Scale 0.03-0.1 → 0.3-1.0
+          confidence: Math.min(1.0, strength * tpoStrengthMultiplier), // Scale 0.03-0.1 → 0.3-1.0
           reason: `OGZ TPO ${tpo.signal.zone} (strength: ${(strength * 100).toFixed(1)}%)`,
           signalData: tpo.signal,
           // TPO provides its own levels

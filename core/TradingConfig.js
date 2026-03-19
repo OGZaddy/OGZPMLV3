@@ -291,6 +291,32 @@ const BASE_CONFIG = {
   },
 
   // =========================================================================
+  // STRATEGY ORCHESTRATOR SETTINGS
+  // FIX 2026-03-19: Extracted hardcoded values from StrategyOrchestrator
+  // =========================================================================
+  orchestrator: {
+    // Minimum candle history required for each strategy
+    minCandlesEMA: env('MIN_CANDLES_EMA', 20),              // EMACrossover needs 20 candles
+    minCandlesMASR: env('MIN_CANDLES_MASR', 50),            // MADynamicSR needs 50 candles (200 MA)
+    minCandlesSweep: env('MIN_CANDLES_SWEEP', 20),          // LiquiditySweep needs 20 candles
+    minCandlesMTF: env('MIN_CANDLES_MTF', 30),              // MultiTimeframe needs 30 candles
+    minCandlesTPO: env('MIN_CANDLES_TPO', 30),              // OGZTPO needs 30 candles
+
+    // Fibonacci level boost thresholds
+    fibDistanceEMA: env('FIB_DISTANCE_EMA', 0.5),           // 0.5% distance for EMA fib boost
+    fibDistanceMASR: env('FIB_DISTANCE_MASR', 0.5),         // 0.5% distance for MASR fib boost
+    fibDistanceSweep: env('FIB_DISTANCE_SWEEP', 0.8),       // 0.8% distance for Sweep fib boost
+    fibBoostNormal: env('FIB_BOOST_NORMAL', 0.10),          // 10% confidence boost at fib level
+    fibBoostGolden: env('FIB_BOOST_GOLDEN', 0.15),          // 15% confidence boost at golden zone
+
+    // TPO strength scaling
+    tpoStrengthMultiplier: env('TPO_STRENGTH_MULT', 10),    // Scale 0.03-0.1 → 0.3-1.0
+
+    // MTF timeframes (comma-separated in .env)
+    mtfTimeframes: process.env.MTF_TIMEFRAMES?.split(',') || ['1m', '5m', '15m', '1h', '4h'],
+  },
+
+  // =========================================================================
   // UNIVERSAL CIRCUIT BREAKERS (override strategy contracts)
   // =========================================================================
   universalLimits: {
