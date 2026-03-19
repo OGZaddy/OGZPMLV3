@@ -426,8 +426,19 @@ class TradingLoop {
     }
 
     // BUY: Allow new positions if under max limit (multi-position support)
-    // FIX 2026-03-13: Changed from else-if to separate if, allowing buys with active trades
-    if (decision.action === 'HOLD' && activeTrades.length < maxPositions &&
+    // FIX 2026-03-19: Prevent same-direction position stacking
+    // Check if already holding a position in the same direction
+    const hasLongPosition = activeTrades.some(t => t.direction === 'long' || t.action === 'BUY');
+    const hasShortPosition = allTrades.some(t => t.direction === 'short' || t.action === 'SHORT');
+
+    // Block new long if already long, block new short if already short
+    const sameDirectionBlock = (tradingDirection === 'buy' && hasLongPosition) ||
+                               (tradingDirection === 'sell' && hasShortPosition);
+
+    console.log(`[DIRECTION-CHECK] activeTrades=${activeTrades.length}, hasLong=${hasLongPosition}, hasShort=${hasShortPosition}, direction=${tradingDirection}, blocked=${sameDirectionBlock}`);
+
+    if (decision.action === 'HOLD' && !sameDirectionBlock &&
+        activeTrades.length < maxPositions &&
         tradingDirection === 'buy' && orchResult.confidence >= minConfidence) {
       // FIX 2026-03-06: ENFORCE MAX_DRAWDOWN + MAX_DAILY_LOSS via RiskManager
       // These flags were loaded but never checked - wiring them now
