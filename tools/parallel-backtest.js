@@ -58,6 +58,64 @@ try {
 } catch(e) {}
 
 // ═══════════════════════════════════════════════════════════════
+// STRATEGY LIST & GAUNTLET GENERATORS (must be before SWEEP_PRESETS)
+// ═══════════════════════════════════════════════════════════════
+
+const STRATEGIES = ['RSI', 'EMASMACrossover', 'MADynamicSR', 'LiquiditySweep', 'MarketRegime', 'MultiTimeframe', 'OGZTPO', 'OpeningRangeBreakout'];
+
+function generateGauntlet(paramType, values) {
+  const configs = [];
+  for (const strat of STRATEGIES) {
+    for (const val of values) {
+      let env = { SOLO_STRATEGY: strat };
+      let name = `${strat.substring(0,4)}-`;
+
+      if (paramType === 'confidence') {
+        env.MIN_TRADE_CONFIDENCE = String(val);
+        name += `c${(val*100).toFixed(0)}`;
+      } else if (paramType === 'atr') {
+        if (val === 0) {
+          env.ATR_FILTER_ENABLED = 'false';
+          name += 'atr-off';
+        } else {
+          env.ATR_FILTER_ENABLED = 'true';
+          env.ATR_MIN_PERCENT = String(val);
+          name += `atr${(val*100).toFixed(0)}`;
+        }
+      }
+
+      configs.push({ name, env });
+    }
+  }
+  return configs;
+}
+
+function generateGauntletExits() {
+  const configs = [];
+  const exitCombos = [
+    { sl: 0.5, tp: 1.0 },
+    { sl: 0.8, tp: 1.5 },
+    { sl: 1.0, tp: 2.0 },
+    { sl: 1.5, tp: 2.5 },
+    { sl: 2.0, tp: 3.0 },
+    { sl: 2.5, tp: 4.0 },
+  ];
+  for (const strat of STRATEGIES) {
+    for (const exit of exitCombos) {
+      configs.push({
+        name: `${strat.substring(0,4)}-sl${exit.sl}-tp${exit.tp}`,
+        env: {
+          SOLO_STRATEGY: strat,
+          STOP_LOSS_PERCENT: String(exit.sl),
+          TAKE_PROFIT_PERCENT: String(exit.tp)
+        }
+      });
+    }
+  }
+  return configs;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PARAMETER SWEEP DEFINITIONS
 // ═══════════════════════════════════════════════════════════════
 
@@ -225,61 +283,6 @@ function generateRSISweep() {
       configs.push({
         name: `rsi-${os}-${ob}`,
         env: { RSI_OVERSOLD: String(os), RSI_OVERBOUGHT: String(ob) }
-      });
-    }
-  }
-  return configs;
-}
-
-// Gauntlet: All strategies x parameter values
-const STRATEGIES = ['RSI', 'EMASMACrossover', 'MADynamicSR', 'LiquiditySweep', 'MarketRegime', 'MultiTimeframe', 'OGZTPO', 'OpeningRangeBreakout'];
-
-function generateGauntlet(paramType, values) {
-  const configs = [];
-  for (const strat of STRATEGIES) {
-    for (const val of values) {
-      let env = { SOLO_STRATEGY: strat };
-      let name = `${strat.substring(0,4)}-`;
-
-      if (paramType === 'confidence') {
-        env.MIN_TRADE_CONFIDENCE = String(val);
-        name += `c${(val*100).toFixed(0)}`;
-      } else if (paramType === 'atr') {
-        if (val === 0) {
-          env.ATR_FILTER_ENABLED = 'false';
-          name += 'atr-off';
-        } else {
-          env.ATR_FILTER_ENABLED = 'true';
-          env.ATR_MIN_PERCENT = String(val);
-          name += `atr${(val*100).toFixed(0)}`;
-        }
-      }
-
-      configs.push({ name, env });
-    }
-  }
-  return configs;
-}
-
-function generateGauntletExits() {
-  const configs = [];
-  const exitCombos = [
-    { sl: 0.5, tp: 1.0 },
-    { sl: 0.8, tp: 1.5 },
-    { sl: 1.0, tp: 2.0 },
-    { sl: 1.5, tp: 2.5 },
-    { sl: 2.0, tp: 3.0 },
-    { sl: 2.5, tp: 4.0 },
-  ];
-  for (const strat of STRATEGIES) {
-    for (const exit of exitCombos) {
-      configs.push({
-        name: `${strat.substring(0,4)}-sl${exit.sl}-tp${exit.tp}`,
-        env: {
-          SOLO_STRATEGY: strat,
-          STOP_LOSS_PERCENT: String(exit.sl),
-          TAKE_PROFIT_PERCENT: String(exit.tp)
-        }
       });
     }
   }
