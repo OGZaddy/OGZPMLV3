@@ -111,6 +111,37 @@ class StrategyOrchestrator {
     // Stats tracking
     this.lastEvaluation = null;
     this.evalCount = 0;
+
+    // DIAGNOSTIC FUNNELS - track where signals die
+    this.diagFunnel = {
+      EMASMACrossover: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
+      MADynamicSR: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
+      RSI: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
+      LiquiditySweep: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
+      OGZTPO: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
+    };
+  }
+
+  /**
+   * Print diagnostic funnel at end of backtest
+   */
+  printDiagnosticFunnel() {
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log('  STRATEGY DIAGNOSTIC FUNNEL - Where Signals Die');
+    console.log('═══════════════════════════════════════════════════════════════');
+    for (const [name, f] of Object.entries(this.diagFunnel)) {
+      if (f.evaluated === 0) continue;
+      const pctNonNull = f.evaluated > 0 ? (f.moduleNonNull / f.evaluated * 100).toFixed(2) : 0;
+      const pctNonNeutral = f.moduleNonNull > 0 ? (f.nonNeutral / f.moduleNonNull * 100).toFixed(2) : 0;
+      const pctConf = f.nonNeutral > 0 ? (f.passedConf / f.nonNeutral * 100).toFixed(2) : 0;
+      console.log(`\n  ${name}:`);
+      console.log(`    Candles evaluated:     ${f.evaluated}`);
+      console.log(`    Module returned value: ${f.moduleNonNull} (${pctNonNull}%)`);
+      console.log(`    Non-neutral direction: ${f.nonNeutral} (${pctNonNeutral}% of above)`);
+      console.log(`    Passed confidence:     ${f.passedConf} (${pctConf}% of above)`);
+      console.log(`    Actually traded:       ${f.traded}`);
+    }
+    console.log('\n═══════════════════════════════════════════════════════════════\n');
   }
 
   /**
@@ -133,23 +164,28 @@ class StrategyOrchestrator {
     const fibDistanceEMA = this.fibDistanceEMA;
     const fibBoostNormal = this.fibBoostNormal;
     const fibBoostGolden = this.fibBoostGolden;
+    const diagEMA = this.diagFunnel.EMASMACrossover;
     if (shouldRegister('EMASMACrossover')) this.strategies.push({
       name: 'EMASMACrossover',
       evaluate: (ctx) => {
+        diagEMA.evaluated++;
         // Self-contained: compute signal from raw candle data
         const candles = ctx.priceHistory;
         if (!candles || candles.length < minCandlesEMA) return null;
 
         const latestCandle = candles[candles.length - 1];
         const sig = emaCrossoverModule.update(latestCandle, candles);
+        if (sig) diagEMA.moduleNonNull++;
 
         // DIAGNOSTIC: Log signal computation
         if (process.env.STRATEGY_DIAG === 'true' && sig && sig.direction !== 'neutral') {
           console.log(`[DIAG] EMACrossover computed: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
         }
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
+        diagEMA.nonNeutral++;
         let conf = sig.confidence || 0;
         if (conf < this.minStrategyConfidence) return null;
+        diagEMA.passedConf++;
 
         // Fib level boost: if price is bouncing at a fib level, this is a stronger setup
         const fib = ctx.extras?.nearestFibLevel;
@@ -175,23 +211,28 @@ class StrategyOrchestrator {
     const maDynamicSRModule = this.maDynamicSRModule;
     const minCandlesMASR = this.minCandlesMASR;
     const fibDistanceMASR = this.fibDistanceMASR;
+    const diagMASR = this.diagFunnel.MADynamicSR;
     if (shouldRegister('MADynamicSR')) this.strategies.push({
       name: 'MADynamicSR',
       evaluate: (ctx) => {
+        diagMASR.evaluated++;
         // Self-contained: compute signal from raw candle data
         const candles = ctx.priceHistory;
         if (!candles || candles.length < minCandlesMASR) return null;
 
         const latestCandle = candles[candles.length - 1];
         const sig = maDynamicSRModule.update(latestCandle, candles);
+        if (sig && sig.direction) diagMASR.moduleNonNull++;
 
         // DIAGNOSTIC: Log signal computation
         if (process.env.STRATEGY_DIAG === 'true' && sig && sig.direction !== 'neutral') {
           console.log(`[DIAG] MADynamicSR computed: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
         }
         if (!sig || sig.direction === 'neutral' || !sig.direction) return null;
+        diagMASR.nonNeutral++;
         let conf = sig.confidence || 0;
         if (conf < this.minStrategyConfidence) return null;
+        diagMASR.passedConf++;
 
         // MADynamicSR handles extension detection internally (slope detection, first-touch skip)
         const price = candles.length > 0 ? candles[candles.length - 1]?.c : null;

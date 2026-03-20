@@ -229,6 +229,11 @@ class BacktestRunner {
         this.ctx.backtestRecorder.exportCSV('./backtest-trades.csv');
       }
 
+      // DIAGNOSTIC: Print strategy signal funnel
+      if (this.ctx.strategyOrchestrator?.printDiagnosticFunnel) {
+        this.ctx.strategyOrchestrator.printDiagnosticFunnel();
+      }
+
       // Exit after backtest
       console.log('\n🛑 Backtest complete - exiting...');
       process.exit(0);
