@@ -85,11 +85,14 @@ class StrategyOrchestrator {
     });
     this.tpoIntegration = new OgzTpoIntegration();
 
-    // SOLO_STRATEGY mode: only enable one strategy for isolated testing
+    // SOLO_STRATEGY mode: only enable specified strategies for isolated testing
     // Usage: SOLO_STRATEGY=RSI node tools/parallel-backtest.js ...
-    this.soloStrategy = process.env.SOLO_STRATEGY || null;
-    if (this.soloStrategy) {
-      console.log(`[StrategyOrchestrator] SOLO MODE: Only ${this.soloStrategy} enabled`);
+    // Supports comma-separated: SOLO_STRATEGY=RSI,EMASMACrossover
+    this.soloStrategies = process.env.SOLO_STRATEGY
+      ? process.env.SOLO_STRATEGY.split(',').map(s => s.trim().toLowerCase())
+      : null;
+    if (this.soloStrategies) {
+      console.log(`[StrategyOrchestrator] SOLO MODE: Only ${this.soloStrategies.join(', ')} enabled`);
     }
 
     // FIX 2026-03-19: Load orchestrator config from TradingConfig (no hardcodes)
@@ -153,8 +156,8 @@ class StrategyOrchestrator {
   _registerBuiltinStrategies() {
     // Helper: check if strategy should be registered (respects SOLO_STRATEGY mode)
     const shouldRegister = (name) => {
-      if (!this.soloStrategy) return true;  // No filter — register all
-      return name.toLowerCase() === this.soloStrategy.toLowerCase();
+      if (!this.soloStrategies) return true;  // No filter — register all
+      return this.soloStrategies.includes(name.toLowerCase());
     };
 
     // ─── 1. EMA/SMA Crossover Strategy ───
