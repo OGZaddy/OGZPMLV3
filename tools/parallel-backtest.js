@@ -300,8 +300,17 @@ function runSingleBacktest(config, dataFile, stockMode = false) {
     const stateFile = path.join(PROJECT_ROOT, 'data', `state-parallel-${uniqueId}.json`);
     const reportTag = `parallel-${uniqueId}`;
     
+    // Start with parent env but DELETE trading vars so they don't contaminate
+    // (user might have set them manually in shell)
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.STOP_LOSS_PERCENT;
+    delete cleanEnv.TAKE_PROFIT_PERCENT;
+    delete cleanEnv.MIN_TRADE_CONFIDENCE;
+    delete cleanEnv.TRAILING_STOP_PERCENT;
+    delete cleanEnv.ATR_MIN_PERCENT;
+
     const env = {
-      ...process.env,
+      ...cleanEnv,
       EXECUTION_MODE: 'backtest',
       CANDLE_SOURCE: 'file',
       BACKTEST_MODE: 'true',

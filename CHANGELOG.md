@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fix: Env Var Contamination in Parallel Backtest (2026-03-20)
+
+#### Fix: Parent Shell Env Vars Contaminating Child Processes
+- **Files:** `tools/parallel-backtest.js:303-311`
+- **Symptom:** All 4 configs (baseline, tight-stops, high-conf, low-conf) showing identical results
+- **Root Cause:** User's PowerShell session had `STOP_LOSS_PERCENT=0.5` set. Child processes inherited this, overriding their own env configs.
+- **Fix:** Delete trading env vars (STOP_LOSS_PERCENT, TAKE_PROFIT_PERCENT, MIN_TRADE_CONFIDENCE, TRAILING_STOP_PERCENT, ATR_MIN_PERCENT) before spawning child processes
+- **Impact:** Each config now runs with its own clean environment, results are now distinct
+
+---
+
 ### Fix: Win Rate Calculation Bug (2026-03-20)
 
 #### Fix: Win Rate Over 100% in Parallel Backtest
