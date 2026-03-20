@@ -233,14 +233,17 @@ class StrategyOrchestrator {
       evaluate: (ctx) => {
         // Self-contained: compute signal from raw candle data
         const candles = ctx.priceHistory;
-        if (!candles || candles.length < minCandlesSweep) return null;
+        if (!candles || candles.length < minCandlesSweep) {
+          if (process.env.STRATEGY_DIAG === 'true') console.log(`[DIAG] LiquiditySweep: NOT ENOUGH CANDLES (${candles?.length || 0} < ${minCandlesSweep})`);
+          return null;
+        }
 
         const latestCandle = candles[candles.length - 1];
         const sig = liquiditySweepModule.feedCandle(latestCandle);
 
-        // DIAGNOSTIC: Log signal computation
-        if (process.env.STRATEGY_DIAG === 'true' && sig && sig.hasSignal) {
-          console.log(`[DIAG] LiquiditySweep computed: hasSignal=${sig.hasSignal} dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)}`);
+        // DIAGNOSTIC: Log every call to see why no signals
+        if (process.env.STRATEGY_DIAG === 'true') {
+          console.log(`[DIAG] LiquiditySweep: called, sig=${sig ? JSON.stringify({hasSignal: sig.hasSignal, direction: sig.direction, confidence: sig.confidence}) : 'null'}`);
         }
         if (!sig || !sig.hasSignal) return null;
         if (!sig.direction || sig.direction === 'neutral') return null;
@@ -347,6 +350,12 @@ class StrategyOrchestrator {
       evaluate: (ctx) => {
         const regime = ctx.regime;
         const trend = ctx.indicators?.trend;
+
+        // DIAGNOSTIC: Log why no signals
+        if (process.env.STRATEGY_DIAG === 'true') {
+          console.log(`[DIAG] MarketRegime: regime=${regime?.currentRegime || 'null'} trend=${trend || 'null'} conf=${regime?.confidence || 0}`);
+        }
+
         if (!regime || !regime.currentRegime || regime.currentRegime === 'unknown') return null;
 
         const regimeConf = regime.confidence || 0;
@@ -390,13 +399,17 @@ class StrategyOrchestrator {
       evaluate: (ctx) => {
         // Self-contained: ingest candle and compute confluence internally
         const candles = ctx.priceHistory;
-        if (!candles || candles.length < minCandlesMTF) return null;
+        if (!candles || candles.length < minCandlesMTF) {
+          if (process.env.STRATEGY_DIAG === 'true') console.log(`[DIAG] MultiTimeframe: NOT ENOUGH CANDLES (${candles?.length || 0} < ${minCandlesMTF})`);
+          return null;
+        }
 
         // Feed latest candle to MTF adapter
         const latestCandle = candles[candles.length - 1];
         try {
           mtfAdapterModule.ingestCandle(latestCandle);
         } catch (e) {
+          if (process.env.STRATEGY_DIAG === 'true') console.log(`[DIAG] MultiTimeframe: ingestCandle error: ${e.message}`);
           return null;
         }
 
@@ -404,16 +417,17 @@ class StrategyOrchestrator {
         try {
           confluence = mtfAdapterModule.getConfluence ? mtfAdapterModule.getConfluence() : mtfAdapterModule.getConfluenceScore();
         } catch (e) {
+          if (process.env.STRATEGY_DIAG === 'true') console.log(`[DIAG] MultiTimeframe: getConfluence error: ${e.message}`);
           return null;
+        }
+
+        // DIAGNOSTIC: Log every call
+        if (process.env.STRATEGY_DIAG === 'true') {
+          console.log(`[DIAG] MultiTimeframe: confluence=${confluence ? JSON.stringify({dir: confluence.direction, score: confluence.score}) : 'null'}`);
         }
 
         if (!confluence || !confluence.direction || confluence.direction === 'neutral') return null;
         if ((confluence.score || 0) < this.confluenceMinScore) return null;
-
-        // DIAGNOSTIC: Log MTF signal computation
-        if (process.env.STRATEGY_DIAG === 'true') {
-          console.log(`[DIAG] MultiTimeframe computed: dir=${confluence.direction} score=${(confluence.score||0).toFixed(2)}`);
-        }
 
         return {
           direction: confluence.direction,
@@ -485,6 +499,11 @@ class StrategyOrchestrator {
 
         const latestCandle = candles[candles.length - 1];
         const signal = orbInstance.update(latestCandle);
+
+        // DIAGNOSTIC: Log every call
+        if (process.env.STRATEGY_DIAG === 'true') {
+          console.log(`[DIAG] OpeningRangeBreakout: signal=${signal ? JSON.stringify({dir: signal.direction, conf: signal.confidence}) : 'null'} candle_time=${latestCandle?.time || 'unknown'}`);
+        }
 
         if (!signal) return null;
 
