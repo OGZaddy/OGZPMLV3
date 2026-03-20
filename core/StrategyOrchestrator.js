@@ -246,20 +246,14 @@ class StrategyOrchestrator {
           fibBoost = ` + Fib ${(fib.level * 100).toFixed(1)}%${fib.isGoldenZone ? ' GOLDEN' : ''}`;
         }
 
-        // FIX 2026-02-23: Extract stops from sig.levels (nested) OR sig directly
-        const sl = sig.levels?.stopLoss || sig.stopLoss;
-        const tp = sig.levels?.takeProfit || sig.takeProfit;
+        // FIX 2026-03-20: sl/tp extraction removed - exit contracts handle exits now
 
         return {
           direction: sig.direction,
           confidence: conf,
-          reason: `MA Dynamic S/R ${sig.direction} (${(sig.events || []).map(e => e.event || e).join(', ') || 'level touch'})${fibBoost}`,
+          reason: sig.reason || `MA Dynamic S/R ${sig.direction} (level touch)${fibBoost}`,
           signalData: sig,
-          // FIX 2026-02-23: Pass structural stops to exit contract (check sig.levels too)
-          overrideLevels: sl && tp ? {
-            stopLoss: sl,
-            takeProfit: tp
-          } : null
+          // FIX 2026-03-20: Removed overrideLevels - let exit contracts handle SL/TP
         };
       }
     });
