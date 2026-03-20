@@ -136,221 +136,117 @@ const BASE_CONFIG = {
   // STRATEGY-SPECIFIC EXIT CONTRACTS
   // =========================================================================
   // FIX 2026-03-16: Load validated production config from tuning-summary.json (March 3rd)
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // STRATEGY × TIMEFRAME EXIT CONFIG MATRIX
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // Each strategy has its own exit config per timeframe. Tuned independently,
-  // validated on unseen data, locked as defaults. Users can override via env vars.
-  //
-  // Matrix: Strategy × Timeframe × Exit params
-  // Access via: TradingConfig.getExitConfig('RSI', '15m')
-  // ═══════════════════════════════════════════════════════════════════════════════
+  // All strategies: SL -2.0%, TP 2.5%
   exitContracts: {
     // ╔═══════════════════════════════════════════════════════════════════════════╗
-    // ║  RSI - LOCKED CONFIGS PER TIMEFRAME                                       ║
-    // ║  15m: Walk-forward validated 2026-03-20 on TSLA                           ║
-    // ║  1h/4h: Scaled defaults (pending validation)                              ║
-    // ╚═══════════════════════════════════════════════════════════════════════════╝
-    RSI: {
-      '15m': {
-        stopLossPercent: -0.8,    // LOCKED - validated
-        takeProfitPercent: 1.0,   // LOCKED - validated
-        trailingStopPercent: 0.6,
-        trailingActivation: 0.8,
-        maxHoldTimeMinutes: 240,
-        minConfidence: 0.60,      // LOCKED - 60% gate
-        _validated: '2026-03-20',
-      },
-      '1h': {
-        stopLossPercent: -1.5,    // Scaled for 1h (pending validation)
-        takeProfitPercent: 2.0,
-        trailingStopPercent: 1.0,
-        trailingActivation: 1.5,
-        maxHoldTimeMinutes: 480,
-        minConfidence: 0.60,
-        _validated: null,
-      },
-      '4h': {
-        stopLossPercent: -2.5,    // Scaled for 4h (pending validation)
-        takeProfitPercent: 4.0,
-        trailingStopPercent: 1.5,
-        trailingActivation: 2.5,
-        maxHoldTimeMinutes: 960,
-        minConfidence: 0.60,
-        _validated: null,
-      },
-      'default': {  // Fallback for unknown timeframes
-        stopLossPercent: -0.8,
-        takeProfitPercent: 1.0,
-        trailingStopPercent: 0.6,
-        trailingActivation: 0.8,
-        maxHoldTimeMinutes: 240,
-        minConfidence: 0.60,
-      },
-      invalidationConditions: [],
-    },
-
-    // ╔═══════════════════════════════════════════════════════════════════════════╗
-    // ║  EMASMACrossover - LOCKED CONFIGS PER TIMEFRAME                           ║
-    // ║  15m: Walk-forward validated 2026-03-20 on TSLA                           ║
-    // ║  1h/4h: Scaled defaults (pending validation)                              ║
+    // ║  EMASMACrossover - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION   ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train (Year 1+2): +$738, Test (Year 2): +$275                            ║
     // ╚═══════════════════════════════════════════════════════════════════════════╝
     EMASMACrossover: {
-      '15m': {
-        stopLossPercent: -0.5,    // LOCKED - validated
-        takeProfitPercent: 1.0,   // LOCKED - validated
-        trailingStopPercent: 0.8,
-        trailingActivation: 1.0,
-        maxHoldTimeMinutes: 300,
-        _validated: '2026-03-20',
-      },
-      '1h': {
-        stopLossPercent: -1.0,    // Scaled for 1h (pending validation)
-        takeProfitPercent: 2.0,
-        trailingStopPercent: 1.2,
-        trailingActivation: 1.5,
-        maxHoldTimeMinutes: 600,
-        _validated: null,
-      },
-      '4h': {
-        stopLossPercent: -2.0,    // Scaled for 4h (pending validation)
-        takeProfitPercent: 3.5,
-        trailingStopPercent: 2.0,
-        trailingActivation: 2.5,
-        maxHoldTimeMinutes: 1200,
-        _validated: null,
-      },
-      'default': {
-        stopLossPercent: -0.5,
-        takeProfitPercent: 1.0,
-        trailingStopPercent: 0.8,
-        trailingActivation: 1.0,
-        maxHoldTimeMinutes: 300,
-      },
+      stopLossPercent: -0.5,          // LOCKED - validated SL
+      takeProfitPercent: 1.0,         // LOCKED - validated TP
+      trailingStopPercent: 0.8,
+      trailingActivation: 1.0,
+      maxHoldTimeMinutes: 300,
       invalidationConditions: ['ema_cross_reversal'],
+      _validated: '2026-03-20',
     },
-
     // ╔═══════════════════════════════════════════════════════════════════════════╗
-    // ║  MADynamicSR - LOCKED CONFIGS PER TIMEFRAME                               ║
-    // ║  15m: Walk-forward validated 2026-03-20 on TSLA                           ║
-    // ║  1h/4h: Scaled defaults (pending validation)                              ║
-    // ╚═══════════════════════════════════════════════════════════════════════════╝
-    MADynamicSR: {
-      '15m': {
-        stopLossPercent: -0.8,    // LOCKED - validated
-        takeProfitPercent: 1.0,   // LOCKED - validated
-        trailingStopPercent: 0.5,
-        trailingActivation: 0.7,
-        maxHoldTimeMinutes: 180,
-        _validated: '2026-03-20',
-      },
-      '1h': {
-        stopLossPercent: -1.5,    // Scaled for 1h (pending validation)
-        takeProfitPercent: 2.0,
-        trailingStopPercent: 0.8,
-        trailingActivation: 1.2,
-        maxHoldTimeMinutes: 360,
-        _validated: null,
-      },
-      '4h': {
-        stopLossPercent: -2.5,    // Scaled for 4h (pending validation)
-        takeProfitPercent: 4.0,
-        trailingStopPercent: 1.5,
-        trailingActivation: 2.0,
-        maxHoldTimeMinutes: 720,
-        _validated: null,
-      },
-      'default': {
-        stopLossPercent: -0.8,
-        takeProfitPercent: 1.0,
-        trailingStopPercent: 0.5,
-        trailingActivation: 0.7,
-        maxHoldTimeMinutes: 180,
-      },
-      invalidationConditions: ['sr_break'],
-    },
-
-    // ╔═══════════════════════════════════════════════════════════════════════════╗
-    // ║  LiquiditySweep - LOCKED CONFIGS PER TIMEFRAME                            ║
-    // ║  15m: Walk-forward validated 2026-03-20 on TSLA                           ║
-    // ║  Uses structural exits - SL/TP are fallbacks only                         ║
+    // ║  LiquiditySweep - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION    ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train: +$221, Test: +$72 (uses structural exits, ignores SL/TP)         ║
     // ╚═══════════════════════════════════════════════════════════════════════════╝
     LiquiditySweep: {
-      '15m': {
-        stopLossPercent: -2.0,    // Fallback only
-        takeProfitPercent: 2.5,   // Fallback only
-        trailingStopPercent: 0.5,
-        trailingActivation: 0.7,
-        maxHoldTimeMinutes: 180,
-        useStructuralExits: true, // LOCKED - uses sweep-specific exit logic
-        _validated: '2026-03-20',
-      },
-      '1h': {
-        stopLossPercent: -3.0,
-        takeProfitPercent: 4.0,
-        trailingStopPercent: 1.0,
-        trailingActivation: 1.5,
-        maxHoldTimeMinutes: 360,
-        useStructuralExits: true,
-        _validated: null,
-      },
-      '4h': {
-        stopLossPercent: -5.0,
-        takeProfitPercent: 6.0,
-        trailingStopPercent: 2.0,
-        trailingActivation: 3.0,
-        maxHoldTimeMinutes: 720,
-        useStructuralExits: true,
-        _validated: null,
-      },
-      'default': {
-        stopLossPercent: -2.0,
-        takeProfitPercent: 2.5,
-        trailingStopPercent: 0.5,
-        trailingActivation: 0.7,
-        maxHoldTimeMinutes: 180,
-        useStructuralExits: true,
-      },
+      stopLossPercent: -2.0,          // Fallback only - sweep uses structural exits
+      takeProfitPercent: 2.5,         // Fallback only - sweep uses structural exits
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 180,
+      useStructuralExits: true,       // LOCKED - uses sweep-specific exit logic
       invalidationConditions: ['liquidity_absorbed'],
+      _validated: '2026-03-20',
     },
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // NON-VALIDATED STRATEGIES - use baseline defaults (pending validation)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║  RSI - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION               ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train (Year 1): +$334, 223 trades, 56.5% WR                              ║
+    // ║  Test (Year 2):  +$282, 119 trades, 58.8% WR                              ║
+    // ║  CHANGING THESE VALUES WILL BREAK THE VALIDATED EDGE                      ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+    RSI: {
+      stopLossPercent: -0.8,    // LOCKED - validated SL
+      takeProfitPercent: 1.0,   // LOCKED - validated TP (tight mean-reversion)
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 240,
+      minConfidence: 0.60,      // LOCKED - 60% gate filters garbage signals
+      invalidationConditions: [],
+      _validated: '2026-03-20', // Fingerprint - triggers warning if changed
+    },
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║  MADynamicSR - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION       ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train (Year 1+2): +$724, Test (Year 2): +$429                            ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+    MADynamicSR: {
+      stopLossPercent: -0.8,          // LOCKED - validated SL
+      takeProfitPercent: 1.0,         // LOCKED - validated TP
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 180,
+      invalidationConditions: ['sr_break'],
+      _validated: '2026-03-20',
+    },
+    // CandlePattern - uses validated baseline exits
     CandlePattern: {
-      '15m': { stopLossPercent: -0.8, takeProfitPercent: 1.0, trailingStopPercent: 0.5, trailingActivation: 0.7, maxHoldTimeMinutes: 150 },
-      '1h': { stopLossPercent: -1.5, takeProfitPercent: 2.0, trailingStopPercent: 1.0, trailingActivation: 1.2, maxHoldTimeMinutes: 300 },
-      '4h': { stopLossPercent: -2.5, takeProfitPercent: 3.5, trailingStopPercent: 1.5, trailingActivation: 2.0, maxHoldTimeMinutes: 600 },
-      'default': { stopLossPercent: -0.8, takeProfitPercent: 1.0, trailingStopPercent: 0.5, trailingActivation: 0.7, maxHoldTimeMinutes: 150 },
+      stopLossPercent: -0.8,          // Use validated baseline
+      takeProfitPercent: 1.0,         // Use validated baseline
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 150,
       invalidationConditions: ['pattern_invalidated'],
     },
+    // MarketRegime - uses validated baseline exits
     MarketRegime: {
-      '15m': { stopLossPercent: -0.8, takeProfitPercent: 1.0, trailingStopPercent: 0.6, trailingActivation: 0.8, maxHoldTimeMinutes: 360 },
-      '1h': { stopLossPercent: -1.5, takeProfitPercent: 2.0, trailingStopPercent: 1.0, trailingActivation: 1.5, maxHoldTimeMinutes: 720 },
-      '4h': { stopLossPercent: -2.5, takeProfitPercent: 4.0, trailingStopPercent: 2.0, trailingActivation: 3.0, maxHoldTimeMinutes: 1440 },
-      'default': { stopLossPercent: -0.8, takeProfitPercent: 1.0, trailingStopPercent: 0.6, trailingActivation: 0.8, maxHoldTimeMinutes: 360 },
+      stopLossPercent: -0.8,          // Use validated baseline
+      takeProfitPercent: 1.0,         // Use validated baseline
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 360,
       invalidationConditions: ['regime_change'],
     },
     MultiTimeframe: {
-      '15m': { stopLossPercent: -1.0, takeProfitPercent: 1.5, trailingStopPercent: 0.8, trailingActivation: 1.0, maxHoldTimeMinutes: 300 },
-      '1h': { stopLossPercent: -2.0, takeProfitPercent: 2.5, trailingStopPercent: 1.2, trailingActivation: 1.5, maxHoldTimeMinutes: 600 },
-      '4h': { stopLossPercent: -3.0, takeProfitPercent: 4.0, trailingStopPercent: 2.0, trailingActivation: 2.5, maxHoldTimeMinutes: 1200 },
-      'default': { stopLossPercent: -1.0, takeProfitPercent: 1.5, trailingStopPercent: 0.8, trailingActivation: 1.0, maxHoldTimeMinutes: 300 },
+      stopLossPercent: -2.0,
+      takeProfitPercent: 2.5,
+      trailingStopPercent: 0.8,
+      trailingActivation: 1.0,
+      maxHoldTimeMinutes: 300,
       invalidationConditions: [],
     },
     OGZTPO: {
-      '15m': { stopLossPercent: -1.0, takeProfitPercent: 1.5, trailingStopPercent: 0.6, trailingActivation: 0.8, maxHoldTimeMinutes: 240 },
-      '1h': { stopLossPercent: -2.0, takeProfitPercent: 2.5, trailingStopPercent: 1.0, trailingActivation: 1.5, maxHoldTimeMinutes: 480 },
-      '4h': { stopLossPercent: -3.0, takeProfitPercent: 4.0, trailingStopPercent: 1.5, trailingActivation: 2.5, maxHoldTimeMinutes: 960 },
-      'default': { stopLossPercent: -1.0, takeProfitPercent: 1.5, trailingStopPercent: 0.6, trailingActivation: 0.8, maxHoldTimeMinutes: 240 },
+      stopLossPercent: -2.0,
+      takeProfitPercent: 2.5,
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 240,
       invalidationConditions: [],
     },
     OpeningRangeBreakout: {
-      '15m': { stopLossPercent: -0.8, takeProfitPercent: 1.5, trailingStopPercent: 0.6, trailingActivation: 0.8, maxHoldTimeMinutes: 180 },
-      '1h': { stopLossPercent: -1.5, takeProfitPercent: 2.5, trailingStopPercent: 1.0, trailingActivation: 1.2, maxHoldTimeMinutes: 360 },
-      '4h': { stopLossPercent: -2.5, takeProfitPercent: 4.0, trailingStopPercent: 1.5, trailingActivation: 2.0, maxHoldTimeMinutes: 720 },
-      'default': { stopLossPercent: -0.8, takeProfitPercent: 1.5, trailingStopPercent: 0.6, trailingActivation: 0.8, maxHoldTimeMinutes: 180 },
+      stopLossPercent: -2.0,
+      takeProfitPercent: 2.5,
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 180,
       invalidationConditions: ['fvg_filled', 'or_break_reversal'],
+    },
+    default: {
+      stopLossPercent: -2.0,
+      takeProfitPercent: 2.5,
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 240,
+      invalidationConditions: [],
     },
   },
 

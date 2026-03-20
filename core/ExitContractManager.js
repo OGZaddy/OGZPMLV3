@@ -54,72 +54,39 @@ class ExitContractManager {
    * @param {string} strategyName - Name of the strategy
    * @returns {Object} Exit contract with SL/TP/invalidation
    */
-  getDefaultContract(strategyName, timeframe = '15m') {
+  getDefaultContract(strategyName) {
     // FIX 2026-02-24: Validate strategyName is a string (Phase 12 fuzzing)
     if (typeof strategyName !== 'string' || !strategyName) {
       strategyName = 'default';
     }
 
-    // Helper to extract timeframe-specific config from nested structure
-    const extractConfig = (stratConfig) => {
-      if (!stratConfig) return null;
-      // Check if this is the new nested structure (has timeframe keys)
-      if (stratConfig['15m'] || stratConfig['1h'] || stratConfig['4h'] || stratConfig['default']) {
-        // Get timeframe-specific config, fallback to 'default'
-        const tfConfig = stratConfig[timeframe] || stratConfig['default'] || stratConfig['15m'];
-        // Merge with invalidationConditions from parent
-        return {
-          ...tfConfig,
-          invalidationConditions: stratConfig.invalidationConditions || tfConfig.invalidationConditions || [],
-        };
-      }
-      // Old flat structure - return as-is
-      return stratConfig;
-    };
-
     // Try exact match first
     if (this.defaultContracts[strategyName]) {
-      const config = extractConfig(this.defaultContracts[strategyName]);
-      if (config) return { ...config };
+      return { ...this.defaultContracts[strategyName] };
     }
 
     // Try partial match
     const lowerName = strategyName.toLowerCase();
     if (lowerName.includes('ema') || lowerName.includes('crossover')) {
-      const config = extractConfig(this.defaultContracts.EMASMACrossover);
-      if (config) return { ...config };
+      return { ...this.defaultContracts.EMASMACrossover };
     }
     if (lowerName.includes('sweep') || lowerName.includes('liquidity')) {
-      const config = extractConfig(this.defaultContracts.LiquiditySweep);
-      if (config) return { ...config };
+      return { ...this.defaultContracts.LiquiditySweep };
     }
     if (lowerName.includes('sr') || lowerName.includes('support') || lowerName.includes('resistance')) {
-      const config = extractConfig(this.defaultContracts.MADynamicSR);
-      if (config) return { ...config };
+      return { ...this.defaultContracts.MADynamicSR };
     }
     if (lowerName.includes('candle') || lowerName.includes('pattern')) {
-      const config = extractConfig(this.defaultContracts.CandlePattern);
-      if (config) return { ...config };
+      return { ...this.defaultContracts.CandlePattern };
     }
     if (lowerName.includes('regime')) {
-      const config = extractConfig(this.defaultContracts.MarketRegime);
-      if (config) return { ...config };
+      return { ...this.defaultContracts.MarketRegime };
     }
     if (lowerName.includes('mtf') || lowerName.includes('timeframe')) {
-      const config = extractConfig(this.defaultContracts.MultiTimeframe);
-      if (config) return { ...config };
+      return { ...this.defaultContracts.MultiTimeframe };
     }
 
-    // Fallback to default
-    const defaultConfig = extractConfig(this.defaultContracts.default);
-    return defaultConfig ? { ...defaultConfig } : {
-      stopLossPercent: -0.8,
-      takeProfitPercent: 1.0,
-      trailingStopPercent: 0.6,
-      trailingActivation: 0.8,
-      maxHoldTimeMinutes: 240,
-      invalidationConditions: [],
-    };
+    return { ...this.defaultContracts.default };
   }
 
   /**
@@ -141,9 +108,7 @@ class ExitContractManager {
       ? (context.currentTime - trade.entryTime) / 60000
       : (Date.now() - trade.entryTime) / 60000;
 
-    // FIX 2026-03-20: Pass timeframe when falling back to default contract
-    const timeframe = trade.timeframe || TradingConfig.get('candle.interval') || '15m';
-    const contract = trade.exitContract || this.getDefaultContract(trade.entryStrategy || 'default', timeframe);
+    const contract = trade.exitContract || this.getDefaultContract(trade.entryStrategy || 'default');
     // Ensure trade has contract for checkers
     if (!trade.exitContract) trade.exitContract = contract;
 
@@ -290,8 +255,7 @@ class ExitContractManager {
     if (!context || typeof context !== 'object') context = {};
 
     // Start with default contract for this strategy
-    // FIX 2026-03-20: Pass timeframe to get correct per-timeframe exit config
-    const contract = this.getDefaultContract(strategyName, context.timeframe || '15m');
+    const contract = this.getDefaultContract(strategyName);
 
     // FIX 2026-03-20: Only apply timeframe config for strategies WITHOUT their own exit contracts
     // Bug: Was overwriting RSI's -2.0% SL with 15m's -1.5% SL, causing premature stops on TSLA
