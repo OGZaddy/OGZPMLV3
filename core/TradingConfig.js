@@ -99,11 +99,12 @@ const BASE_CONFIG = {
   // =========================================================================
   // NOTE: All percentages in PERCENT form (1.5 = 1.5%, not 0.015)
   // This matches .env and ExitContractManager convention
+  // LOCKED 2026-03-20: Validated across 7/8 tickers with zero retuning
   exits: {
-    stopLossPercent: env('STOP_LOSS_PERCENT', 1.5),              // 1.5% default SL
-    takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.0),          // 2.0% default TP
-    trailingStopPercent: env('TRAILING_STOP_PERCENT', 3.5),      // 3.5% trailing
-    trailingActivation: env('TRAILING_ACTIVATION', 2.5),         // 2.5% profit before trailing kicks in
+    stopLossPercent: env('STOP_LOSS_PERCENT', 0.8),              // 0.8% default SL - VALIDATED
+    takeProfitPercent: env('TAKE_PROFIT_PERCENT', 1.0),          // 1.0% default TP - VALIDATED
+    trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.6),      // 0.6% trailing - tight exits work
+    trailingActivation: env('TRAILING_ACTIVATION', 0.8),         // 0.8% profit before trailing kicks in
 
     // Breakeven system (percent form)
     breakevenTrigger: env('BREAKEVEN_TRIGGER', 0.5),             // 0.5% profit triggers BE
@@ -197,19 +198,21 @@ const BASE_CONFIG = {
       invalidationConditions: ['sr_break'],
       _validated: '2026-03-20',
     },
+    // CandlePattern - uses validated baseline exits
     CandlePattern: {
-      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
-      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
-      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.5),
-      trailingActivation: env('TRAILING_ACTIVATION', 0.7),
-      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 150),
+      stopLossPercent: -0.8,          // Use validated baseline
+      takeProfitPercent: 1.0,         // Use validated baseline
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 150,
       invalidationConditions: ['pattern_invalidated'],
     },
+    // MarketRegime - uses validated baseline exits
     MarketRegime: {
-      stopLossPercent: -2.0,
-      takeProfitPercent: 2.5,
-      trailingStopPercent: 1.0,
-      trailingActivation: 1.5,
+      stopLossPercent: -0.8,          // Use validated baseline
+      takeProfitPercent: 1.0,         // Use validated baseline
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
       maxHoldTimeMinutes: 360,
       invalidationConditions: ['regime_change'],
     },
