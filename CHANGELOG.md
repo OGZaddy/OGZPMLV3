@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fix: Win Rate Calculation Bug (2026-03-20)
+
+#### Fix: Win Rate Over 100% in Parallel Backtest
+- **Files:** `tools/parallel-backtest.js:271-272`, `core/BacktestRecorder.js:21`
+- **Symptom:** Win rate showing 100.8% (impossible value)
+- **Root Cause:** `parallel-backtest.js` divided trade count by 2, assuming BUY+SELL were separate records. But `BacktestRecorder` stores complete trades as single records.
+- **Fix:** Removed `/2` division from trade count and win rate calculation
+- **Also Fixed:** Starting balance mismatch - BacktestRecorder defaulted to $25k, changed to $10k
+- **Impact:** Backtest metrics now mathematically correct
+
+---
+
 ### Architecture: Self-Contained Strategies (2026-03-19)
 
 **Session Focus:** Refactor all strategies to be fully self-contained per user architecture spec.

@@ -8,7 +8,7 @@
  * Unlike TradeLogger which writes to disk (disabled in backtest mode),
  * this records everything in memory and exports at the end.
  *
- * Starting balance: $25,000 (Apex eval size)
+ * Starting balance: $10,000
  * Fees: 0.52% round trip (0.26% each way - Kraken taker)
  */
 
@@ -18,7 +18,7 @@ const TradingConfig = require('./TradingConfig');
 
 class BacktestRecorder {
     constructor(config = {}) {
-        this.startingBalance = config.startingBalance || 25000;
+        this.startingBalance = config.startingBalance || 10000;
         this.feePerSide = config.feePerSide || TradingConfig.get('fees.makerFee');  // From TradingConfig
         this.roundTripFee = this.feePerSide * 2;        // 0.52%
 

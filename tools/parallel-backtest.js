@@ -268,8 +268,8 @@ function tryReadReport(projectRoot, tag) {
 
     return {
       finalBalance: summary.finalBalance || null,
-      trades: trades.length > 0 ? Math.floor(trades.length / 2) : (summary.totalTrades || null), // BUY+SELL pairs
-      winRate: trades.length > 0 ? (winners.length / (trades.length/2)) * 100 : null,
+      trades: trades.length > 0 ? trades.length : (summary.totalTrades || null),
+      winRate: trades.length > 0 ? (winners.length / trades.length) * 100 : null,
       netPnl: netPnl,
       fees: totalFees || null,
     };
