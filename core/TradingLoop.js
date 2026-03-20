@@ -86,14 +86,15 @@ class TradingLoop {
       volume: this.ctx.marketData.volume || 0
     });
 
-    // FIX 2026-03-19: Detect REAL candle patterns (hammer, engulfing, doji, etc.)
-    // CandlePatternDetector was orphan code - now wired into pipeline
-    const rawCandlePatterns = candlePatternDetector.detect(this.ctx.priceHistory, {
-      rsi: indicators.rsi,
-      trend: indicators.trend,
-      macd: indicators.macd?.macd || 0,
-      volume: this.ctx.marketData?.volume || 0
-    });
+    // DISABLED 2026-03-20: CandlePatternDetector flooding 2000+ garbage entries
+    // TODO: Re-enable after pattern quality filter is tuned
+    // const rawCandlePatterns = candlePatternDetector.detect(this.ctx.priceHistory, {
+    //   rsi: indicators.rsi,
+    //   trend: indicators.trend,
+    //   macd: indicators.macd?.macd || 0,
+    //   volume: this.ctx.marketData?.volume || 0
+    // });
+    const rawCandlePatterns = []; // Disabled - using memoryPatterns only
 
     // FIX 2026-03-19: Filter weak candle patterns - only high confidence patterns generate signals
     // Prevents signal flood from marginal hammers/engulfings without proper confirmation
