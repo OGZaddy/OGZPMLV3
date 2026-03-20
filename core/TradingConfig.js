@@ -137,21 +137,34 @@ const BASE_CONFIG = {
   // FIX 2026-03-16: Load validated production config from tuning-summary.json (March 3rd)
   // All strategies: SL -2.0%, TP 2.5%
   exitContracts: {
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║  EMASMACrossover - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION   ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train (Year 1+2): +$738, Test (Year 2): +$275                            ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
     EMASMACrossover: {
-      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
-      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
-      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.8),
-      trailingActivation: env('TRAILING_ACTIVATION', 1.0),
-      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 300),
+      stopLossPercent: -0.5,          // LOCKED - validated SL
+      takeProfitPercent: 1.0,         // LOCKED - validated TP
+      trailingStopPercent: 0.8,
+      trailingActivation: 1.0,
+      maxHoldTimeMinutes: 300,
       invalidationConditions: ['ema_cross_reversal'],
+      _validated: '2026-03-20',
     },
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║  LiquiditySweep - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION    ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train: +$221, Test: +$72 (uses structural exits, ignores SL/TP)         ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
     LiquiditySweep: {
-      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
-      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
-      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.5),
-      trailingActivation: env('TRAILING_ACTIVATION', 0.7),
-      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 180),
+      stopLossPercent: -2.0,          // Fallback only - sweep uses structural exits
+      takeProfitPercent: 2.5,         // Fallback only - sweep uses structural exits
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 180,
+      useStructuralExits: true,       // LOCKED - uses sweep-specific exit logic
       invalidationConditions: ['liquidity_absorbed'],
+      _validated: '2026-03-20',
     },
     // ╔═══════════════════════════════════════════════════════════════════════════╗
     // ║  RSI - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION               ║
@@ -170,13 +183,19 @@ const BASE_CONFIG = {
       invalidationConditions: [],
       _validated: '2026-03-20', // Fingerprint - triggers warning if changed
     },
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║  MADynamicSR - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION       ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train (Year 1+2): +$724, Test (Year 2): +$429                            ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
     MADynamicSR: {
-      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
-      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
-      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.5),
-      trailingActivation: env('TRAILING_ACTIVATION', 0.7),
-      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 180),
+      stopLossPercent: -0.8,          // LOCKED - validated SL
+      takeProfitPercent: 1.0,         // LOCKED - validated TP
+      trailingStopPercent: 0.5,
+      trailingActivation: 0.7,
+      maxHoldTimeMinutes: 180,
       invalidationConditions: ['sr_break'],
+      _validated: '2026-03-20',
     },
     CandlePattern: {
       stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
