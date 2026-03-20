@@ -313,6 +313,8 @@ function runSingleBacktest(config, dataFile, stockMode = false) {
       STATE_FILE: stateFile,
       DATA_DIR: path.join(PROJECT_ROOT, 'data', 'backtest'),
       PAPER_TRADING: 'true',
+      // FIX 2026-03-20: Add TEST_MODE to skip lock file check (allows running while live is active)
+      TEST_MODE: 'true',
       // Skip pattern saving and CSV export to avoid EMFILE on Windows
       BACKTEST_NO_PATTERN_SAVE: 'true',
       SKIP_CSV_EXPORT: 'true',
@@ -323,6 +325,8 @@ function runSingleBacktest(config, dataFile, stockMode = false) {
       NODE_ENV: 'test',
       // Tag for finding the right report file
       BACKTEST_REPORT_TAG: reportTag,
+      // Pass through STRATEGY_DIAG if set
+      STRATEGY_DIAG: process.env.STRATEGY_DIAG || 'false',
       // Stock mode: zero commission
       ...(stockMode ? { FEE_MAKER: '0', FEE_TAKER: '0' } : {}),
       ...config.env,
@@ -568,6 +572,15 @@ async function runParallelSweep(configs, dataFile, stockMode = false) {
 // CLI
 // ═══════════════════════════════════════════════════════════════
 
+// Data file shortcuts
+const DATA_SHORTCUTS = {
+  'tsla': 'tuning/tsla-15m-2y.json',
+  'spy': 'tuning/spy-15m-2y.json',
+  'qqq': 'tuning/qqq-15m-2y.json',
+  'btc': 'data/polygon-btc-1y.json',
+  'btc-5sec': 'data/polygon-btc-5sec.json',
+};
+
 async function main() {
   const args = process.argv.slice(2);
   let sweepName = 'quick';
@@ -576,7 +589,14 @@ async function main() {
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--sweep' && args[i+1]) sweepName = args[++i];
-    else if (args[i] === '--data' && args[i+1]) dataFile = args[++i];
+    else if (args[i] === '--data' && args[i+1]) {
+      const val = args[++i];
+      dataFile = DATA_SHORTCUTS[val.toLowerCase()] || val;
+    }
+    else if (args[i].startsWith('--data=')) {
+      const val = args[i].split('=')[1];
+      dataFile = DATA_SHORTCUTS[val.toLowerCase()] || val;
+    }
     else if (args[i] === '--quick') sweepName = 'quick';
     else if (args[i] === '--full') sweepName = 'full';
     else if (args[i] === '--boosters') sweepName = 'boosters';
@@ -596,6 +616,12 @@ async function main() {
     else if (args[i] === '--strategy' && args[i+1]) {
       // Single strategy isolation mode - adds SOLO_STRATEGY to all configs
       const strat = args[++i];
+      process.env.SOLO_STRATEGY = strat;
+      console.log(`[SOLO MODE] Only testing strategy: ${strat}`);
+    }
+    else if (args[i].startsWith('--solo=')) {
+      // Shorthand: --solo=RSI is same as --strategy RSI
+      const strat = args[i].split('=')[1];
       process.env.SOLO_STRATEGY = strat;
       console.log(`[SOLO MODE] Only testing strategy: ${strat}`);
     }
@@ -634,8 +660,14 @@ Other:
 
 Options:
   --data FILE    Candle data file (default: ${DEFAULT_DATA})
+                 Shortcuts: tsla, spy, qqq, btc, btc-5sec
+  --solo=NAME    Test single strategy (RSI, MADynamicSR, EMASMACrossover, etc)
   --stocks       Zero commission mode (for stocks)
   --help         Show this help
+
+Examples:
+  node tools/parallel-backtest.js --data=tsla --solo=RSI --exits
+  node tools/parallel-backtest.js --data=spy --stocks --gauntlet-exits
 
 Walk-Forward Validation:
   After finding winners, test on unseen data:
