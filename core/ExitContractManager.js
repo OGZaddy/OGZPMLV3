@@ -257,12 +257,13 @@ class ExitContractManager {
     // Start with default contract for this strategy
     const contract = this.getDefaultContract(strategyName);
 
-    // FIX 2026-03-19: Apply timeframe-specific exit parameters
-    // 1m trades get tight stops (0.5%), 4h trades get wide stops (3.5%)
+    // FIX 2026-03-20: Only apply timeframe config for strategies WITHOUT their own exit contracts
+    // Bug: Was overwriting RSI's -2.0% SL with 15m's -1.5% SL, causing premature stops on TSLA
+    const hasStrategyContract = !!TradingConfig.BASE_CONFIG.exitContracts[strategyName];
     const timeframe = context.timeframe || '15m';
     const tfConfig = TradingConfig.getTimeframeConfig(timeframe);
-    if (tfConfig) {
-      // Convert decimal to percent and apply as base (strategy can still override)
+    if (tfConfig && !hasStrategyContract) {
+      // Only apply timeframe defaults for strategies using generic 'default' contract
       contract.stopLossPercent = -1 * (tfConfig.slPct * 100);  // 0.015 → -1.5
       contract.takeProfitPercent = tfConfig.tpPct * 100;       // 0.025 → 2.5
       contract.trailingStopPercent = tfConfig.trailPct * 100;  // 0.010 → 1.0

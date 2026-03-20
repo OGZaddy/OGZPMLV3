@@ -164,6 +164,10 @@ const TradingProofLogger = {
    * Log trade execution
    */
   trade(data) {
+    // Skip file logging in backtest mode to prevent EMFILE
+    if (process.env.TEST_MODE === 'true' || process.env.BACKTEST_NO_PATTERN_SAVE === 'true') {
+      return;
+    }
     const entry = {
       type: 'TRADE',
       timestamp: new Date().toISOString(),
