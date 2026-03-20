@@ -355,10 +355,19 @@ function runSingleBacktest(config, dataFile, stockMode = false) {
     child.on('close', (code) => {
       if (timer) clearTimeout(timer);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      
+
+      // If exit code 1 and quick failure, show the error
+      if (code === 1 && parseFloat(elapsed) < 3) {
+        // Extract error message from output
+        const errorMatch = output.match(/Error:|CRITICAL|Cannot find module|❌/i);
+        if (errorMatch || output.length < 500) {
+          console.error(`\n  [${config.name}] CRASH OUTPUT:\n${output.slice(0, 1000)}\n`);
+        }
+      }
+
       // Try parsing from console output first
       let result = parseBacktestOutput(output, config.name);
-      
+
       // If console parsing failed, try reading the report JSON
       if (result.trades == null) {
         const reportResult = tryReadReport(PROJECT_ROOT, reportTag);

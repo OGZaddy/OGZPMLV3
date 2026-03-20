@@ -298,20 +298,16 @@ const singletonLock = new OGZSingletonLock('ogz-prime-v14');
   // Skip singleton lock ONLY when BOTH conditions met:
   // 1. CANDLE_SOURCE=file (no live exchange connection)
   // 2. EXECUTION_MODE=backtest (explicitly not trading)
-  // This prevents $50 mistakes - BOTH gates required!
+  // TEST_MODE is just a convenience alias for backtest mode
   const isFileSource = resolvedConfig.config.mode.candleSource === 'file';
-  const isBacktestMode = resolvedConfig.config.mode.execution === 'backtest' || resolvedConfig.config.mode.backtest;
+  const isBacktestExec = resolvedConfig.config.mode.execution === 'backtest';
+  const isBacktestFlag = resolvedConfig.config.mode.backtest === true;
+  const isTestModeEnv = process.env.TEST_MODE === 'true';
+  const isBacktestMode = isBacktestExec || isBacktestFlag || isTestModeEnv;
   const skipLock = isFileSource && isBacktestMode;
 
   if (!skipLock) {
     singletonLock.acquireLock();
-  } else {
-    console.log('');
-    console.log('='.repeat(70));
-    console.log('  SINGLETON LOCK SKIPPED - BACKTEST MODE');
-    console.log('  CANDLE_SOURCE=file + EXECUTION_MODE=backtest');
-    console.log('='.repeat(70));
-    console.log('');
   }
   // REMOVED: Port check was conflicting with other services (ogz-stripe on 3001)
   // Singleton lock file is sufficient to prevent duplicate bot instances
