@@ -109,6 +109,56 @@ const SWEEP_PRESETS = {
     { name: 'tiers-no-early', env: { TIER1_TARGET: '0.020', TIER2_TARGET: '0.030', TIER3_TARGET: '0.050' } },
   ],
 
+  // ═══════════════════════════════════════════════════════════════
+  // FOCUSED OPTIMIZATION SWEEPS (one variable at a time)
+  // ═══════════════════════════════════════════════════════════════
+
+  // ATR filter sweep - find optimal volatility threshold
+  atr: [
+    { name: 'atr-off', env: { ATR_FILTER_ENABLED: 'false' } },
+    { name: 'atr-010', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.10' } },
+    { name: 'atr-015', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.15' } },
+    { name: 'atr-020', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.20' } },
+    { name: 'atr-025', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.25' } },
+    { name: 'atr-030', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.30' } },
+    { name: 'atr-035', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.35' } },
+    { name: 'atr-040', env: { ATR_FILTER_ENABLED: 'true', ATR_MIN_PERCENT: '0.40' } },
+  ],
+
+  // RSI thresholds sweep - oversold x overbought grid
+  rsi: generateRSISweep(),
+
+  // Trailing stop sweep - find optimal trail percentage
+  trailing: [
+    { name: 'trail-off', env: { TRAILING_STOP_ENABLED: 'false' } },
+    { name: 'trail-03', env: { TRAILING_STOP_ENABLED: 'true', TRAILING_STOP_PERCENT: '0.3' } },
+    { name: 'trail-05', env: { TRAILING_STOP_ENABLED: 'true', TRAILING_STOP_PERCENT: '0.5' } },
+    { name: 'trail-08', env: { TRAILING_STOP_ENABLED: 'true', TRAILING_STOP_PERCENT: '0.8' } },
+    { name: 'trail-10', env: { TRAILING_STOP_ENABLED: 'true', TRAILING_STOP_PERCENT: '1.0' } },
+    { name: 'trail-15', env: { TRAILING_STOP_ENABLED: 'true', TRAILING_STOP_PERCENT: '1.5' } },
+    { name: 'trail-20', env: { TRAILING_STOP_ENABLED: 'true', TRAILING_STOP_PERCENT: '2.0' } },
+  ],
+
+  // Market regime sweep - which regimes to trade in
+  regime: [
+    { name: 'regime-all', env: { REGIME_FILTER_ENABLED: 'false' } },
+    { name: 'regime-trend-only', env: { REGIME_FILTER_ENABLED: 'true', REGIME_ALLOW_TRENDING: 'true', REGIME_ALLOW_RANGING: 'false' } },
+    { name: 'regime-range-only', env: { REGIME_FILTER_ENABLED: 'true', REGIME_ALLOW_TRENDING: 'false', REGIME_ALLOW_RANGING: 'true' } },
+    { name: 'regime-volatile', env: { REGIME_FILTER_ENABLED: 'true', REGIME_ALLOW_VOLATILE: 'true', REGIME_ALLOW_QUIET: 'false' } },
+  ],
+
+  // Strategy confidence sweep - per-strategy minimum confidence
+  stratconf: [
+    { name: 'stratconf-25', env: { MIN_STRATEGY_CONFIDENCE: '0.25' } },
+    { name: 'stratconf-30', env: { MIN_STRATEGY_CONFIDENCE: '0.30' } },
+    { name: 'stratconf-35', env: { MIN_STRATEGY_CONFIDENCE: '0.35' } },
+    { name: 'stratconf-40', env: { MIN_STRATEGY_CONFIDENCE: '0.40' } },
+    { name: 'stratconf-45', env: { MIN_STRATEGY_CONFIDENCE: '0.45' } },
+    { name: 'stratconf-50', env: { MIN_STRATEGY_CONFIDENCE: '0.50' } },
+    { name: 'stratconf-55', env: { MIN_STRATEGY_CONFIDENCE: '0.55' } },
+    { name: 'stratconf-60', env: { MIN_STRATEGY_CONFIDENCE: '0.60' } },
+  ],
+
   full: function() {
     return [
       ...SWEEP_PRESETS.quick,
@@ -131,6 +181,23 @@ function generateExitSweep() {
       configs.push({
         name: `sl${sl}-tp${tp}`,
         env: { STOP_LOSS_PERCENT: String(sl), TAKE_PROFIT_PERCENT: String(tp) }
+      });
+    }
+  }
+  return configs;
+}
+
+function generateRSISweep() {
+  const configs = [];
+  const oversoldLevels = [15, 20, 25, 30, 35];
+  const overboughtLevels = [65, 70, 75, 80, 85];
+  for (const os of oversoldLevels) {
+    for (const ob of overboughtLevels) {
+      // Only valid combinations where oversold < overbought with reasonable spread
+      if (ob - os < 30) continue;
+      configs.push({
+        name: `rsi-${os}-${ob}`,
+        env: { RSI_OVERSOLD: String(os), RSI_OVERBOUGHT: String(ob) }
       });
     }
   }
@@ -432,29 +499,49 @@ async function main() {
     else if (args[i] === '--confidence') sweepName = 'confidence';
     else if (args[i] === '--sizing') sweepName = 'sizing';
     else if (args[i] === '--tiers') sweepName = 'tiers';
+    else if (args[i] === '--atr') sweepName = 'atr';
+    else if (args[i] === '--rsi') sweepName = 'rsi';
+    else if (args[i] === '--trailing') sweepName = 'trailing';
+    else if (args[i] === '--regime') sweepName = 'regime';
+    else if (args[i] === '--stratconf') sweepName = 'stratconf';
     else if (args[i] === '--stocks') stockMode = true;
     else if (args[i] === '--help') {
       console.log(`
 OGZPrime Parallel Backtester v2
 Usage: node tools/parallel-backtest.js [options]
 
-Sweeps:
+Quick Sweeps:
   --quick        5 configs (default)
-  --boosters     Alpha booster toggles (ATR, risk mgr, drawdown)
+  --full         Everything (~60 configs)
+
+Focused Optimization (one variable at a time):
+  --confidence   Trade confidence gate (8 configs: 0.10-0.70)
+  --stratconf    Strategy confidence (8 configs: 0.25-0.60)
+  --atr          ATR volatility filter (8 configs: off, 0.10-0.40)
+  --rsi          RSI oversold/overbought grid (15 configs)
   --exits        SL/TP grid search (30 configs)
-  --confidence   Confidence threshold sweep (8 configs)
-  --sizing       Position size sweep (6 configs)
+  --trailing     Trailing stop sweep (7 configs: off, 0.3%-2.0%)
+  --regime       Market regime filter (4 configs)
   --tiers        Profit tier sweep (5 configs)
-  --full         Everything above (~60 configs)
+
+Other:
+  --boosters     Alpha booster toggles
+  --sizing       Position size sweep (6 configs)
 
 Options:
   --data FILE    Candle data file (default: ${DEFAULT_DATA})
+  --stocks       Zero commission mode (for stocks)
   --help         Show this help
 
+Walk-Forward Validation:
+  After finding winners, test on unseen data:
+  1. Train on first 6 months, find optimal params
+  2. Validate on next 6 months, confirm they hold
+  3. Test on final year, prove edge is real
+
 Notes:
-  - Don't click inside the terminal while running (Windows Quick Edit freezes processes)
-  - Each worker timeout: ${TIMEOUT_MS/60000} minutes
   - Results saved to backtest-results/
+  - Run sweeps one at a time, lock in winners, stack them
 `);
       process.exit(0);
     }
