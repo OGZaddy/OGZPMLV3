@@ -608,12 +608,14 @@ async function main() {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--sweep' && args[i+1]) sweepName = args[++i];
     else if (args[i] === '--data' && args[i+1]) {
-      const val = args[++i];
-      dataFile = DATA_SHORTCUTS[val.toLowerCase()] || val;
+      const val = args[++i].toLowerCase();
+      dataFile = DATA_SHORTCUTS[val] || args[i];
+      if (['tsla', 'spy', 'qqq'].includes(val)) stockMode = true;
     }
     else if (args[i].startsWith('--data=')) {
-      const val = args[i].split('=')[1];
-      dataFile = DATA_SHORTCUTS[val.toLowerCase()] || val;
+      const val = args[i].split('=')[1].toLowerCase();
+      dataFile = DATA_SHORTCUTS[val] || args[i].split('=')[1];
+      if (['tsla', 'spy', 'qqq'].includes(val)) stockMode = true;
     }
     else if (args[i] === '--quick') sweepName = 'quick';
     else if (args[i] === '--full') sweepName = 'full';
@@ -644,6 +646,13 @@ async function main() {
       console.log(`[SOLO MODE] Only testing strategy: ${strat}`);
     }
     else if (args[i] === '--stocks') stockMode = true;
+    // Bare shortcut: tsla, spy, qqq, btc, etc.
+    else if (DATA_SHORTCUTS[args[i].toLowerCase()]) {
+      const key = args[i].toLowerCase();
+      dataFile = DATA_SHORTCUTS[key];
+      // Auto-enable stock mode for stock tickers
+      if (['tsla', 'spy', 'qqq'].includes(key)) stockMode = true;
+    }
     else if (args[i] === '--help') {
       console.log(`
 OGZPrime Parallel Backtester v2
