@@ -19,11 +19,32 @@ class OGZSingletonLock {
   }
 
   /**
+   * Check if we should skip the lock (backtest/test mode)
+   * Centralized here - not scattered in run-empire-v2.js
+   */
+  shouldSkipLock() {
+    const isFileSource = process.env.CANDLE_SOURCE === 'file';
+    const isBacktestMode = process.env.EXECUTION_MODE === 'backtest' ||
+                           process.env.BACKTEST_MODE === 'true' ||
+                           process.env.TEST_MODE === 'true';
+    // Require BOTH: file source AND backtest mode
+    return isFileSource && isBacktestMode;
+  }
+
+  /**
    * Acquire lock with full safety checks
    */
   acquireLock() {
+    // Skip lock entirely for backtests (file source + backtest mode)
+    if (this.shouldSkipLock()) {
+      if (process.env.BACKTEST_SILENT !== 'true') {
+        console.log(`🔓 [${this.botName}] Lock skipped (backtest mode)`);
+      }
+      return true;
+    }
+
     console.log(`🔒 [${this.botName}] Attempting to acquire singleton lock...`);
-    
+
     // Check if lock file exists
     if (fs.existsSync(this.lockFile)) {
       try {
