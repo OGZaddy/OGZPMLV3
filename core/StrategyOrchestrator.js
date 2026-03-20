@@ -105,14 +105,11 @@ class StrategyOrchestrator {
     this.fibBoostGolden = TradingConfig.get('orchestrator.fibBoostGolden') ?? 0.15;
     this.tpoStrengthMultiplier = TradingConfig.get('orchestrator.tpoStrengthMultiplier') ?? 10;
 
-    // Register built-in strategies
-    this._registerBuiltinStrategies();
-
     // Stats tracking
     this.lastEvaluation = null;
     this.evalCount = 0;
 
-    // DIAGNOSTIC FUNNELS - track where signals die
+    // DIAGNOSTIC FUNNELS - track where signals die (MUST be before _registerBuiltinStrategies)
     this.diagFunnel = {
       EMASMACrossover: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
       MADynamicSR: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
@@ -120,6 +117,9 @@ class StrategyOrchestrator {
       LiquiditySweep: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
       OGZTPO: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
     };
+
+    // Register built-in strategies (uses diagFunnel, so must come after)
+    this._registerBuiltinStrategies();
   }
 
   /**
