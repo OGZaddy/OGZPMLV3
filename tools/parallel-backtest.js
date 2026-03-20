@@ -160,6 +160,20 @@ const SWEEP_PRESETS = {
     { name: 'ORB-only', env: { SOLO_STRATEGY: 'OpeningRangeBreakout' } },
   ],
 
+  // ═══════════════════════════════════════════════════════════════
+  // GAUNTLET SWEEPS — All strategies x all parameter values
+  // One run, full isolation, complete picture
+  // ═══════════════════════════════════════════════════════════════
+
+  // All strategies x all confidence levels (64 configs)
+  'gauntlet-confidence': generateGauntlet('confidence', [0.30, 0.40, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75]),
+
+  // All strategies x all ATR levels (72 configs)
+  'gauntlet-atr': generateGauntlet('atr', [0, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40]),
+
+  // All strategies x key exit combos (48 configs)
+  'gauntlet-exits': generateGauntletExits(),
+
   // Strategy confidence sweep - per-strategy minimum confidence
   stratconf: [
     { name: 'stratconf-25', env: { MIN_STRATEGY_CONFIDENCE: '0.25' } },
@@ -211,6 +225,61 @@ function generateRSISweep() {
       configs.push({
         name: `rsi-${os}-${ob}`,
         env: { RSI_OVERSOLD: String(os), RSI_OVERBOUGHT: String(ob) }
+      });
+    }
+  }
+  return configs;
+}
+
+// Gauntlet: All strategies x parameter values
+const STRATEGIES = ['RSI', 'EMASMACrossover', 'MADynamicSR', 'LiquiditySweep', 'MarketRegime', 'MultiTimeframe', 'OGZTPO', 'OpeningRangeBreakout'];
+
+function generateGauntlet(paramType, values) {
+  const configs = [];
+  for (const strat of STRATEGIES) {
+    for (const val of values) {
+      let env = { SOLO_STRATEGY: strat };
+      let name = `${strat.substring(0,4)}-`;
+
+      if (paramType === 'confidence') {
+        env.MIN_TRADE_CONFIDENCE = String(val);
+        name += `c${(val*100).toFixed(0)}`;
+      } else if (paramType === 'atr') {
+        if (val === 0) {
+          env.ATR_FILTER_ENABLED = 'false';
+          name += 'atr-off';
+        } else {
+          env.ATR_FILTER_ENABLED = 'true';
+          env.ATR_MIN_PERCENT = String(val);
+          name += `atr${(val*100).toFixed(0)}`;
+        }
+      }
+
+      configs.push({ name, env });
+    }
+  }
+  return configs;
+}
+
+function generateGauntletExits() {
+  const configs = [];
+  const exitCombos = [
+    { sl: 0.5, tp: 1.0 },
+    { sl: 0.8, tp: 1.5 },
+    { sl: 1.0, tp: 2.0 },
+    { sl: 1.5, tp: 2.5 },
+    { sl: 2.0, tp: 3.0 },
+    { sl: 2.5, tp: 4.0 },
+  ];
+  for (const strat of STRATEGIES) {
+    for (const exit of exitCombos) {
+      configs.push({
+        name: `${strat.substring(0,4)}-sl${exit.sl}-tp${exit.tp}`,
+        env: {
+          SOLO_STRATEGY: strat,
+          STOP_LOSS_PERCENT: String(exit.sl),
+          TAKE_PROFIT_PERCENT: String(exit.tp)
+        }
       });
     }
   }
@@ -518,6 +587,9 @@ async function main() {
     else if (args[i] === '--regime') sweepName = 'regime';
     else if (args[i] === '--stratconf') sweepName = 'stratconf';
     else if (args[i] === '--strategy-sweep') sweepName = 'strategy-sweep';
+    else if (args[i] === '--gauntlet-confidence') sweepName = 'gauntlet-confidence';
+    else if (args[i] === '--gauntlet-atr') sweepName = 'gauntlet-atr';
+    else if (args[i] === '--gauntlet-exits') sweepName = 'gauntlet-exits';
     else if (args[i] === '--strategy' && args[i+1]) {
       // Single strategy isolation mode - adds SOLO_STRATEGY to all configs
       const strat = args[++i];
@@ -547,8 +619,11 @@ Focused Optimization (one variable at a time):
 Strategy Isolation:
   --strategy-sweep  Test each strategy individually (8 configs)
   --strategy NAME   Run sweep with ONLY this strategy enabled
-                    Names: RSI, EMASMACrossover, MADynamicSR, LiquiditySweep,
-                           MarketRegime, MultiTimeframe, OGZTPO, OpeningRangeBreakout
+
+Gauntlet (all strategies x all values):
+  --gauntlet-confidence  8 strategies x 8 confidence levels (64 configs)
+  --gauntlet-atr         8 strategies x 8 ATR levels (64 configs)
+  --gauntlet-exits       8 strategies x 6 exit combos (48 configs)
 
 Other:
   --boosters     Alpha booster toggles
