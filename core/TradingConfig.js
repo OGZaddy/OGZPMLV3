@@ -153,15 +153,22 @@ const BASE_CONFIG = {
       maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 180),
       invalidationConditions: ['liquidity_absorbed'],
     },
-    // RSI - VALIDATED 2026-03-20: Walk-forward tested on TSLA (Year1: +$334, Year2: +$282)
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║  RSI - LOCKED CONFIG - DO NOT CHANGE WITHOUT RE-VALIDATION               ║
+    // ║  Walk-forward validated 2026-03-20 on TSLA 15m                            ║
+    // ║  Train (Year 1): +$334, 223 trades, 56.5% WR                              ║
+    // ║  Test (Year 2):  +$282, 119 trades, 58.8% WR                              ║
+    // ║  CHANGING THESE VALUES WILL BREAK THE VALIDATED EDGE                      ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
     RSI: {
-      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 0.8),   // Validated: 0.8% SL
-      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 1.0),    // Validated: 1.0% TP (tight mean-reversion)
-      trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.6),
-      trailingActivation: env('TRAILING_ACTIVATION', 0.8),
-      maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 240),
-      minConfidence: 0.60,                                    // Validated: 60% gate filters garbage signals
+      stopLossPercent: -0.8,    // LOCKED - validated SL
+      takeProfitPercent: 1.0,   // LOCKED - validated TP (tight mean-reversion)
+      trailingStopPercent: 0.6,
+      trailingActivation: 0.8,
+      maxHoldTimeMinutes: 240,
+      minConfidence: 0.60,      // LOCKED - 60% gate filters garbage signals
       invalidationConditions: [],
+      _validated: '2026-03-20', // Fingerprint - triggers warning if changed
     },
     MADynamicSR: {
       stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
@@ -711,6 +718,32 @@ class TradingConfig {
     // Position sizing checks
     if (pos.maxPositionSize > 0.25) {
       errors.push(`maxPositionSize (${pos.maxPositionSize}) > 25% - very high risk`);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // VALIDATED CONFIG PROTECTION - SCREAM IF LOCKED VALUES CHANGED
+    // ═══════════════════════════════════════════════════════════════════════
+    const rsi = BASE_CONFIG.exitContracts.RSI;
+    if (rsi._validated) {
+      const lockedValues = { sl: -0.8, tp: 1.0, conf: 0.60 };
+      if (rsi.stopLossPercent !== lockedValues.sl) {
+        console.error('\n🚨🚨🚨 RSI STOP LOSS CHANGED FROM VALIDATED VALUE 🚨🚨🚨');
+        console.error(`   Expected: ${lockedValues.sl}%, Got: ${rsi.stopLossPercent}%`);
+        console.error('   This config was walk-forward validated on 2026-03-20');
+        console.error('   RE-VALIDATE BEFORE DEPLOYING\n');
+      }
+      if (rsi.takeProfitPercent !== lockedValues.tp) {
+        console.error('\n🚨🚨🚨 RSI TAKE PROFIT CHANGED FROM VALIDATED VALUE 🚨🚨🚨');
+        console.error(`   Expected: ${lockedValues.tp}%, Got: ${rsi.takeProfitPercent}%`);
+        console.error('   This config was walk-forward validated on 2026-03-20');
+        console.error('   RE-VALIDATE BEFORE DEPLOYING\n');
+      }
+      if (rsi.minConfidence !== lockedValues.conf) {
+        console.error('\n🚨🚨🚨 RSI MIN CONFIDENCE CHANGED FROM VALIDATED VALUE 🚨🚨🚨');
+        console.error(`   Expected: ${lockedValues.conf}, Got: ${rsi.minConfidence}`);
+        console.error('   This config was walk-forward validated on 2026-03-20');
+        console.error('   RE-VALIDATE BEFORE DEPLOYING\n');
+      }
     }
 
     if (errors.length > 0) {
