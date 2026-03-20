@@ -147,6 +147,19 @@ const SWEEP_PRESETS = {
     { name: 'regime-volatile', env: { REGIME_FILTER_ENABLED: 'true', REGIME_ALLOW_VOLATILE: 'true', REGIME_ALLOW_QUIET: 'false' } },
   ],
 
+  // Strategy isolation sweep - test each strategy individually
+  // Usage: node tools/parallel-backtest.js --strategy-sweep --stocks --data tuning/tsla-15m-2y.json
+  'strategy-sweep': [
+    { name: 'RSI-only', env: { SOLO_STRATEGY: 'RSI' } },
+    { name: 'EMA-only', env: { SOLO_STRATEGY: 'EMASMACrossover' } },
+    { name: 'MASR-only', env: { SOLO_STRATEGY: 'MADynamicSR' } },
+    { name: 'Sweep-only', env: { SOLO_STRATEGY: 'LiquiditySweep' } },
+    { name: 'Regime-only', env: { SOLO_STRATEGY: 'MarketRegime' } },
+    { name: 'MTF-only', env: { SOLO_STRATEGY: 'MultiTimeframe' } },
+    { name: 'TPO-only', env: { SOLO_STRATEGY: 'OGZTPO' } },
+    { name: 'ORB-only', env: { SOLO_STRATEGY: 'OpeningRangeBreakout' } },
+  ],
+
   // Strategy confidence sweep - per-strategy minimum confidence
   stratconf: [
     { name: 'stratconf-25', env: { MIN_STRATEGY_CONFIDENCE: '0.25' } },
@@ -504,6 +517,13 @@ async function main() {
     else if (args[i] === '--trailing') sweepName = 'trailing';
     else if (args[i] === '--regime') sweepName = 'regime';
     else if (args[i] === '--stratconf') sweepName = 'stratconf';
+    else if (args[i] === '--strategy-sweep') sweepName = 'strategy-sweep';
+    else if (args[i] === '--strategy' && args[i+1]) {
+      // Single strategy isolation mode - adds SOLO_STRATEGY to all configs
+      const strat = args[++i];
+      process.env.SOLO_STRATEGY = strat;
+      console.log(`[SOLO MODE] Only testing strategy: ${strat}`);
+    }
     else if (args[i] === '--stocks') stockMode = true;
     else if (args[i] === '--help') {
       console.log(`
@@ -523,6 +543,12 @@ Focused Optimization (one variable at a time):
   --trailing     Trailing stop sweep (7 configs: off, 0.3%-2.0%)
   --regime       Market regime filter (4 configs)
   --tiers        Profit tier sweep (5 configs)
+
+Strategy Isolation:
+  --strategy-sweep  Test each strategy individually (8 configs)
+  --strategy NAME   Run sweep with ONLY this strategy enabled
+                    Names: RSI, EMASMACrossover, MADynamicSR, LiquiditySweep,
+                           MarketRegime, MultiTimeframe, OGZTPO, OpeningRangeBreakout
 
 Other:
   --boosters     Alpha booster toggles

@@ -85,6 +85,13 @@ class StrategyOrchestrator {
     });
     this.tpoIntegration = new OgzTpoIntegration();
 
+    // SOLO_STRATEGY mode: only enable one strategy for isolated testing
+    // Usage: SOLO_STRATEGY=RSI node tools/parallel-backtest.js ...
+    this.soloStrategy = process.env.SOLO_STRATEGY || null;
+    if (this.soloStrategy) {
+      console.log(`[StrategyOrchestrator] SOLO MODE: Only ${this.soloStrategy} enabled`);
+    }
+
     // FIX 2026-03-19: Load orchestrator config from TradingConfig (no hardcodes)
     this.minCandlesEMA = TradingConfig.get('orchestrator.minCandlesEMA') ?? 20;
     this.minCandlesMASR = TradingConfig.get('orchestrator.minCandlesMASR') ?? 50;
@@ -113,6 +120,11 @@ class StrategyOrchestrator {
    *   - evaluate(ctx): returns { direction, confidence, reason } or null
    */
   _registerBuiltinStrategies() {
+    // Helper: check if strategy should be registered (respects SOLO_STRATEGY mode)
+    const shouldRegister = (name) => {
+      if (!this.soloStrategy) return true;  // No filter — register all
+      return name.toLowerCase() === this.soloStrategy.toLowerCase();
+    };
 
     // ─── 1. EMA/SMA Crossover Strategy ───
     // FIX 2026-03-19: Self-contained — computes crossovers internally from raw candles
@@ -121,7 +133,7 @@ class StrategyOrchestrator {
     const fibDistanceEMA = this.fibDistanceEMA;
     const fibBoostNormal = this.fibBoostNormal;
     const fibBoostGolden = this.fibBoostGolden;
-    this.strategies.push({
+    if (shouldRegister('EMASMACrossover')) this.strategies.push({
       name: 'EMASMACrossover',
       evaluate: (ctx) => {
         // Self-contained: compute signal from raw candle data
@@ -163,7 +175,7 @@ class StrategyOrchestrator {
     const maDynamicSRModule = this.maDynamicSRModule;
     const minCandlesMASR = this.minCandlesMASR;
     const fibDistanceMASR = this.fibDistanceMASR;
-    this.strategies.push({
+    if (shouldRegister('MADynamicSR')) this.strategies.push({
       name: 'MADynamicSR',
       evaluate: (ctx) => {
         // Self-contained: compute signal from raw candle data
@@ -216,7 +228,7 @@ class StrategyOrchestrator {
     const liquiditySweepModule = this.liquiditySweepModule;
     const minCandlesSweep = this.minCandlesSweep;
     const fibDistanceSweep = this.fibDistanceSweep;
-    this.strategies.push({
+    if (shouldRegister('LiquiditySweep')) this.strategies.push({
       name: 'LiquiditySweep',
       evaluate: (ctx) => {
         // Self-contained: compute signal from raw candle data
@@ -260,7 +272,7 @@ class StrategyOrchestrator {
 
     // ─── 4. Break & Retest Strategy (Desi Trades) ───
     // DISABLED 2026-02-23: 0 for 9 in backtest, dragging down P&L. Isolating MADynamicSR.
-    this.strategies.push({
+    if (shouldRegister('BreakRetest')) this.strategies.push({
       name: 'BreakRetest',
       evaluate: (ctx) => {
         return null; // DISABLED - re-enable after tuning
@@ -269,7 +281,7 @@ class StrategyOrchestrator {
 
     // ─── 5. RSI Extreme Strategy ───
     // FIX 2026-03-06: Read thresholds from TradingConfig per STRATEGY-REWRITE-SPEC
-    this.strategies.push({
+    if (shouldRegister('RSI')) this.strategies.push({
       name: 'RSI',  // RSI Extreme strategy
       evaluate: (ctx) => {
         const rsi = ctx.indicators?.rsi;
@@ -306,7 +318,7 @@ class StrategyOrchestrator {
     });
 
     // ─── 5. Pattern Recognition Strategy ───
-    this.strategies.push({
+    if (shouldRegister('CandlePattern')) this.strategies.push({
       name: 'CandlePattern',
       evaluate: (ctx) => {
         const patterns = ctx.patterns || [];
@@ -330,7 +342,7 @@ class StrategyOrchestrator {
     });
 
     // ─── 6. Market Regime + Trend Strategy ───
-    this.strategies.push({
+    if (shouldRegister('MarketRegime')) this.strategies.push({
       name: 'MarketRegime',
       evaluate: (ctx) => {
         const regime = ctx.regime;
@@ -373,7 +385,7 @@ class StrategyOrchestrator {
     // FIX 2026-03-19: Self-contained — owns its MTF adapter internally
     const mtfAdapterModule = this.mtfAdapter;
     const minCandlesMTF = this.minCandlesMTF;
-    this.strategies.push({
+    if (shouldRegister('MultiTimeframe')) this.strategies.push({
       name: 'MultiTimeframe',
       evaluate: (ctx) => {
         // Self-contained: ingest candle and compute confluence internally
@@ -417,7 +429,7 @@ class StrategyOrchestrator {
     const tpoIntegrationModule = this.tpoIntegration;
     const minCandlesTPO = this.minCandlesTPO;
     const tpoStrengthMultiplier = this.tpoStrengthMultiplier;
-    this.strategies.push({
+    if (shouldRegister('OGZTPO')) this.strategies.push({
       name: 'OGZTPO',  // OGZ TPO strategy
       evaluate: (ctx) => {
         // Self-contained: compute TPO signal from raw candle data
@@ -464,7 +476,7 @@ class StrategyOrchestrator {
     // ─── 9. Opening Range Breakout Strategy ───
     // ICT-style session-based strategy with FVG entry
     const orbInstance = this.orbStrategy;
-    this.strategies.push({
+    if (shouldRegister('OpeningRangeBreakout')) this.strategies.push({
       name: 'OpeningRangeBreakout',
       evaluate: (ctx) => {
         // ORB needs the latest candle from priceHistory
