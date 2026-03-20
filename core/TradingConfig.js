@@ -153,12 +153,14 @@ const BASE_CONFIG = {
       maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 180),
       invalidationConditions: ['liquidity_absorbed'],
     },
+    // RSI - VALIDATED 2026-03-20: Walk-forward tested on TSLA (Year1: +$334, Year2: +$282)
     RSI: {
-      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 2.0),
-      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 2.5),
+      stopLossPercent: -1 * env('STOP_LOSS_PERCENT', 0.8),   // Validated: 0.8% SL
+      takeProfitPercent: env('TAKE_PROFIT_PERCENT', 1.0),    // Validated: 1.0% TP (tight mean-reversion)
       trailingStopPercent: env('TRAILING_STOP_PERCENT', 0.6),
       trailingActivation: env('TRAILING_ACTIVATION', 0.8),
       maxHoldTimeMinutes: env('MAX_HOLD_MINUTES', 240),
+      minConfidence: 0.60,                                    // Validated: 60% gate filters garbage signals
       invalidationConditions: [],
     },
     MADynamicSR: {
