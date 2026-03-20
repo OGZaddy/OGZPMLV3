@@ -220,7 +220,9 @@ class LiquiditySweepDetector {
     const candleClose = c(openingCandle);
     const range = candleHigh - candleLow;
     const threshold = this.state.dailyATR ? this.config.atrMultiplier * this.state.dailyATR : null;
-    const isManipCandle = threshold === null ? true : range >= threshold;
+    // STRIPPED: ATR check removed - platform handles filtering
+    // const isManipCandle = threshold === null ? true : range >= threshold;
+    const isManipCandle = true;  // Always proceed - let platform filter
     this.stats.totalSessionsAnalyzed++;
     this.state.box = {
       high: candleHigh, low: candleLow, range, open: candleOpen, close: candleClose,
@@ -229,7 +231,8 @@ class LiquiditySweepDetector {
       validations: { passesATR: isManipCandle, sweepsHighs: false, sweepsLows: false, closesInsideRange: false },
       timestamp: t(openingCandle),
     };
-    if (!isManipCandle) { this.state.phase = 'done'; return; }
+    // COMMENTED: ATR gate that killed signals
+    // if (!isManipCandle) { this.state.phase = 'done'; return; }
     this.stats.manipCandlesDetected++;
     const upperWick = candleHigh - Math.max(candleOpen, candleClose);
     const lowerWick = Math.min(candleOpen, candleClose) - candleLow;

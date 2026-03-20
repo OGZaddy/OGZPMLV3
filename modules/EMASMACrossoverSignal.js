@@ -87,6 +87,11 @@ class EMASMACrossoverSignal {
     let snapbackSignal = null;
     let blowoffWarning = false;
 
+    // ═══════════════════════════════════════════════════════════════════
+    // STRIPPED DOWN: Core crossover detection only
+    // All filters commented out - platform handles filtering, not strategy
+    // ═══════════════════════════════════════════════════════════════════
+
     for (const pair of this.pairs) {
       const fastVal = maValues[`${pair.type}${pair.fast}`];
       const slowVal = maValues[`${pair.type}${pair.slow}`];
@@ -94,21 +99,19 @@ class EMASMACrossoverSignal {
       if (fastVal == null || slowVal == null) continue;
 
       const spread = ((fastVal - slowVal) / slowVal) * 100;  // as %
-      const prevSpread = this.prevSpreads[pair.id];
       const state = this.crossoverState[pair.id];
 
-      // --- Crossover detection ---
+      // --- Crossover detection (CORE) ---
       const prevSide = state.side;
       const currentSide = fastVal > slowVal ? 'golden' : fastVal < slowVal ? 'death' : 'flat';
 
+      // Track fresh crossovers
       if (prevSide !== 'none' && prevSide !== currentSide && currentSide !== 'flat') {
-        // New crossover!
         state.side = currentSide;
         state.barsAgo = 0;
-
         crossovers.push({
           pair: pair.id,
-          type: currentSide,  // 'golden' or 'death'
+          type: currentSide,
           weight: pair.weight,
           spread: spread
         });
@@ -117,94 +120,98 @@ class EMASMACrossoverSignal {
         state.barsAgo++;
       }
 
-      // --- Active signal decay ---
-      if (state.barsAgo <= this.decayBars) {
-        const decayFactor = 1 - (state.barsAgo / this.decayBars);
-        if (currentSide === 'golden') {
-          bullishCount += pair.weight * decayFactor;
-        } else if (currentSide === 'death') {
-          bearishCount += pair.weight * decayFactor;
-        }
+      // Count current MA alignment (no decay - just current state)
+      if (currentSide === 'golden') {
+        bullishCount += pair.weight;
+      } else if (currentSide === 'death') {
+        bearishCount += pair.weight;
       }
       totalWeight += pair.weight;
-
-      // --- Divergence tracking ---
-      if (prevSpread != null) {
-        const velocity = spread - prevSpread;
-        const hist = this.divergenceHistory[pair.id];
-        hist.push({ spread, velocity });
-        if (hist.length > this.divergenceDepth) hist.shift();  // BOUNDED
-
-        // Snapback detection: spread overextended + decelerating
-        if (hist.length >= 3) {
-          const lastVelocity = hist[hist.length - 1].velocity;
-          const prevVelocity = hist[hist.length - 2].velocity;
-          const acceleration = lastVelocity - prevVelocity;
-
-          const absSpread = Math.abs(spread);
-          const isOverextended = absSpread > this.snapbackThresholdPct;
-          const isDecelerating = (spread > 0 && acceleration < -0.05) ||
-                                 (spread < 0 && acceleration > 0.05);
-
-          if (isOverextended && isDecelerating) {
-            snapbackSignal = {
-              pair: pair.id,
-              direction: spread > 0 ? 'bearish_snapback' : 'bullish_snapback',
-              spread: spread,
-              confidence: Math.min(0.8, absSpread / 5)  // scale by extension
-            };
-          }
-
-          // Blowoff detection: MAs accelerating apart
-          if (Math.abs(acceleration) > this.blowoffAccelThreshold && Math.abs(lastVelocity) > Math.abs(prevVelocity)) {
-            blowoffWarning = true;
-          }
-        }
-      }
 
       this.prevSpreads[pair.id] = spread;
     }
 
-    // --- Confluence ---
+    // COMMENTED FILTERS - move to orchestrator if needed later
+    // ─────────────────────────────────────────────────────────────────────
+    // // Active signal decay - signals fade after decayBars
+    // if (state.barsAgo <= this.decayBars) {
+    //   const decayFactor = 1 - (state.barsAgo / this.decayBars);
+    //   if (currentSide === 'golden') {
+    //     bullishCount += pair.weight * decayFactor;
+    //   } else if (currentSide === 'death') {
+    //     bearishCount += pair.weight * decayFactor;
+    //   }
+    // }
+    //
+    // // Divergence tracking for snapback/blowoff
+    // if (prevSpread != null) {
+    //   const velocity = spread - prevSpread;
+    //   const hist = this.divergenceHistory[pair.id];
+    //   hist.push({ spread, velocity });
+    //   if (hist.length > this.divergenceDepth) hist.shift();
+    //
+    //   if (hist.length >= 3) {
+    //     const lastVelocity = hist[hist.length - 1].velocity;
+    //     const prevVelocity = hist[hist.length - 2].velocity;
+    //     const acceleration = lastVelocity - prevVelocity;
+    //     const absSpread = Math.abs(spread);
+    //     const isOverextended = absSpread > this.snapbackThresholdPct;
+    //     const isDecelerating = (spread > 0 && acceleration < -0.05) ||
+    //                            (spread < 0 && acceleration > 0.05);
+    //     if (isOverextended && isDecelerating) {
+    //       snapbackSignal = { pair: pair.id, direction: spread > 0 ? 'bearish_snapback' : 'bullish_snapback', spread, confidence: Math.min(0.8, absSpread / 5) };
+    //     }
+    //     if (Math.abs(acceleration) > this.blowoffAccelThreshold && Math.abs(lastVelocity) > Math.abs(prevVelocity)) {
+    //       blowoffWarning = true;
+    //     }
+    //   }
+    // }
+    // ─────────────────────────────────────────────────────────────────────
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SIMPLE DIRECTION: Based on MA alignment across all pairs
+    // Confidence based on how many pairs agree
+    // ═══════════════════════════════════════════════════════════════════
     const confluenceRatio = totalWeight > 0
       ? Math.max(bullishCount, bearishCount) / totalWeight
       : 0;
 
-    // --- Direction (EVIDENCE-BASED CONFIDENCE) ---
-    // FIX 2026-02-23: Dynamic confidence from stacked evidence, not static caps
     let direction = 'neutral';
     let confidence = 0;
 
-    if (bullishCount > bearishCount && bullishCount > 0.3) {
+    // Direction: whichever side has more weight
+    if (bullishCount > bearishCount) {
       direction = 'buy';
-      // Stack evidence: confluence + fresh crosses + heavyweight pairs
-      const baseConf = confluenceRatio * 0.45;             // Alignment across pairs (0-45%)
-      const freshBonus = Math.min(0.25, crossovers.filter(c => c.type === 'golden').length * 0.12);
-      const heavyBonus = crossovers.some(c => c.weight >= 1.4 && c.type === 'golden') ? 0.10 : 0;
-      confidence = baseConf + freshBonus + heavyBonus;
-    } else if (bearishCount > bullishCount && bearishCount > 0.3) {
+      // Confidence: 40-80% based on confluence
+      confidence = 0.40 + (confluenceRatio * 0.40);
+      // Bonus for fresh crossovers
+      const freshGolden = crossovers.filter(c => c.type === 'golden').length;
+      if (freshGolden > 0) confidence += Math.min(0.15, freshGolden * 0.05);
+    } else if (bearishCount > bullishCount) {
       direction = 'sell';
-      const baseConf = confluenceRatio * 0.45;
-      const freshBonus = Math.min(0.25, crossovers.filter(c => c.type === 'death').length * 0.12);
-      const heavyBonus = crossovers.some(c => c.weight >= 1.4 && c.type === 'death') ? 0.10 : 0;
-      confidence = baseConf + freshBonus + heavyBonus;
+      confidence = 0.40 + (confluenceRatio * 0.40);
+      const freshDeath = crossovers.filter(c => c.type === 'death').length;
+      if (freshDeath > 0) confidence += Math.min(0.15, freshDeath * 0.05);
     }
 
-    // Snapback overrides (scaled better)
-    if (snapbackSignal) {
-      if (snapbackSignal.direction === 'bullish_snapback') {
-        direction = 'buy';
-        confidence = Math.max(confidence, snapbackSignal.confidence * 0.5);
-      } else {
-        direction = 'sell';
-        confidence = Math.max(confidence, snapbackSignal.confidence * 0.5);
-      }
-    }
-
-    // Blowoff warning reduces confidence (don't chase!)
-    if (blowoffWarning) {
-      confidence *= 0.5;
-    }
+    // COMMENTED FILTERS
+    // ─────────────────────────────────────────────────────────────────────
+    // // Snapback overrides
+    // if (snapbackSignal) {
+    //   if (snapbackSignal.direction === 'bullish_snapback') {
+    //     direction = 'buy';
+    //     confidence = Math.max(confidence, snapbackSignal.confidence * 0.5);
+    //   } else {
+    //     direction = 'sell';
+    //     confidence = Math.max(confidence, snapbackSignal.confidence * 0.5);
+    //   }
+    // }
+    //
+    // // Blowoff warning reduces confidence
+    // if (blowoffWarning) {
+    //   confidence *= 0.5;
+    // }
+    // ─────────────────────────────────────────────────────────────────────
 
     // FIX 2026-02-25: Add SL/TP fields for consistency with other strategies
     // Default: 0.5% stop, 0.8% target (uses ECM defaults if not overridden)

@@ -228,49 +228,55 @@ class OgzTpoIntegration extends EventEmitter {
             }
         }
         
-        // Apply mode settings
-        const modeSettings = this.config.modes[this.config.mode] || this.config.modes.standard;
-        
-        // Determine final signal based on configuration
-        let finalSignal = null;
-        
-        if (newSignal && newSignal.type !== 'INVALID') {
-            const meetsStrength = newSignal.strength >= modeSettings.minStrength;
-            const meetsZone = !modeSettings.zoneRequired || newSignal.highProbability;
-            const meetsConfluence = !this.config.confluence || confluenceMatch;
-            
-            if (meetsStrength && meetsZone && meetsConfluence) {
-                finalSignal = {
-                    ...newSignal,
-                    source: 'ogzTpo',
-                    confluenceConfirmed: confluenceMatch,
-                    mode: this.config.mode,
-                    price: c(candle),
-                    timestamp: Date.now()
-                };
+        // ═══════════════════════════════════════════════════════════════════
+        // STRIPPED DOWN: Core TPO crossover detection only
+        // All filters commented out - platform handles filtering, not strategy
+        // ═══════════════════════════════════════════════════════════════════
 
-                // Calculate dynamic levels if enabled
-                if (this.config.dynamicSL) {
-                    const vol = tpoResult.vol[lastIdx];
-                    const direction = newSignal.action === 'BUY' ? 'LONG' : 'SHORT';
-                    const levels = calculateDynamicLevels(c(candle), vol, direction);
-                    finalSignal.levels = levels;
-                }
-                
-                this.lastSignal = finalSignal;
-                
-                // Emit event for decoupled architecture
-                this.emit('signal', finalSignal);
-                
-                console.log(`\n🎯 OGZ TPO SIGNAL: ${finalSignal.action}`);
-                console.log(`   Zone: ${finalSignal.zone}`);
-                console.log(`   Strength: ${(finalSignal.strength * 100).toFixed(2)}%`);
-                console.log(`   High Probability: ${finalSignal.highProbability ? '⭐ YES' : 'NO'}`);
-                console.log(`   Confluence: ${finalSignal.confluenceConfirmed ? '✅ CONFIRMED' : '❌ NEW TPO ONLY'}`);
-                if (finalSignal.levels) {
-                    console.log(`   Dynamic SL: $${finalSignal.levels.stopLoss.toFixed(2)}`);
-                    console.log(`   Dynamic TP: $${finalSignal.levels.takeProfit.toFixed(2)}`);
-                }
+        // COMMENTED FILTERS - move to orchestrator if needed later
+        // ─────────────────────────────────────────────────────────────────────
+        // const modeSettings = this.config.modes[this.config.mode] || this.config.modes.standard;
+        // const meetsStrength = newSignal.strength >= modeSettings.minStrength;
+        // const meetsZone = !modeSettings.zoneRequired || newSignal.highProbability;
+        // const meetsConfluence = !this.config.confluence || confluenceMatch;
+        // if (meetsStrength && meetsZone && meetsConfluence) { ... }
+        // ─────────────────────────────────────────────────────────────────────
+
+        // Determine final signal - STRIPPED: just pass through crossover detection
+        let finalSignal = null;
+
+        if (newSignal && newSignal.type !== 'INVALID') {
+            // SIMPLE: If TPO detects a crossover, return it (no filtering)
+            finalSignal = {
+                ...newSignal,
+                source: 'ogzTpo',
+                confluenceConfirmed: confluenceMatch,
+                mode: this.config.mode,
+                price: c(candle),
+                timestamp: Date.now()
+            };
+
+            // Calculate dynamic levels if enabled (keep - this is data, not filter)
+            if (this.config.dynamicSL) {
+                const vol = tpoResult.vol[lastIdx];
+                const direction = newSignal.action === 'BUY' ? 'LONG' : 'SHORT';
+                const levels = calculateDynamicLevels(c(candle), vol, direction);
+                finalSignal.levels = levels;
+            }
+
+            this.lastSignal = finalSignal;
+
+            // Emit event for decoupled architecture
+            this.emit('signal', finalSignal);
+
+            console.log(`\n🎯 OGZ TPO SIGNAL: ${finalSignal.action}`);
+            console.log(`   Zone: ${finalSignal.zone}`);
+            console.log(`   Strength: ${(finalSignal.strength * 100).toFixed(2)}%`);
+            console.log(`   High Probability: ${finalSignal.highProbability ? '⭐ YES' : 'NO'}`);
+            console.log(`   Confluence: ${finalSignal.confluenceConfirmed ? '✅ CONFIRMED' : '❌ NEW TPO ONLY'}`);
+            if (finalSignal.levels) {
+                console.log(`   Dynamic SL: $${finalSignal.levels.stopLoss.toFixed(2)}`);
+                console.log(`   Dynamic TP: $${finalSignal.levels.takeProfit.toFixed(2)}`);
             }
         }
         
