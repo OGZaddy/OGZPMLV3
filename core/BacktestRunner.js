@@ -229,10 +229,8 @@ class BacktestRunner {
         this.ctx.backtestRecorder.exportCSV('./backtest-trades.csv');
       }
 
-      // CHANGE 2026-03-20: DynamicPositionSizer end-of-backtest stats
-      if (this.ctx.dynamicPositionSizer) {
-        this.ctx.dynamicPositionSizer.printStats();
-      }
+      // DynamicPositionSizer NOT WIRED - stats printing disabled
+      // Re-enable when curves are tuned to match validated baseline
 
       // DIAGNOSTIC: Print strategy signal funnel
       if (this.ctx.strategyOrchestrator?.printDiagnosticFunnel) {

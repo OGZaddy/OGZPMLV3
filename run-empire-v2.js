@@ -160,8 +160,10 @@ const OrderRouter = require('./core/OrderRouter');
 // REFACTOR Phase 14: OrderExecutor - exact copy of executeTrade() extracted
 const OrderExecutor = require('./core/OrderExecutor');
 
-// CHANGE 2026-03-20: DynamicPositionSizer replaces inline confidence hack in OrderExecutor
-const DynamicPositionSizer = require('./core/DynamicPositionSizer');
+// DynamicPositionSizer exists in core/ but NOT WIRED - curves need tuning first
+// Validated results: TSLA $970, QQQ $374. DPS dropped these to $101/$50.
+// Re-enable after tuning curves to match or beat validated baseline.
+// const DynamicPositionSizer = require('./core/DynamicPositionSizer');
 
 // Phase 4 REWRITE: MaxProfitManager standalone (was inside deleted OptimizedTradingBrain)
 const MaxProfitManager = require('./core/MaxProfitManager');
@@ -606,12 +608,9 @@ class OGZPrimeV14Bot {
     this.maxProfitManager = new MaxProfitManager();
     console.log('[EMPIRE V2] MaxProfitManager initialized - tiered exits ready');
 
-    // CHANGE 2026-03-20: DynamicPositionSizer replaces inline confidence hack
-    this.dynamicPositionSizer = new DynamicPositionSizer();
-    // Wire pattern memory (lazy singleton - available after any strategy uses it)
-    const { getInstance: getUPM } = require('./core/UnifiedPatternMemory');
-    this.dynamicPositionSizer.setPatternMemory(getUPM());
-    console.log('[EMPIRE V2] DynamicPositionSizer initialized - intelligent sizing ready');
+    // DynamicPositionSizer NOT WIRED - needs tuning. Using inline confidence multiplier.
+    // See core/DynamicPositionSizer.js for the module (curves need calibration).
+    this.dynamicPositionSizer = null;
 
     // RECONCILER REMOVED - was causing more problems than it solved
 
@@ -807,8 +806,7 @@ class OGZPrimeV14Bot {
       // Phase 4 REWRITE: Standalone dependencies (was inside deleted modules)
       orderRouter: this.orderRouter,
       maxProfitManager: this.maxProfitManager,
-      // CHANGE 2026-03-20: DynamicPositionSizer for intelligent sizing
-      dynamicPositionSizer: this.dynamicPositionSizer,
+      // DynamicPositionSizer NOT WIRED - using inline confidence multiplier
       // Module-level functions
       notifyTrade: notifyTrade,
       notifyTradeClose: notifyTradeClose,
@@ -867,9 +865,8 @@ class OGZPrimeV14Bot {
       __dirname: __dirname,
       patternChecker: this.patternChecker,
       trai: this.trai,
-      backtestRecorder: this.backtestRecorder,
-      // CHANGE 2026-03-20: DynamicPositionSizer for end-of-backtest stats
-      dynamicPositionSizer: this.dynamicPositionSizer
+      backtestRecorder: this.backtestRecorder
+      // DynamicPositionSizer NOT WIRED - stats printing disabled
     });
 
     // REFACTOR Phase 19: CandleProcessor - context with runner self-reference
