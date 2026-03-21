@@ -498,7 +498,7 @@ const BASE_CONFIG = {
     enableEMACrossover: envBool('ENABLE_EMA', true),
     enableLiquiditySweep: envBool('ENABLE_LIQSWEEP', true),
     enableBreakRetest: envBool('ENABLE_BREAKRETEST', false),
-    enableMarketRegime: envBool('ENABLE_REGIME', true),
+    enableMarketRegime: envBool('ENABLE_REGIME', false),  // DEPRECATED: now orchestrator pre-filter
     enableMultiTimeframe: envBool('ENABLE_MTF', true),
     enableOGZTPO: envBool('ENABLE_TPO', true),
     enableOpeningRangeBreakout: envBool('ENABLE_ORB', false), // NEW: Disabled by default until tuned

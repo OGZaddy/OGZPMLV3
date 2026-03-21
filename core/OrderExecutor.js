@@ -50,38 +50,41 @@ class OrderExecutor {
 
     // FIXED: Use actual balance from StateManager, not stale systemState
     const currentBalance = stateManager.get('balance') || 10000;
-    // CHANGE 2026-02-28: Use TradingConfig for position sizing
-    let basePositionPercent = TradingConfig.get('positionSizing.maxPositionSize');
-
-    // TUNE 2026-02-27: Confidence-scaled position sizing
-    // 50% confidence = 0.5x, 75% = 1.5x, 90%+ = 2.5x (cap)
+    // CHANGE 2026-03-20: DynamicPositionSizer replaces inline hack
     const rawConfidence = decision.confidence;
-    console.log('RAW confidence value:', rawConfidence); // Sanity check: is this 75 or 0.75?
-    // decision.confidence comes as percentage (e.g., 75 = 75%), convert to decimal
     const tradeConfidence = (rawConfidence > 1 ? rawConfidence / 100 : rawConfidence) || 0.5;
-    // Linear scale: confidence 0.5 → multiplier 0.5, confidence 1.0 → multiplier 2.5
-    const confidenceMultiplier = Math.max(0.5, Math.min(2.5,
-      0.5 + (tradeConfidence - 0.5) * 4.0
-    ));
-    basePositionPercent = basePositionPercent * confidenceMultiplier;
+    const atrPercent = indicators?.atrPercent || (
+      indicators?.atr && price > 0 ? (indicators.atr / price) * 100 : 0.30
+    );
+    const entryTrend = indicators?.trend;
+    const trendNumeric = typeof entryTrend === 'string'
+      ? (entryTrend === 'bullish' || entryTrend === 'uptrend' ? 1 :
+         entryTrend === 'bearish' || entryTrend === 'downtrend' ? -1 : 0)
+      : (entryTrend || 0);
+    const features = [
+      indicators?.rsi != null ? indicators.rsi / 100 : 0.5,
+      (indicators?.macd || 0) - (indicators?.macdSignal || 0),
+      trendNumeric,
+      indicators?.bbWidth || 0.02,
+      indicators?.volatility || 0.01,
+      0.5, 0, 0, 0
+    ];
 
-    // FIX 2026-03-06: ENFORCE MAX_POSITION_SIZE cap after confidence multiplier
-    // Bug: confidenceMultiplier (up to 2.5x) was pushing position above max
-    const maxPositionPercent = TradingConfig.get('positionSizing.maxPositionSize') * 2.5; // Allow up to 2.5x max for high confidence
-    if (basePositionPercent > maxPositionPercent) {
-      console.log(`⚠️ Position capped: ${(basePositionPercent * 100).toFixed(2)}% → ${(maxPositionPercent * 100).toFixed(2)}% (MAX_POSITION_SIZE limit)`);
-      basePositionPercent = maxPositionPercent;
-    }
-    console.log(`📏 Confidence sizing: ${(tradeConfidence * 100).toFixed(0)}% → ${confidenceMultiplier.toFixed(1)}x → ${(basePositionPercent * 100).toFixed(2)}% of balance`);
+    const sizing = this.ctx.dynamicPositionSizer.calculate({
+      balance: currentBalance,
+      confidence: tradeConfidence,
+      features: features,
+      atrPercent: atrPercent,
+      confluenceMultiplier: orchResult?.sizingMultiplier || 1.0,
+      price: price,
+    });
 
-    // Phase 4 REWRITE: AGGRESSIVE_LEARNING_MODE removed - use TradingConfig for all sizing
-    const baseSizeUSD = currentBalance * basePositionPercent;
+    const positionSizeUSD = sizing.sizeUSD;
+    const positionSizeBTC = sizing.sizeAsset;
+    const basePositionPercent = sizing.sizePercent;
 
-    // FIX 2025-12-27: Convert USD to BTC amount (was treating $500 as 500 BTC!)
-    const positionSizeUSD = baseSizeUSD; // This is in USD
-    const positionSizeBTC = positionSizeUSD / price; // Convert to BTC amount
-
-    console.log(`💰 Position sizing: Balance=$${currentBalance.toFixed(2)}, Percent=${(basePositionPercent*100).toFixed(1)}%, USD=$${positionSizeUSD.toFixed(2)}, BTC=${positionSizeBTC.toFixed(8)}`);
+    console.log('[POSITION-SIZER] ' + sizing.reason);
+    console.log(`  Balance=$${currentBalance.toFixed(2)} | ${(sizing.sizePercent * 100).toFixed(1)}% | $${positionSizeUSD.toFixed(2)}`);
 
     // Phase 4 REWRITE: tradingOptimizations deleted - use position size directly
     // Pattern-based adjustments can be added to TradingConfig later if needed

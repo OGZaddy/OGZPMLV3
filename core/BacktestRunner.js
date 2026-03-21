@@ -229,6 +229,11 @@ class BacktestRunner {
         this.ctx.backtestRecorder.exportCSV('./backtest-trades.csv');
       }
 
+      // CHANGE 2026-03-20: DynamicPositionSizer end-of-backtest stats
+      if (this.ctx.dynamicPositionSizer) {
+        this.ctx.dynamicPositionSizer.printStats();
+      }
+
       // DIAGNOSTIC: Print strategy signal funnel
       if (this.ctx.strategyOrchestrator?.printDiagnosticFunnel) {
         this.ctx.strategyOrchestrator.printDiagnosticFunnel();

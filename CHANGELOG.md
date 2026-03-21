@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Feature: DynamicPositionSizer & MarketRegime Refactor (2026-03-21)
+
+#### Feature: DynamicPositionSizer Module
+- **Files:** `core/DynamicPositionSizer.js` (new), `core/OrderExecutor.js`, `run-empire-v2.js`, `core/BacktestRunner.js`
+- **Purpose:** Intelligent position sizing based on confidence, volatility, pattern memory, and confluence
+- **Formula:** `size = baseSize × confMultiplier × volMultiplier × patternMultiplier × confluenceMultiplier`
+- **Pattern Multipliers:** promoted=1.5x, neutral=1.0x, learning=1.0x, quarantined=0.25x, unknown=1.0x
+- **Key Design:** Sizer SIZES positions, never BLOCKS trades. Quarantined patterns get 0.25x (quarter size) to collect recovery data.
+- **Half-Kelly Option:** Available for optimal sizing based on pattern win rates (disabled by default)
+
+#### Refactor: MarketRegime → Orchestrator Pre-Filter (Trey Rule #8)
+- **Files:** `core/StrategyOrchestrator.js`, `core/TradingConfig.js`
+- **Problem:** MarketRegime was registered as a strategy, competing for winner slot
+- **Fix:** MarketRegime is now a pre-filter that adjusts confidence multipliers per regime
+- **Regime Affinities:**
+  - `trending`: EMA 1.2x, MASR 1.15x, RSI 0.8x
+  - `ranging`: EMA 0.75x, RSI 1.25x, MASR 1.1x
+  - `volatile`: All strategies reduced, position size 0.6x
+  - `dead`: All strategies reduced, position size 0.5x
+- **Output:** `orchResult.regime.type` and `regime.positionMultiplier` now in orchestrator output
+
+#### Tool: matrix-sweep.js
+- **Files:** `tools/matrix-sweep.js` (new)
+- **Purpose:** Strategy×Exit×Confidence matrix backtester for parameter optimization
+- **Usage:** `node tools/matrix-sweep.js --data=tuning/qqq-15m-2y.json`
+
+---
+
 ### Fix: Env Var Contamination in Parallel Backtest (2026-03-20)
 
 #### Fix: Parent Shell Env Vars Contaminating Child Processes
