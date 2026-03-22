@@ -201,31 +201,24 @@ this.confluenceSizing = {
 };
 ```
 
-### Regime Affinities (lines 67-97):
-```javascript
-// Each strategy gets a multiplier based on market regime
-trending: { EMASMACrossover: 1.20, MADynamicSR: 1.15, RSI: 0.80 }
-ranging:  { EMASMACrossover: 0.75, MADynamicSR: 1.10, RSI: 1.25 }
-volatile: { _positionSizeMultiplier: 0.60 }
-dead:     { _positionSizeMultiplier: 0.50 }
-```
-
-### Evaluation Flow (lines 608-821):
-1. **Run all strategies independently** (line 634)
-2. **ATR filter** - Skip if ATR < minimum (lines 656-665)
-3. **Regime pre-filter** - Apply regime affinity multipliers (line 668)
-4. **Sort by confidence** (line 673)
-5. **Filter by minimum confidence** (line 684)
-6. **Winner = highest confidence** (line 704)
-7. **Count confluence** - how many agree on direction (lines 707-708)
-8. **Calculate sizing multiplier** (lines 727-729):
+### Evaluation Flow (lines 453-663 in reverted 9e632bf):
+1. **Run all strategies independently** (each strategy's evaluate() called)
+2. **ATR filter** - Skip if ATR% < minimum
+3. **Sort by confidence** (highest first)
+4. **Filter by minimum confidence** (minStrategyConfidence threshold)
+5. **Winner = highest confidence**
+6. **Count confluence** - how many strategies agree on direction
+7. **Calculate sizing multiplier**:
 ```javascript
 const cappedCount = Math.min(confluenceCount, 4);
-const rawSizingMultiplier = this.confluenceSizing[cappedCount];
-const sizingMultiplier = rawSizingMultiplier * regimePositionMultiplier;
+const sizingMultiplier = this.confluenceSizing[cappedCount]; // 1.0 to 2.5x
+// NOTE: No regime multiplier in validated code - that was reverted
 ```
-9. **Create exit contract** from winning strategy (lines 732-759)
-10. **Return** `{ action, direction, confidence, winnerStrategy, exitContract, sizingMultiplier, ... }`
+8. **Create exit contract** from winning strategy
+9. **Return** `{ action, direction, confidence, winnerStrategy, exitContract, sizingMultiplier, ... }`
+
+**NOTE:** Regime affinities and _positionSizeMultiplier were REVERTED (commit 1b68fa4).
+They were silently cutting positions by 40-50% and causing $970 to drop to $575.
 
 ---
 
@@ -340,10 +333,13 @@ updates = {
 ### Per-Strategy Exit Contracts:
 Each strategy has its own SL/TP defaults in `DEFAULT_CONTRACTS`:
 ```javascript
-EMASMACrossover: { stopLossPercent: -1.5, takeProfitPercent: 3.0 }
-MADynamicSR:     { stopLossPercent: -1.2, takeProfitPercent: 2.5 }
-RSI:             { stopLossPercent: -1.0, takeProfitPercent: 2.0 }
-// etc.
+// ACTUAL LOCKED VALUES from TradingConfig.js (lines 146-194):
+EMASMACrossover: { stopLossPercent: -0.5, takeProfitPercent: 1.0 }  // LOCKED - validated
+MADynamicSR:     { stopLossPercent: -0.8, takeProfitPercent: 1.0 }  // LOCKED - validated
+RSI:             { stopLossPercent: -0.8, takeProfitPercent: 1.0 }  // LOCKED - validated
+OGZTPO:          { stopLossPercent: -0.8, takeProfitPercent: 1.0 }  // LOCKED - validated
+MultiTimeframe:  { stopLossPercent: -0.8, takeProfitPercent: 1.0 }  // LOCKED - validated
+LiquiditySweep:  { stopLossPercent: -2.0, takeProfitPercent: 2.5 }  // Fallback - uses structural exits
 ```
 
 ---
@@ -386,7 +382,7 @@ this.balance += netPnlDollars;
 | Confidence Multiplier | 0.5x to 2.5x based on signal strength | OrderExecutor.js:63-65 |
 | Hard Cap | Limits to maxPositionSize × 2.5 (12.5%) | OrderExecutor.js:69-73 |
 | Confluence Multiplier | 1.0x to 2.5x based on # strategies agreeing | StrategyOrchestrator.js:727-729 |
-| Regime Multiplier | 0.5x to 1.0x based on market regime | StrategyOrchestrator.js:670 |
+| ~~Regime Multiplier~~ | **REVERTED** - was cutting positions 40-50% | Removed in commit 1b68fa4 |
 
 ---
 
@@ -394,10 +390,10 @@ this.balance += netPnlDollars;
 
 | Component | What It Does | Location |
 |-----------|--------------|----------|
-| Each Strategy's `evaluate()` | Returns 0-1 confidence | StrategyOrchestrator.js:634 |
-| Regime Affinities | Multiplies strategy confidence by regime factor | StrategyOrchestrator.js:668 |
+| Each Strategy's `evaluate()` | Returns 0-1 confidence | StrategyOrchestrator.js |
 | Fib Distance Boost | Adds 0.10-0.15 if near fib level | Individual strategy files |
-| VP Confluence | Can boost/reduce based on value area | Disabled (line 623) |
+| VP Confluence | Can boost/reduce based on value area | Disabled |
+| ~~Regime Affinities~~ | **REVERTED** - was multiplying confidence by regime | Removed in commit 1b68fa4 |
 
 ---
 
@@ -419,12 +415,13 @@ this.balance += netPnlDollars;
 
 ## SUMMARY: THE $970 EDGE WAS BUILT ON
 
-1. **5% base position** (maxPositionSize)
+1. **5% base position** (maxPositionSize from TradingConfig)
 2. **× Confidence multiplier** up to 2.5x → max 12.5%
 3. **× Confluence multiplier** up to 2.5x → max 31.25% of account
-4. **0.52% round-trip fees** (0.26% per side)
-5. **Strategy-specific exit contracts** (SL/TP per strategy)
-6. **Regime-adjusted position sizing** (reduced in volatile/dead markets)
+4. **Strategy-specific exit contracts** (LOCKED values: SL -0.5% to -0.8%, TP 1.0%)
+5. **Zero fees for stock mode** (--stocks flag)
+
+**NOTE:** Regime-adjusted position sizing was REVERTED. It was not part of the validated $970 run.
 
 **CRITICAL FINDING:** The validated results used positions up to **31.25% of account** on high-confidence, high-confluence trades. This is NOT a conservative 1-5% position size system.
 
@@ -433,17 +430,25 @@ this.balance += netPnlDollars;
 ## KNOWN ISSUES IDENTIFIED
 
 1. **BTC naming in stock trading code** - Variable names say "BTC" but math works for stocks
-2. **No percentage logging** - Can't verify position size as % of account in logs
-3. **Two stacking multipliers** - Confidence × Confluence not clearly documented
+2. ~~No percentage logging~~ - **FIXED**: TRADE-RECEIPT now logs every trade with actual $ and %
+3. **Two stacking multipliers** - Confidence × Confluence = up to 6.25x total (2.5 × 2.5)
 4. **DynamicPositionSizer not wired** - Exists but using inline logic instead
 
 ---
 
-## NEXT STEPS FOR AUDIT
+## REVERTED FEATURES (Not in validated code)
 
-1. Add position percentage logging to verify sizing
-2. Trace each strategy's evaluate() function
-3. Verify ExitContractManager defaults match production
-4. Compare backtest fees to live broker fees
-5. Audit TradingConfig defaults against production
+1. **Regime Affinities** - Cut positions 40-50% in volatile/dead markets (reverted 1b68fa4)
+2. **DynamicPositionSizer wiring** - Used 1% base instead of 5% (reverted 924f01f)
+3. **MarketRegime as strategy** - Converted to pre-filter then reverted
+
+---
+
+## AUDIT COMPLETED
+
+- [x] Position percentage logging added (TRADE-RECEIPT)
+- [x] Exit contracts verified against TradingConfig (LOCKED values confirmed)
+- [x] Regime pre-filter reverted (was cutting positions silently)
+- [ ] Each strategy's evaluate() function needs individual tracing
+- [ ] Compare backtest fees to live broker fees
 
