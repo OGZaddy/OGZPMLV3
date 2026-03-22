@@ -14,7 +14,8 @@ if (resolvedConfig.config.backtest.silent ||
   console.log = (...args) => {
     // Only show critical output: COMPLETE, errors, final results
     const msg = args[0]?.toString() || '';
-    if (msg.includes('BACKTEST COMPLETE') ||
+    if (msg.includes('TRADE-RECEIPT') ||
+        msg.includes('BACKTEST COMPLETE') ||
         msg.includes('PATTERN LEARNING') ||
         msg.includes('Final Balance') ||
         msg.includes('Total P&L') ||
