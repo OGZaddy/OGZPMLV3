@@ -238,6 +238,11 @@ class OrderExecutor {
           // Apply confluence-based position sizing
           const adjustedPositionSize = positionSize * sizingMultiplier;
 
+          // PERMANENT TRADE RECEIPT - shows actual dollars/percent on EVERY trade (live, paper, backtest)
+          const actualDollars = adjustedPositionSize * price;
+          const actualPercent = (actualDollars / currentBalance) * 100;
+          console.log(`[TRADE-RECEIPT] $${actualDollars.toFixed(2)} / $${currentBalance.toFixed(2)} = ${actualPercent.toFixed(1)}% of account | Conf: ${(tradeConfidence * 100).toFixed(0)}% | Confluence: ${sizingMultiplier}x | Strategy: ${entryStrategy}`);
+
           console.log(`[ORCHESTRATOR-ENTRY] Winner: ${entryStrategy} | Sizing: ${sizingMultiplier}x | SL=${exitContract.stopLossPercent}%, TP=${exitContract.takeProfitPercent}%`);
 
           const positionResult = await stateManager.openPosition(adjustedPositionSize, price, {
