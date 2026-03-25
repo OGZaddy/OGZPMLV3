@@ -240,6 +240,15 @@ const BASE_CONFIG = {
       maxHoldTimeMinutes: 180,
       invalidationConditions: ['fvg_filled', 'or_break_reversal'],
     },
+    SmartMoneySweep: {
+      stopLossPercent: -0.3,          // maxLossPct from PineScript (hard cap, lose fast)
+      takeProfitPercent: 1.5,         // High conviction ATR target
+      trailingStopPercent: 0.5,       // Trail after 0.5 R:R (Fabio: risk-free in 1 minute)
+      trailingActivation: 0.5,
+      maxHoldTimeMinutes: 900,        // 60 candles x 15 min
+      useStructuralExits: true,       // Strategy provides SL/TP via overrideLevels
+      invalidationConditions: ['sweep_absorbed'],
+    },
     default: {
       stopLossPercent: -2.0,
       takeProfitPercent: 2.5,
@@ -305,6 +314,34 @@ const BASE_CONFIG = {
       valueAreaPct: env('VP_VALUE_AREA_PCT', 0.70),    // 70% value area
       outOfBalancePct: env('VP_OUT_OF_BALANCE_PCT', 0.5), // Was 0.1%, needs 0.5%
       recalcInterval: env('VP_RECALC_INTERVAL', 5),    // Candles between recalc
+      enabled: true,
+    },
+    SmartMoneySweep: {
+      // Fabio + Marco composite - institutional sweep detection
+      vpDays: env('SMS_VP_DAYS', 5),
+      vpBins: env('SMS_VP_BINS', 50),
+      valueAreaPct: env('SMS_VA_PCT', 70),
+      bodyWeightPct: env('SMS_BODY_WEIGHT', 70),
+      lvnPctile: env('SMS_LVN_PCTILE', 20),
+      ivbMinutes: env('SMS_IVB_MINUTES', 30),
+      volAvgLen: env('SMS_VOL_AVG_LEN', 20),
+      absorbBodyPct: env('SMS_ABSORB_BODY', 35),
+      absorbWickPct: env('SMS_ABSORB_WICK', 60),
+      absorbVolMult: env('SMS_ABSORB_VOL_MULT', 1.2),
+      initBodyPct: env('SMS_INIT_BODY', 60),
+      absorbBodyProgPct: env('SMS_ABSORB_BODY_PROG', 50),
+      absorbWickProgPct: env('SMS_ABSORB_WICK_PROG', 40),
+      absorbVolProgMult: env('SMS_ABSORB_VOL_PROG_MULT', 0.9),
+      initBodyProgPct: env('SMS_INIT_BODY_PROG', 45),
+      cvdDivLen: env('SMS_CVD_DIV_LEN', 10),
+      atrLen: env('SMS_ATR_LEN', 14),
+      lowConvATRMult: env('SMS_LOW_CONV_ATR', 0.5),
+      midConvATRMult: env('SMS_MID_CONV_ATR', 1.0),
+      highConvATRMult: env('SMS_HIGH_CONV_ATR', 1.5),
+      slBufferPct: env('SMS_SL_BUFFER', 0.15),
+      maxLossPct: env('SMS_MAX_LOSS', 0.3),
+      maxHoldBars: env('SMS_MAX_HOLD', 60),
+      maxDailyLosses: env('SMS_MAX_DAILY_LOSSES', 3),
       enabled: true,
     },
     OpeningRangeBreakout: {
@@ -502,6 +539,7 @@ const BASE_CONFIG = {
     enableMultiTimeframe: envBool('ENABLE_MTF', true),
     enableOGZTPO: envBool('ENABLE_TPO', true),
     enableOpeningRangeBreakout: envBool('ENABLE_ORB', false), // NEW: Disabled by default until tuned
+    enableSmartMoneySweep: envBool('ENABLE_SMS', false),     // NEW: Disabled by default until validated
 
     // Component toggles
     enableRiskManager: envBool('ENABLE_RISK', true),

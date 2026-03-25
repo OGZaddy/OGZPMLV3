@@ -40,6 +40,7 @@ const MADynamicSR = require('../modules/MADynamicSR');
 const LiquiditySweepDetector = require('../modules/LiquiditySweepDetector');
 const MultiTimeframeAdapter = require('../modules/MultiTimeframeAdapter');
 const OgzTpoIntegration = require('./OgzTpoIntegration');
+const SmartMoneySweep = require('../modules/SmartMoneySweep');
 
 class StrategyOrchestrator {
   constructor(config = {}) {
@@ -84,6 +85,9 @@ class StrategyOrchestrator {
       activeTimeframes: TradingConfig.get('orchestrator.mtfTimeframes') || ['1m', '5m', '15m', '1h', '4h']
     });
     this.tpoIntegration = new OgzTpoIntegration();
+    this.smartMoneySweepModule = new SmartMoneySweep(
+      TradingConfig.get('strategies.SmartMoneySweep') || {}
+    );
 
     // SOLO_STRATEGY mode: only enable specified strategies for isolated testing
     // Usage: SOLO_STRATEGY=RSI node tools/parallel-backtest.js ...
@@ -119,6 +123,7 @@ class StrategyOrchestrator {
       RSI: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
       LiquiditySweep: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
       OGZTPO: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
+      SmartMoneySweep: { evaluated: 0, moduleNonNull: 0, nonNeutral: 0, passedConf: 0, traded: 0 },
     };
 
     // Register built-in strategies (uses diagFunnel, so must come after)
@@ -565,6 +570,51 @@ class StrategyOrchestrator {
       }
     });
 
+    // ─── 10. Smart Money Sweep Strategy (Fabio + Marco Composite) ───
+    // Self-contained: computes VP, IVB, sweep detection, candle classification internally
+    const smartMoneySweepModule = this.smartMoneySweepModule;
+    const diagSMS = this.diagFunnel.SmartMoneySweep;
+    if (shouldRegister('SmartMoneySweep')) this.strategies.push({
+      name: 'SmartMoneySweep',
+      evaluate: (ctx) => {
+        diagSMS.evaluated++;
+        const candles = ctx.priceHistory;
+        if (!candles || candles.length < 50) return null;
+
+        const latestCandle = candles[candles.length - 1];
+        const sig = smartMoneySweepModule.update(latestCandle, candles);
+
+        if (sig) diagSMS.moduleNonNull++;
+
+        if (process.env.STRATEGY_DIAG === 'true' && sig) {
+          console.log(`[DIAG] SmartMoneySweep: dir=${sig.direction} conf=${(sig.confidence||0).toFixed(2)} conds=${sig.conditionsMet}`);
+        }
+        if (!sig || !sig.direction) return null;
+        diagSMS.nonNeutral++;
+
+        let conf = sig.confidence || 0;
+        if (conf < this.minStrategyConfidence) return null;
+        diagSMS.passedConf++;
+
+        // Fib level boost (same pattern as other strategies)
+        const fib = ctx.extras?.nearestFibLevel;
+        let fibBoost = '';
+        if (fib && fib.distance < 0.5) {
+          const boost = fib.isGoldenZone ? 0.15 : 0.10;
+          conf = Math.min(1.0, conf + boost);
+          fibBoost = ` + Fib ${(fib.level * 100).toFixed(1)}%${fib.isGoldenZone ? ' GOLDEN' : ''}`;
+        }
+
+        return {
+          direction: sig.direction,
+          confidence: conf,
+          reason: sig.reason + fibBoost,
+          signalData: sig.signalData,
+          overrideLevels: sig.overrideLevels,
+        };
+      }
+    });
+
     // Apply pipeline toggles - filter strategies based on env vars
     this._applyPipelineToggles();
   }
@@ -586,6 +636,7 @@ class StrategyOrchestrator {
       'MultiTimeframe': pipeline.enableMultiTimeframe,
       'OGZTPO': pipeline.enableOGZTPO,
       'OpeningRangeBreakout': pipeline.enableOpeningRangeBreakout,
+      'SmartMoneySweep': pipeline.enableSmartMoneySweep,
     };
 
     const before = this.strategies.length;
