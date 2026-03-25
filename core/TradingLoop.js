@@ -513,6 +513,47 @@ class TradingLoop {
       }
     }
 
+    // SELL decision branch - mirrors BUY logic for short entries
+    if (decision.action === 'HOLD' && !sameDirectionBlock &&
+        activeTrades.length < maxPositions &&
+        tradingDirection === 'sell' && (orchResult.confidence / 100) >= minConfidence) {
+      if (this.ctx.riskManager) {
+        const riskCheck = this.ctx.riskManager.isTradingAllowed();
+        if (!riskCheck.allowed) {
+          console.log(`🛑 RISK BLOCK: ${riskCheck.reason} - Short rejected`);
+          decision = { action: 'HOLD', confidence: 0, blockReason: riskCheck.reason };
+        } else {
+          const riskAssessment = this.ctx.riskManager.assessTradeRisk({
+            confidence: orchResult.confidence / 100,
+            direction: tradingDirection
+          });
+          if (!riskAssessment.approved) {
+            console.log(`🛑 RISK BLOCK: ${riskAssessment.reason} - Short rejected`);
+            decision = { action: 'HOLD', confidence: 0, blockReason: riskAssessment.reason };
+          } else {
+            console.log(`✅ SELL DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${(minConfidence * 100).toFixed(0)}% | Direction: ${tradingDirection}`);
+            if (riskAssessment.riskLevel !== 'LOW') {
+              console.log(`   ⚠️ Risk level: ${riskAssessment.riskLevel} - ${riskAssessment.recommendation}`);
+            }
+            decision = {
+              action: 'SELL',
+              direction: 'short',
+              confidence: orchResult.confidence,
+              riskLevel: riskAssessment.riskLevel,
+              riskRecommendation: riskAssessment.recommendation
+            };
+          }
+        }
+      } else {
+        console.log(`✅ SELL DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${(minConfidence * 100).toFixed(0)}% | Direction: ${tradingDirection}`);
+        decision = {
+          action: 'SELL',
+          direction: 'short',
+          confidence: orchResult.confidence
+        };
+      }
+    }
+
     // Store for PipelineSnapshot
     this.ctx.lastConfidence = confidenceData.totalConfidence;
     this.ctx.lastDirection = tradingDirection;
