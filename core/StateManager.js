@@ -290,10 +290,13 @@ class StateManager {
 
     // CRITICAL FIX: Add trade to activeTrades Map
     const tradeId = context.orderId || `TRADE_${Date.now()}`;
+    const tradeAction = context.action || 'BUY';
+    const tradeDirection = context.direction || 'long';
     const trade = {
       id: tradeId,
-      action: 'BUY',  // FIX: Changed from 'type' to 'action' to match run-empire filter
-      type: 'BUY',    // Keep both for compatibility
+      action: tradeAction,  // BUY or SELL_SHORT
+      type: tradeAction,    // Keep both for compatibility
+      direction: tradeDirection,  // 'long' or 'short'
       size: size,
       price: price,
       entryPrice: price,  // Add entryPrice field that run-empire expects
@@ -312,11 +315,14 @@ class StateManager {
 
     // FIX 2026-02-05: Deduct trading fee on entry (from TradingConfig)
     const entryFee = usdCost * TradingConfig.get('fees.makerFee');
+    // For shorts, position is negative
+    const positionDelta = tradeDirection === 'short' ? -size : size;
+    const newPosition = this.state.position + positionDelta;
     const updates = {
-      position: this.state.position + size,  // Track BTC position
+      position: newPosition,  // Positive for long, negative for short
       positionCount: this.state.positionCount + 1,
-      entryPrice: this.state.position > 0
-        ? (this.state.entryPrice * this.state.position + price * size) / (this.state.position + size)
+      entryPrice: Math.abs(this.state.position) > 0
+        ? (this.state.entryPrice * Math.abs(this.state.position) + price * size) / (Math.abs(this.state.position) + size)
         : price,
       entryTime: this.state.entryTime || Date.now(),
       balance: this.state.balance - usdCost - entryFee,  // Subtract USD cost + fee
