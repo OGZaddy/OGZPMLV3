@@ -856,6 +856,142 @@ class OrderExecutor {
           }
 
           // Position already reset via stateManager.closePosition() above
+        } else if (decision.action === 'COVER') {
+          // ═══ COVER: Close a short position ═══
+          const currentState = stateManager.getState();
+          console.log(`📍 CP7-COVER: COVER PATH - Position: ${currentState.position}, Balance: $${currentState.balance}`);
+
+          // Find matching SELL_SHORT trade
+          const shortTrades = stateManager.getAllTrades()
+            .filter(t => t.action === 'SELL_SHORT')
+            .sort((a, b) => a.entryTime - b.entryTime);
+
+          if (shortTrades.length === 0) {
+            console.error('❌ CRITICAL: COVER signal but no matching SELL_SHORT trade found!');
+            console.log('   Current position:', currentState.position);
+            const allTrades = stateManager.getAllTrades();
+            console.log('   Active trades:', allTrades.map(t => ({ id: t.orderId, action: t.action, price: t.entryPrice })));
+            await stateManager.emergencyReset();
+            if (this.ctx.maxProfitManager) {
+              this.ctx.maxProfitManager.reset();
+            }
+            return;
+          }
+
+          const shortTrade = shortTrades[0];
+          // SHORT PnL: profit when price goes DOWN (entry - exit)
+          const pnl = ((shortTrade.entryPrice - price) / shortTrade.entryPrice) * 100;
+          const exitTimestamp = this.ctx.marketData?.timestamp || Date.now();
+          const holdDuration = exitTimestamp - shortTrade.entryTime;
+
+          const completeTradeResult = {
+            ...shortTrade,
+            exitPrice: price,
+            exitTime: exitTimestamp,
+            pnl: pnl,
+            pnlDollars: shortTrade.size * (shortTrade.entryPrice - price),  // SHORT: entry - exit
+            holdDuration: holdDuration,
+            exitReason: decision.exitReason || 'signal'
+          };
+
+          // Record trade
+          if (this.ctx.backtestRecorder) {
+            this.ctx.backtestRecorder.recordTrade({
+              entryTime: shortTrade.entryTime ? new Date(shortTrade.entryTime).toISOString() : '',
+              exitTime: exitTimestamp ? new Date(exitTimestamp).toISOString() : '',
+              direction: 'short',
+              entryPrice: shortTrade.entryPrice,
+              exitPrice: price,
+              stopLoss: shortTrade.exitContract?.stopLossPercent || 0,
+              takeProfit: shortTrade.exitContract?.takeProfitPercent || 0,
+              size: shortTrade.size || 1,
+              strategyName: shortTrade.entryStrategy || 'unknown',
+              confidence: shortTrade.confidence || 0,
+              exitReason: completeTradeResult.exitReason || 'signal',
+              reason: shortTrade.reason || '',
+              holdTimeMinutes: holdDuration / 60000,
+              exitContract: shortTrade.exitContract
+            });
+            console.log(`📋 [TRADE-LOG] SHORT Strategy: ${shortTrade.entryStrategy || 'unknown'} | Exit: ${completeTradeResult.exitReason || 'unknown'}`);
+          }
+
+          console.log(`📊 SHORT closed: ${pnl >= 0 ? '✅' : '❌'} ${pnl.toFixed(2)}% | Hold: ${(holdDuration/60000).toFixed(1)}min`);
+
+          // Close position
+          const positionState = stateManager.getState();
+          const shortSize = Math.abs(positionState.position);
+          const closeResult = await stateManager.closePosition(price, false, null, {
+            orderId: shortTrade.orderId,
+            exitReason: decision.exitReason || 'signal',
+            direction: 'short'
+          });
+
+          if (!closeResult.success) {
+            console.error('❌ StateManager.closePosition (COVER) failed:', closeResult.error);
+            return;
+          }
+
+          const afterCoverState = stateManager.getState();
+          const profitLoss = shortSize * (shortTrade.entryPrice - price);
+          console.log(`📍 CP8-COVER: COVER COMPLETE - New Balance: $${afterCoverState.balance} (P&L: $${profitLoss.toFixed(2)})`);
+
+          // Notifications
+          if (!this.ctx.backtestFast) {
+            this.ctx.notifyTradeClose({
+              pnl: profitLoss,
+              entryPrice: shortTrade.entryPrice,
+              exitPrice: price,
+              duration: `${Math.round((Date.now() - shortTrade.entryTime) / 60000)}m`,
+              direction: 'short'
+            }).catch(err => console.warn(`📱 Telegram notify failed: ${err.message}`));
+
+            this.ctx.discordNotifier.notifyTrade('cover', price, shortSize, profitLoss);
+          }
+
+          // Dashboard broadcast for COVER
+          if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs && this.ctx.dashboardWs.readyState === 1) {
+            this.ctx.dashboardWs.send(JSON.stringify({
+              type: 'trade',
+              action: 'COVER',
+              direction: 'short',
+              price: price,
+              pnl: completeTradeResult.pnlDollars,
+              timestamp: Date.now(),
+              duration: `${(holdDuration / 60000).toFixed(1)}m`,
+              confidence: decision.confidence
+            }));
+            console.log(`📡 Broadcast COVER trade to dashboard at $${price.toFixed(2)} (P&L: $${completeTradeResult.pnlDollars.toFixed(2)})`);
+          }
+
+          // Proof logger for COVER
+          TradingProofLogger.trade({
+            action: 'COVER',
+            symbol: this.ctx.tradingPair || 'BTC/USD',
+            price: price,
+            size: shortSize,
+            value_usd: shortSize * price,
+            fees: (shortSize * price) * TradingConfig.get('fees.takerFee', 0.004),
+            reason: completeTradeResult.exitReason || 'Short cover',
+            confidence: decision.confidence,
+            indicators: { rsi: indicators.rsi, macd: indicators.macd?.macd || 0 },
+            pattern: shortTrade.patterns?.[0]?.name || null
+          });
+
+          // Risk manager update
+          if (this.ctx.riskManager) {
+            this.ctx.riskManager.recordTradeResult({
+              success: pnl >= 0,
+              pnl: completeTradeResult.pnlDollars || 0
+            });
+          }
+
+          // Pattern exit model
+          if (this.ctx.patternExitModel && this.ctx.patternExitModel.isTracking) {
+            this.ctx.patternExitModel.endTracking(price, {
+              pnl: pnl,
+              exitReason: 'cover'
+            });
+          }
         }
 
         // Record in performance analyzer
