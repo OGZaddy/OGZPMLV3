@@ -365,7 +365,8 @@ class StateManager {
    *   - BTC × current_price = USD returned: balance + $101 (CORRECT!)
    */
   async closePosition(price, partial = false, size = null, context = {}) {
-    if (this.state.position <= 0) {
+    // Allow closing both long (positive) and short (negative) positions
+    if (this.state.position === 0) {
       console.error('[StateManager] No position to close!');
       return { success: false, error: 'No position to close' };
     }
