@@ -556,7 +556,7 @@ const BASE_CONFIG = {
     candleFile: env('CANDLE_FILE', 'tuning/full-45k.json'),
 
     // Direction filter: 'long_only' | 'both'
-    directionFilter: env('DIRECTION_FILTER', 'long_only'),
+    directionFilter: env('DIRECTION_FILTER', 'both'),
 
     // Position mode: 'single' | 'multi'
     positionMode: env('POSITION_MODE', 'single'),

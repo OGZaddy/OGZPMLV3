@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Feature: SmartMoneySweep Strategy Module (2026-03-25)
+
+#### New Strategy: SmartMoneySweep
+- **Files:** `modules/SmartMoneySweep.js` (new 950 lines), `core/StrategyOrchestrator.js`, `core/TradingConfig.js`
+- **Source:** Port of SmartMoneySweep v4 PineScript (validated: TSLA 207 trades, PF 1.555)
+- **Architecture:** Self-contained module computes own Volume Profile (VAH/VAL/POC/LVN), IVB range, candle classification, sweep detection
+- **Integration:** Registered in StrategyOrchestrator with `ENABLE_SMS` env toggle (default: false)
+- **Exit Contract:** SL -0.3%, TP 1.5%, structural exits enabled
+
+#### Fix: Position Sizing Normalization (Bug #3)
+- **File:** `modules/SmartMoneySweep.js:221-232`
+- **Problem:** Blended confidence formula (conditionsMet/7 × 0.6 + rawConf/100 × 0.4) produced 0.35-0.53 values, which OrderExecutor's multiplier formula punished below 0.5 → flat 2.5% positions
+- **Fix:** Tiered confidence matching PineScript sizing:
+  - 1-2 conditions → 0.625 conf → 5% position
+  - 3-4 conditions → 0.775 conf → 8% position
+  - 5+ conditions → 0.975 conf → 12% position
+- **Result:** Position sizes now 5/7/8/10/11% as expected
+
+#### Added: SMS Debug Logging
+- **Files:** `modules/SmartMoneySweep.js:91,156-164`, `run-empire-v2.js:17`
+- **Toggle:** `SMS_DEBUG=true` env var
+- **Output:** `[SMS-SWEEP]` logs showing raw sweep counts, session filter state, VP levels
+- **Whitelist:** Added `[SMS-` prefix to backtest silent mode whitelist
+
+#### Data: TSLA 15m Candles
+- **File:** `tuning/tsla-15m-10mo.json` (750KB, 10,240 candles)
+- **Range:** 2025-06-02 to 2026-02-18
+- **Source:** Polygon.io API
+
+#### Known Issue: Zero Shorts
+- **Status:** Investigating - `DIRECTION_FILTER=long_only` default blocks sells
+- **Workaround:** Run with `DIRECTION_FILTER=both` to enable shorts
+
+---
+
 ### Feature: DynamicPositionSizer & MarketRegime Refactor (2026-03-21)
 
 #### Feature: DynamicPositionSizer Module
