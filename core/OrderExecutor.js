@@ -346,8 +346,123 @@ class OrderExecutor {
             pattern: unifiedResult.patterns?.[0]?.name || null
           });
 
+        } else if (decision.action === 'SELL_SHORT') {
+          // ═══ SELL_SHORT: Open a short position ═══
+          const stateBefore = stateManager.getState();
+          console.log(`📍 CP5-SHORT: BEFORE SHORT - Position: ${stateBefore.position}, Balance: $${stateBefore.balance}`);
+
+          const entryStrategy = orchResult?.winnerStrategy || 'default';
+          const sizingMultiplier = orchResult?.sizingMultiplier || 1.0;
+
+          const exitContract = orchResult?.exitContract
+            || exitContractManager.createExitContract(
+                entryStrategy,
+                { confidence: orchResult?.confidence || 0 },
+                { volatility: indicators.volatility || 0 }
+              );
+
+          const adjustedPositionSize = positionSize * sizingMultiplier;
+
+          const actualDollars = adjustedPositionSize * price;
+          const actualPercent = (actualDollars / currentBalance) * 100;
+          console.log(`[TRADE-RECEIPT] SHORT $${actualDollars.toFixed(2)} / $${currentBalance.toFixed(2)} = ${actualPercent.toFixed(1)}% of account | Conf: ${(tradeConfidence * 100).toFixed(0)}% | Confluence: ${sizingMultiplier}x | Strategy: ${entryStrategy}`);
+
+          console.log(`[ORCHESTRATOR-ENTRY] SHORT Winner: ${entryStrategy} | Sizing: ${sizingMultiplier}x | SL=${exitContract.stopLossPercent}%, TP=${exitContract.takeProfitPercent}%`);
+
+          const positionResult = await stateManager.openPosition(adjustedPositionSize, price, {
+            orderId: unifiedResult.orderId,
+            confidence: decision.confidence,
+            direction: 'short',  // KEY: Mark as short position
+            action: 'SELL_SHORT',
+            patterns: patterns || [],
+            entryIndicators: indicators,
+            entryTime: this.ctx.marketData?.timestamp || Date.now(),
+            signalBreakdown: orchResult?.signalBreakdown || null,
+            bullishScore: orchResult?.bullishScore || 0,
+            bearishScore: orchResult?.bearishScore || 0,
+            reasoning: orchResult?.reasoning || '',
+            entryStrategy: entryStrategy,
+            exitContract: exitContract
+          });
+
+          if (!positionResult.success) {
+            console.error('❌ StateManager.openPosition (SHORT) failed:', positionResult.error);
+            stateManager.removeActiveTrade(unifiedResult.orderId);
+            return;
+          }
+
+          const stateAfter = stateManager.getState();
+          console.log(`📍 CP6-SHORT: AFTER SHORT - Position: ${stateAfter.position}, Balance: $${stateAfter.balance}`);
+
+          // MaxProfitManager for short direction
+          this.ctx.maxProfitManager.start(price, 'sell', positionSize, {
+            volatility: indicators.volatility || 0,
+            confidence: decision.confidence / 100,
+            trend: indicators.trend || 'sideways'
+          });
+          console.log(`💰 MaxProfitManager started (SHORT) - tracking 1-2% profit targets`);
+
+          // Notifications
+          if (!this.ctx.backtestFast) {
+            this.ctx.notifyTrade({
+              direction: 'SELL_SHORT',
+              asset: this.ctx.config.symbol || 'BTC',
+              price: price,
+              size: positionSize / stateAfter.balance,
+              confidence: decision.confidence / 100
+            }).catch(err => console.warn(`📱 Telegram notify failed: ${err.message}`));
+
+            this.ctx.discordNotifier.notifyTrade('sell_short', price, positionSize);
+          }
+
+          // Pattern exit tracking for shorts
+          if (this.ctx.patternExitModel) {
+            const exitTracking = this.ctx.patternExitModel.startTracking({
+              entryPrice: price,
+              direction: 'sell',
+              size: positionSize,
+              patterns: patterns || [],
+              confidence: decision.confidence / 100,
+              entryTime: this.ctx.marketData?.timestamp || Date.now()
+            });
+
+            if (this.ctx.patternExitShadowMode) {
+              console.log(`🕵️ [SHADOW] Pattern Exit Tracking Started (SHORT):`);
+              console.log(`   Pattern Target: ${(exitTracking.patternTarget * 100).toFixed(2)}%`);
+              console.log(`   Pattern Stop: ${(exitTracking.patternStop * 100).toFixed(2)}%`);
+            }
+          }
+
+          // Dashboard broadcast for SHORT
+          if (this.ctx.dashboardWsConnected && this.ctx.dashboardWs && this.ctx.dashboardWs.readyState === 1) {
+            this.ctx.dashboardWs.send(JSON.stringify({
+              type: 'trade',
+              action: 'SELL_SHORT',
+              direction: 'short',
+              price: price,
+              pnl: 0,
+              timestamp: Date.now(),
+              confidence: decision.confidence
+            }));
+            console.log(`📡 Broadcast SHORT trade to dashboard at $${price.toFixed(2)}`);
+          }
+
+          // Proof logger for SHORT
+          TradingProofLogger.trade({
+            action: 'SELL_SHORT',
+            symbol: this.ctx.tradingPair || 'BTC/USD',
+            price: price,
+            size: positionSize,
+            value_usd: positionSize * price,
+            fees: (positionSize * price) * TradingConfig.get('fees.makerFee', 0.0025),
+            reason: unifiedResult.patterns?.map(p => p.name).join(' + ') || 'Signal-based short entry',
+            confidence: decision.confidence,
+            indicators: unifiedResult.indicators,
+            pattern: unifiedResult.patterns?.[0]?.name || null
+          });
+
         } else if (decision.action === 'SELL') {
-          // CHECKPOINT 7: SELL execution
+          // CHECKPOINT 7: SELL execution (close long)
           const currentState = stateManager.getState();
           console.log(`📍 CP7: SELL PATH - Position: ${currentState.position}, Balance: $${currentState.balance}`);
 
