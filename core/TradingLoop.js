@@ -536,7 +536,7 @@ class TradingLoop {
               console.log(`   ⚠️ Risk level: ${riskAssessment.riskLevel} - ${riskAssessment.recommendation}`);
             }
             decision = {
-              action: 'SELL',
+              action: 'SELL_SHORT',
               direction: 'short',
               confidence: orchResult.confidence,
               riskLevel: riskAssessment.riskLevel,
@@ -547,7 +547,7 @@ class TradingLoop {
       } else {
         console.log(`✅ SELL DECISION: Confidence ${orchResult.confidence.toFixed(1)}% >= ${(minConfidence * 100).toFixed(0)}% | Direction: ${tradingDirection}`);
         decision = {
-          action: 'SELL',
+          action: 'SELL_SHORT',
           direction: 'short',
           confidence: orchResult.confidence
         };
