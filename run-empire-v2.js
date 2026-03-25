@@ -15,6 +15,7 @@ if (resolvedConfig.config.backtest.silent ||
     // Only show critical output: COMPLETE, errors, final results
     const msg = args[0]?.toString() || '';
     if (msg.includes('TRADE-RECEIPT') ||
+        msg.includes('[SMS-') ||
         msg.includes('BACKTEST COMPLETE') ||
         msg.includes('PATTERN LEARNING') ||
         msg.includes('Final Balance') ||

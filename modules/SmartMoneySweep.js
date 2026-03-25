@@ -86,6 +86,9 @@ class SmartMoneySweep {
 
     // Candle index counter (since we don't have bar_index)
     this.barIndex = 0;
+
+    // ─── Debug Mode ───
+    this.DEBUG = config.debug || process.env.SMS_DEBUG === 'true';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -150,6 +153,15 @@ class SmartMoneySweep {
     // Sweep on bars [1], [2], [3] — check if price wicked beyond a level and closed back
     const sweeps = this._detectSweeps(priceHistory, vp);
 
+    // ─── DEBUG: Sweep Detection Stats ───
+    if (this.DEBUG) {
+      const rawL = (sweeps[1].long?1:0) + (sweeps[2].long?1:0) + (sweeps[3].long?1:0);
+      const rawS = (sweeps[1].short?1:0) + (sweeps[2].short?1:0) + (sweeps[3].short?1:0);
+      if (rawL > 0 || rawS > 0) {
+        console.log(`[SMS-SWEEP] Bar ${this.barIndex} | ${rawL}L/${rawS}S raw | inCash=${inCash} inValid=${inValid} | VAL=${vp.val.toFixed(2)} VAH=${vp.vah.toFixed(2)}`);
+      }
+    }
+
     // ─── Step 5: Confidence Scoring ───
     // Long sweep: any of bars [1-3] swept long
     const sweepLongAny = (sweeps[1].long || sweeps[2].long || sweeps[3].long) && inCash && inValid && canTrade;
@@ -210,15 +222,19 @@ class SmartMoneySweep {
     const price = c(candle);
     const levels = this._computeExitLevels(direction, price, priceHistory, atrVal, vp, result.conditionsMet);
 
-    // ─── Normalize confidence to 0-1 for orchestrator ───
-    // PineScript scoring: conditionsMet 0-7, rawConfidence 0-100
-    // Normalize: (conditionsMet / 7) * 0.6 + (rawConfidence / 100) * 0.4
-    // Min 0.3 if any conditions/confidence exist
-    const normalizedConf = Math.min(1.0,
-      Math.max(0.3,
-        (result.conditionsMet / 7) * 0.6 + (result.rawConfidence / 100) * 0.4
-      )
-    );
+    // ─── Normalize confidence to match PineScript position sizing tiers ───
+    // OrderExecutor formula: multiplier = 0.5 + (conf - 0.5) × 4.0
+    // To get 5% base (1.0x):  need conf ≈ 0.625
+    // To get 8% (1.6x):       need conf ≈ 0.775
+    // To get 12% (2.4x):      need conf ≈ 0.975
+    let normalizedConf;
+    if (result.conditionsMet >= 5) {
+      normalizedConf = 0.975;  // High conviction → ~12%
+    } else if (result.conditionsMet >= 3) {
+      normalizedConf = 0.775;  // Medium conviction → ~8%
+    } else {
+      normalizedConf = 0.625;  // Base conviction → ~5%
+    }
 
     return {
       direction,
