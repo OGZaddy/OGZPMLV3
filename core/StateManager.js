@@ -371,15 +371,26 @@ class StateManager {
       return { success: false, error: 'No position to close' };
     }
 
-    const closeSize = size || this.state.position;
-    // CRITICAL BUGFIX 2026-02-01: Position is in BTC, not USD!
-    // Previous code treated closeSize as USD, causing $99.99 loss on every trade
-    // Example: 0.001 BTC position × 0.01 percent = $0.00001 PnL (WRONG!)
-    // Correct: 0.001 BTC × $1000 price change = $1 PnL
-    const pnl = closeSize * (price - this.state.entryPrice);  // BTC × price diff = USD profit
-    const priceChangePercent = this.state.entryPrice > 0
-      ? ((price - this.state.entryPrice) / this.state.entryPrice)
-      : 0;
+    // Determine direction from position sign or context
+    const isShort = this.state.position < 0 || context.direction === 'short';
+    const rawCloseSize = size || this.state.position;
+    const closeSize = Math.abs(rawCloseSize);  // Always positive for USD calculations
+
+    // CRITICAL: PnL depends on direction
+    // LONG: profit when price goes UP (exit - entry)
+    // SHORT: profit when price goes DOWN (entry - exit)
+    let pnl, priceChangePercent;
+    if (isShort) {
+      pnl = closeSize * (this.state.entryPrice - price);  // SHORT: entry - exit
+      priceChangePercent = this.state.entryPrice > 0
+        ? ((this.state.entryPrice - price) / this.state.entryPrice)
+        : 0;
+    } else {
+      pnl = closeSize * (price - this.state.entryPrice);  // LONG: exit - entry
+      priceChangePercent = this.state.entryPrice > 0
+        ? ((price - this.state.entryPrice) / this.state.entryPrice)
+        : 0;
+    }
     const pnlPercent = priceChangePercent * 100;
 
     // FIX 2026-03-19: Remove ONLY the specific trade being closed, not all trades
@@ -421,7 +432,11 @@ class StateManager {
     // FIX 2026-03-19: Force position to 0 when all activeTrades are closed
     // This ensures position scalar stays in sync with activeTrades Map
     const noActiveTradesRemaining = !this.state.activeTrades || this.state.activeTrades.size === 0;
-    const calculatedPosition = Math.max(0, this.state.position - closeSize);
+    // For longs: position - closeSize (positive - positive)
+    // For shorts: position + closeSize (negative + positive) moves toward 0
+    const calculatedPosition = isShort
+      ? Math.min(0, this.state.position + closeSize)  // Short: add to move toward 0
+      : Math.max(0, this.state.position - closeSize); // Long: subtract to move toward 0
     const finalPosition = noActiveTradesRemaining ? 0 : calculatedPosition;
 
     const updates = {
