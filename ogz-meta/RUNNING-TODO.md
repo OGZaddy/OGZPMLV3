@@ -7,7 +7,17 @@ Persistent ideas and future work. One change at a time rule - pick one, finish i
 ## IN PROGRESS
 
 ### SmartMoneySweep Strategy (#5)
-**Status:** Phase 2 - Planning (awaiting threshold answers)
+**Status:** VALIDATED on TradingView - ready for Node.js port
+
+**TradingView Results (2026-03-24):**
+- TSLA: 207 trades, 49.76% WR, 1.555 PF, +$202.71
+- NFLX: 223 trades, 55.16% WR, 1.071 PF, +$30.83
+- NVDA: 185 trades, 51.35% WR, 1.212 PF, +$70.60
+- AAPL: 232 trades, 48.28% WR, 0.827 PF, -$48.46 (shorts killed in bull trend)
+- AMZN: 209 trades, 47.37% WR, 1.169 PF, +$57.75
+- **Combined: +$313 on $10K (3.1%) across 5 stocks, zero parameter tuning**
+
+4/5 profitable. AAPL loss was shorts in uptrend (longs were +$46.21, shorts -$94.67).
 
 Core concept: Detect institutional stop hunts - price sweeps liquidity level, reverses.
 
@@ -111,6 +121,37 @@ Process for validating strategies:
 4. If trades match across two independent implementations = strategy is real
 
 Doc: User's Phase 1-5 validation script (shared in chat)
+
+---
+
+### Orphan Functions (Bombardier Audit 2026-03-24)
+**Status:** Identified - needs review/cleanup
+
+Ran `node ogz-meta/bombardier.js --orphans --core` - found 39 orphans (606 lines).
+
+**Confirmed real orphans:**
+
+| Function | File | Lines | Notes |
+|----------|------|-------|-------|
+| `integrateWithBot` | core/trai_core.js:688 | 32 | TRAI integration never wired |
+| `shouldTakeLong` | core/MAExtensionFilter.js:246 | 15 | Direction filter - should be used! |
+| `shouldTakeShort` | core/MAExtensionFilter.js:267 | 15 | Direction filter - should be used! |
+| `extractMultiTimeframe` | core/EnhancedPatternRecognition.js:251 | 51 | Multi-TF features unwired |
+| `patchTrade` | core/PositionTracker.js:207 | 44 | API designed but never called |
+
+**Suspicious (might be bugs):**
+- `shouldTakeLong/Short` - These exist to prevent entering at bad extension levels. If not called, might be entering trades when price is too extended from MA.
+
+**Likely intentional (emergency/debug):**
+- `emergencySync`, `emergencyCleanup` - keep for emergencies
+- `disableKillSwitch`, `enableKillSwitch` - safety toggles
+- `printDiagnostics`, `printStats`, `printState` - debug helpers
+
+**TODO:**
+- [ ] Review `shouldTakeLong/Short` - should these be wired into entry logic?
+- [ ] Decide: wire `integrateWithBot` or delete it
+- [ ] Decide: use `extractMultiTimeframe` or delete it
+- [ ] Clean up unused APIs like `patchTrade`
 
 ---
 
