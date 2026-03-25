@@ -400,7 +400,7 @@ class TradingLoop {
 
     // Multi-position support: check active trade count vs max
     const allTrades = stateManager.getAllTrades();
-    const activeTrades = allTrades.filter(t => t.action === 'BUY');
+    const activeTrades = allTrades.filter(t => t.action === 'BUY' || t.action === 'SELL_SHORT');
     const maxPositions = TradingConfig.get('positionSizing.maxPositions') || 3;
 
     // Check for SELL first (exit existing positions)
