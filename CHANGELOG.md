@@ -36,9 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Range:** 2025-06-02 to 2026-02-18
 - **Source:** Polygon.io API
 
-#### Known Issue: Zero Shorts
-- **Status:** Investigating - `DIRECTION_FILTER=long_only` default blocks sells
-- **Workaround:** Run with `DIRECTION_FILTER=both` to enable shorts
+#### Fix: Zero Shorts (Bug #2) - ROOT CAUSE FOUND
+- **File:** `core/TradingLoop.js:516-556`
+- **Problem:** TradingLoop.js line 473 only had BUY decision branch (`tradingDirection === 'buy'`). When SmartMoneySweep returned `direction='sell'`, the signal died silently - no SELL branch existed.
+- **Fix:** Added parallel SELL decision block that mirrors BUY logic for short entries
+- **Also Fixed:** `core/TradingConfig.js:559` - Changed `DIRECTION_FILTER` default from `'long_only'` to `'both'`
 
 ---
 
