@@ -103,7 +103,11 @@ class ExitContractManager {
     }
 
     const entryPrice = trade.entryPrice;
-    const pnlPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
+    // PnL depends on direction: LONG = (exit-entry), SHORT = (entry-exit)
+    const isShort = trade.direction === 'short' || trade.action === 'SELL_SHORT';
+    const pnlPercent = isShort
+      ? ((entryPrice - currentPrice) / entryPrice) * 100  // SHORT: profit when price drops
+      : ((currentPrice - entryPrice) / entryPrice) * 100; // LONG: profit when price rises
     const holdTimeMinutes = context.currentTime
       ? (context.currentTime - trade.entryTime) / 60000
       : (Date.now() - trade.entryTime) / 60000;
