@@ -318,6 +318,15 @@ class StateManager {
     // For shorts, position is negative
     const positionDelta = tradeDirection === 'short' ? -size : size;
     const newPosition = this.state.position + positionDelta;
+
+    // BALANCE ACCOUNTING:
+    // LONG: We BUY assets → spend cash → balance DECREASES
+    // SHORT: We SELL borrowed assets → receive cash → balance INCREASES
+    // (For backtesting, shorts are margin-simulated: we "receive" proceeds upfront)
+    const balanceChange = tradeDirection === 'short'
+      ? usdCost - entryFee   // SHORT: receive cash minus fee
+      : -(usdCost + entryFee); // LONG: spend cash plus fee
+
     const updates = {
       position: newPosition,  // Positive for long, negative for short
       positionCount: this.state.positionCount + 1,
@@ -325,8 +334,8 @@ class StateManager {
         ? (this.state.entryPrice * Math.abs(this.state.position) + price * size) / (Math.abs(this.state.position) + size)
         : price,
       entryTime: this.state.entryTime || Date.now(),
-      balance: this.state.balance - usdCost - entryFee,  // Subtract USD cost + fee
-      inPosition: this.state.inPosition + usdCost,  // BUGFIX: Track USD in position, not BTC!
+      balance: this.state.balance + balanceChange,
+      inPosition: this.state.inPosition + usdCost,  // Track USD exposure (abs value)
       lastTradeTime: Date.now(),
       tradeCount: this.state.tradeCount + 1,
       dailyTradeCount: this.state.dailyTradeCount + 1
@@ -417,17 +426,22 @@ class StateManager {
       }
     }
 
-    // CRITICAL BUGFIX 2026-02-01: Balance was adding BTC amount instead of USD value!
-    // closeSize is in BTC, we need to add back the USD value at current price
-    // Previous: balance + closeSize + pnl → balance + 0.001 + 0.00001 = wrong!
-    // Correct: balance + (closeSize * price) → balance + 101 = right!
-    const usdValueReturned = closeSize * price;  // What we get back in USD
+    // closeSize is in BTC (always positive after Math.abs)
+    const usdValueAtClose = closeSize * price;  // USD value at exit price
 
     // FIX 2026-02-05: Deduct trading fee on exit (from TradingConfig)
-    const exitFee = usdValueReturned * TradingConfig.get('fees.takerFee');
+    const exitFee = usdValueAtClose * TradingConfig.get('fees.takerFee');
 
     // Calculate USD that was locked in position (at entry price)
     const usdCostLocked = closeSize * this.state.entryPrice;
+
+    // BALANCE ACCOUNTING:
+    // LONG close (SELL): We sell assets → receive cash → balance INCREASES
+    // SHORT close (COVER): We buy back assets → spend cash → balance DECREASES
+    // Net effect includes P&L which is already calculated correctly above
+    const balanceChange = isShort
+      ? -(usdValueAtClose + exitFee)  // SHORT: spend cash to buy back + fee
+      : (usdValueAtClose - exitFee);   // LONG: receive cash from sale - fee
 
     // FIX 2026-03-19: Force position to 0 when all activeTrades are closed
     // This ensures position scalar stays in sync with activeTrades Map
@@ -444,8 +458,8 @@ class StateManager {
       positionCount: partial ? this.state.positionCount : 0,
       entryPrice: partial ? this.state.entryPrice : 0,
       entryTime: partial ? this.state.entryTime : null,
-      balance: this.state.balance + usdValueReturned - exitFee,  // Add back USD at current price minus fee
-      inPosition: Math.max(0, this.state.inPosition - usdCostLocked),  // BUGFIX: Subtract USD, not BTC!
+      balance: this.state.balance + balanceChange,
+      inPosition: Math.max(0, this.state.inPosition - usdCostLocked),
       realizedPnL: this.state.realizedPnL + pnl,
       totalPnL: this.state.totalPnL + pnl,
       totalBalance: this.state.totalBalance + pnl,  // BUGFIX: Track total value including profits
