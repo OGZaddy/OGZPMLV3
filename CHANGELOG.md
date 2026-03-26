@@ -44,6 +44,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+### Fix: Long-Only Pipeline - Complete Short Support (2026-03-26)
+
+**17 bugs identified via line-by-line PineScript vs Node.js audit. All fixed.**
+
+#### TradingLoop.js Fixes
+| Bug | Line | Issue | Fix |
+|-----|------|-------|-----|
+| 1 | 473 | No SELL decision branch | Added SELL_SHORT branch with risk checks |
+| 4 | 403 | Active trades only found BUYs | Filter includes SELL_SHORT |
+
+#### OrderExecutor.js Fixes
+| Bug | Line | Issue | Fix |
+|-----|------|-------|-----|
+| 5 | 210 | Only handled BUY entry | Added SELL_SHORT handler (~110 lines) |
+| 7 | 349-384 | No COVER for closing shorts | Added COVER block (~130 lines) |
+
+#### StateManager.js Fixes
+| Bug | Line | Issue | Fix |
+|-----|------|-------|-----|
+| 11+17 | 295 | No direction stored on trade | Added direction field, accept from context |
+| 12 | 368 | closePosition rejected negative | Changed `<= 0` to `=== 0` |
+| 13-14 | 378-382 | PnL calc long-only | Direction-aware: SHORT=(entry-exit), LONG=(exit-entry) |
+| 13-SHOW | 878 | Position validator threw on negative | Removed position sign check |
+| 2+3 | 328,456 | Balance inverted for shorts | LONG: spend/receive, SHORT: receive/spend |
+
+#### Exit System Fixes
+| Bug | File | Issue | Fix |
+|-----|------|-------|-----|
+| 15 | ExitContractManager.js:106 | PnL % long-only | Direction-aware pnlPercent |
+| 16 | DynamicTrailingStop.js:75 | updateMaxProfit long-only | Direction-aware maxProfitPercent |
+| 1 | TrailingStopChecker.js:28 | updateMaxProfit long-only | Direction-aware maxProfitPercent |
+
+#### RiskManager.js Fix
+| Bug | Line | Issue | Fix |
+|-----|------|-------|-----|
+| 4 | 24 | riskManagerBypass defaulted true | Changed to false for safety |
+
+**Result:** Full short support - entries, exits, PnL, balance, trailing stops all direction-aware.
+
+---
+
 ### Feature: DynamicPositionSizer & MarketRegime Refactor (2026-03-21)
 
 #### Feature: DynamicPositionSizer Module
