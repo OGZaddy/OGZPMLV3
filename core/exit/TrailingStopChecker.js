@@ -27,7 +27,11 @@ class TrailingStopChecker {
    */
   updateMaxProfit(trade, currentPrice) {
     if (!trade || !trade.entryPrice) return 0;
-    const pnlPercent = ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
+    // PnL depends on direction: LONG = (exit-entry), SHORT = (entry-exit)
+    const isShort = trade.direction === 'short' || trade.action === 'SELL_SHORT';
+    const pnlPercent = isShort
+      ? ((trade.entryPrice - currentPrice) / trade.entryPrice) * 100  // SHORT
+      : ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100; // LONG
     trade.maxProfitPercent = Math.max(trade.maxProfitPercent || 0, pnlPercent);
     return trade.maxProfitPercent;
   }
