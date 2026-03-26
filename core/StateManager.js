@@ -874,10 +874,8 @@ class StateManager {
    * @throws {Error} If updates would create negative position or balance
    */
   validateUpdates(updates) {
-    // Add validation logic here
-    if (updates.position !== undefined && updates.position < 0) {
-      throw new Error('Cannot set negative position');
-    }
+    // Position can be negative for shorts - don't validate sign
+    // Only validate balance (can't go negative)
     if (updates.balance !== undefined && updates.balance < 0) {
       throw new Error('Cannot set negative balance');
     }
