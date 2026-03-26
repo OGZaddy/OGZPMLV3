@@ -21,7 +21,7 @@ class RiskManager {
     this.config = {
       recoveryConfidenceMultiplier: config.recoveryConfidenceMultiplier ?? 1.5,
       baseConfidenceThreshold: config.baseConfidenceThreshold ?? 0.3,
-      riskManagerBypass: config.riskManagerBypass ?? true,
+      riskManagerBypass: config.riskManagerBypass ?? false,  // Default OFF for safety
       alertThresholds: {
         drawdown: config.drawdownAlert ?? 5,
         dailyLoss: config.dailyLossAlert ?? 3,
